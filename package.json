@@ -1,0 +1,44 @@
+{
+  "name": "vaani-studio",
+  "version": "0.1.0",
+  "description": "A free, local-first AI subtitle generator for Windows, built for highly accurate English, Hindi, and Hinglish transcription, word-level timing, subtitle styling, animations, and video export.",
+  "main": "dist-electron/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "keywords": [
+    "subtitles",
+    "transcription",
+    "ai",
+    "hindi",
+    "hinglish",
+    "speech-to-text",
+    "electron",
+    "react",
+    "windows"
+  ],
+  "author": "Vaani Studio Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "lucide-react": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^35.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^3.0.8"
+  }
+}

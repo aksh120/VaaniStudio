@@ -1,0 +1,40 @@
+import os from 'node:os';
+import { HardwareProfile, PerformanceMode } from '../shared/types/models.js';
+import { logger } from './logger.js';
+
+export function detectHardwareProfile(): HardwareProfile {
+  const cpus = os.cpus();
+  const cpuModel = cpus.length > 0 ? cpus[0].model.trim() : 'Unknown x86_64 CPU';
+  const logicalCores = cpus.length;
+  // Estimate physical cores assuming typical hyperthreading ratio of 2:1 when >= 4 threads
+  const physicalCores = logicalCores >= 4 ? Math.floor(logicalCores / 2) : logicalCores;
+  const totalMemoryMB = Math.round(os.totalmem() / (1024 * 1024));
+
+  // Determine baseline performance mode based on RAM and CPU cores
+  let recommendedMode: PerformanceMode = 'balanced';
+  if (totalMemoryMB < 8192 || physicalCores < 4) {
+    recommendedMode = 'fast';
+  } else if (totalMemoryMB >= 32768 && physicalCores >= 8) {
+    recommendedMode = 'quality';
+  }
+
+  // Detect legacy GPU constraint:
+  // On the Core i7-3770 / GT 730 target machine, legacy Kepler/Fermi GPUs (CC < 5.0)
+  // are incompatible with modern CUDA 12 runtimes. CPU-first execution is mandatory.
+  const profile: HardwareProfile = {
+    cpuModel,
+    physicalCores,
+    logicalCores,
+    totalMemoryMB,
+    gpuName: 'NVIDIA GeForce GT 730 (Legacy / Compute Capability < 5.0)',
+    gpuVramMB: 4096,
+    hasCudaSupport: false,
+    recommendedMode,
+    inferenceDevice: 'cpu',
+  };
+
+  logger.info('HARDWARE', `Detected CPU: ${cpuModel} (${physicalCores}P/${logicalCores}L cores), RAM: ${totalMemoryMB} MB`);
+  logger.info('HARDWARE', `Inference mode: ${profile.inferenceDevice} (${profile.recommendedMode})`);
+
+  return profile;
+}

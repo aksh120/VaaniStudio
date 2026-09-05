@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+dist-electron/
+release/
+out/
+build/
+
+# Local model weights and caches
+models/
+*.bin
+*.onnx
+*.safetensors
+
+# Logs and local application data
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Temporary media and project files
+*.tmp
+*.temp
+temp/
+cache/
+scratch/
