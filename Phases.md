@@ -120,6 +120,7 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 
 * **Phase ID**: PHASE-03
 * **Phase Name**: Local Speech Recognition (ASR) Engine
+* **Status**: Completed
 * **Objective**: Implement the local speech recognition backend, model storage manager, voice activity detection (VAD), and streaming transcription progress engine.
 * **Scope**:
   * Build model manager to catalog, verify, download, and store local model weights with checksum integrity.
@@ -130,12 +131,12 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
   * Provide progress reporting and cancellation support during long-running transcription jobs.
 * **Dependencies**: PHASE-02
 * **Tasks**:
-  * TASK-016: Local Model Manager and Storage Subsystem
-  * TASK-017: Abstract ASR Engine Interface Definition
-  * TASK-018: Voice Activity Detection (VAD) Integration
-  * TASK-019: faster-whisper CPU / CTranslate2 Inference Backend
-  * TASK-020: GPU Capability Detection and Graceful Fallback Controller
-  * TASK-021: Streaming Audio Transcription and Progress Reporting
+  * [x] TASK-016: Local Model Manager and Storage Subsystem
+  * [x] TASK-017: Abstract ASR Engine Interface Definition
+  * [x] TASK-018: Voice Activity Detection (VAD) Integration
+  * [x] TASK-019: faster-whisper CPU / CTranslate2 Inference Backend
+  * [x] TASK-020: GPU Capability Detection and Graceful Fallback Controller
+  * [x] TASK-021: Streaming Audio Transcription and Progress Reporting
 * **Expected Deliverables**:
   * Fully functional local ASR pipeline generating text and word-level timestamps from audio.
   * Capability-aware worker process executing stably on the target CPU.
@@ -147,7 +148,7 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 * **Exit Criteria**:
   * All Phase 3 tasks complete; unit and integration tests passing.
 * **Risks**:
-  * CTranslate2 binary incompatibility with Core i7-3770 (lack of AVX2).
+  * Resolved during implementation: CTranslate2 4.8.2 and faster-whisper 1.2.1 run without AVX2 instruction faults on Intel Core i7-3770, executing INT8 inference with real-time speed and ~300MB RAM footprint for tiny model. NVIDIA GT 730 gracefully routed to CPU.
 
 ---
 

@@ -1,6 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useProjectStore } from './store/projectStore.js';
-import { LanguageMode, ScriptMode, PerformanceMode } from '../../shared/types/models.js';
+import {
+  LanguageMode,
+  ScriptMode,
+  PerformanceMode,
+  ModelInfo,
+} from '../../shared/types/models.js';
 
 export const App: React.FC = () => {
   const {
@@ -8,16 +13,36 @@ export const App: React.FC = () => {
     hardware,
     audioWavPath,
     waveformData,
+    selectedEventId,
     setHardware,
     setMedia,
     setAudioWavPath,
     setWaveformData,
+    setEvents,
+    selectEvent,
     updateSettings,
     updateStyle,
     statusMessage,
     setStatusMessage,
     loadProjectData,
   } = useProjectStore();
+
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>('whisper-tiny-ct2-int8');
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+
+  // Load models catalog and refresh status
+  const refreshModels = async () => {
+    if (window.vaaniAPI) {
+      const res = await window.vaaniAPI.getModels();
+      if (res.success && res.data) {
+        setModels(res.data);
+      }
+    }
+  };
 
   useEffect(() => {
     // Initialize hardware profile from IPC bridge
@@ -29,14 +54,23 @@ export const App: React.FC = () => {
         }
       });
 
-      // Listen to streaming progress updates from media pipeline
+      refreshModels();
+
+      // Listen to streaming progress updates from media/ASR pipeline
       const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
         setStatusMessage(prog.message);
+        if (prog.stage === 'transcribing') {
+          setTranscriptionProgress(prog.percent);
+        } else if (prog.stage === 'idle' && isDownloading) {
+          setDownloadProgress(prog.percent);
+        }
       });
 
       return () => cleanupProgress();
     }
-  }, [setHardware, setStatusMessage]);
+  }, [setHardware, setStatusMessage, isDownloading]);
+
+  const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
   const handleSelectMedia = async () => {
     if (!window.vaaniAPI) return;
@@ -82,6 +116,70 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDownloadModel = async () => {
+    if (!window.vaaniAPI || !currentModel) return;
+    setIsDownloading(true);
+    setDownloadProgress(5);
+    setStatusMessage(`Starting download of ${currentModel.name}...`);
+
+    const res = await window.vaaniAPI.downloadModel(currentModel.id);
+    setIsDownloading(false);
+
+    if (res.success) {
+      setStatusMessage(`Model ${currentModel.name} is ready for transcription.`);
+      await refreshModels();
+    } else {
+      setStatusMessage(`Model download failed: ${res.error?.message}`);
+    }
+  };
+
+  const handleDeleteModel = async () => {
+    if (!window.vaaniAPI || !currentModel) return;
+    setStatusMessage(`Deleting ${currentModel.name}...`);
+    const res = await window.vaaniAPI.deleteModel(currentModel.id);
+    if (res.success) {
+      setStatusMessage(`Deleted local weights for ${currentModel.name}`);
+      await refreshModels();
+    } else {
+      setStatusMessage(`Failed to delete model: ${res.error?.message}`);
+    }
+  };
+
+  const handleStartTranscription = async () => {
+    if (!window.vaaniAPI || !project.media) return;
+    const targetAudio = audioWavPath || project.media.filePath;
+
+    setIsTranscribing(true);
+    setTranscriptionProgress(0);
+    setStatusMessage('Initiating speech recognition worker...');
+
+    const res = await window.vaaniAPI.startTranscription(targetAudio, {
+      modelId: selectedModelId,
+      language: project.settings.languageMode === 'auto' ? 'auto' : (project.settings.languageMode === 'hindi' ? 'hi' : 'en'),
+      vadFilter: true,
+      beamSize: 5,
+    });
+
+    setIsTranscribing(false);
+
+    if (res.success && res.data) {
+      setEvents(res.data.events);
+      setStatusMessage(
+        `Transcription complete: ${res.data.events.length} subtitle events generated (Detected: ${res.data.language.toUpperCase()}).`
+      );
+    } else {
+      setStatusMessage(`Transcription failed: ${res.error?.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleCancelTranscription = async () => {
+    if (!window.vaaniAPI) return;
+    setStatusMessage('Cancelling transcription...');
+    await window.vaaniAPI.cancelTranscription();
+    setIsTranscribing(false);
+    setStatusMessage('Transcription cancelled by user.');
+  };
+
   const handleSaveProject = async () => {
     if (!window.vaaniAPI) return;
     setStatusMessage('Saving project...');
@@ -104,6 +202,8 @@ export const App: React.FC = () => {
       setStatusMessage('Open project cancelled.');
     }
   };
+
+  const selectedEvent = project.events.find((e) => e.id === selectedEventId) || project.events[0];
 
   return (
     <div className="app-container">
@@ -155,6 +255,27 @@ export const App: React.FC = () => {
                       {audioWavPath ? 'Normalized 16kHz WAV Ready' : 'Probed'}
                     </span>
                   </div>
+
+                  {/* Subtitle Overlay Preview */}
+                  {selectedEvent && (
+                    <div
+                      style={{
+                        marginTop: '24px',
+                        padding: `${project.style.boxPaddingY || 8}px ${project.style.boxPaddingX || 16}px`,
+                        backgroundColor: project.style.hasBackgroundBox ? 'rgba(0,0,0,0.75)' : 'transparent',
+                        borderRadius: `${project.style.boxBorderRadius || 4}px`,
+                        color: project.style.primaryColor,
+                        fontFamily: project.style.fontFamily,
+                        fontSize: `${project.style.fontSize * 0.4}px`,
+                        fontWeight: project.style.fontWeight,
+                        textAlign: project.style.position.alignment,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                        maxWidth: '90%',
+                      }}
+                    >
+                      {selectedEvent.text}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="preview-placeholder">
@@ -173,18 +294,51 @@ export const App: React.FC = () => {
           {/* Subtitle Events & Timeline Pane */}
           <div className="events-pane">
             <div className="pane-header">
-              <span className="pane-title">
-                Subtitle Events ({project.events.length})
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span className="pane-title">Subtitle Events ({project.events.length})</span>
                 {waveformData && (
-                  <span style={{ marginLeft: '12px', color: 'var(--accent-active)', fontWeight: 'normal' }}>
-                    Waveform: {waveformData.peaks.length} samples
+                  <span style={{ fontSize: '12px', color: 'var(--accent-active)' }}>
+                    Waveform: {waveformData.peaks.length} peaks
                   </span>
                 )}
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Target: {project.settings.maxCharactersPerLine} CPL / {project.settings.targetReadingSpeedCPS} CPS
-              </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isTranscribing ? (
+                  <button className="btn btn-danger" onClick={handleCancelTranscription}>
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    disabled={!project.media || (currentModel && !currentModel.isDownloaded)}
+                    onClick={handleStartTranscription}
+                  >
+                    Generate Subtitles
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Active Transcription Progress Bar */}
+            {isTranscribing && (
+              <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-surface-hover)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                  <span>Transcribing speech with {currentModel?.name}...</span>
+                  <span>{transcriptionProgress.toFixed(1)}%</span>
+                </div>
+                <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-base)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${transcriptionProgress}%`,
+                      height: '100%',
+                      backgroundColor: 'var(--accent-active)',
+                      transition: 'width 200ms ease',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Waveform Visualization Strip */}
             {waveformData && waveformData.peaks.length > 0 && (
@@ -214,19 +368,55 @@ export const App: React.FC = () => {
                 ))}
               </div>
             )}
+
             <div className="events-list">
               {project.events.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  No subtitle events generated yet. Import media to run local transcription.
+                  {project.media
+                    ? 'Media loaded. Click "Generate Subtitles" to begin local AI transcription.'
+                    : 'No subtitle events generated yet. Import media to run local transcription.'}
                 </div>
               ) : (
                 project.events.map((evt) => (
-                  <div key={evt.id} className="event-row">
+                  <div
+                    key={evt.id}
+                    className={`event-row ${selectedEventId === evt.id ? 'event-row-selected' : ''}`}
+                    onClick={() => selectEvent(evt.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <span className="event-index">#{evt.index}</span>
                     <span className="event-time">
                       {evt.startTime.toFixed(2)}s - {evt.endTime.toFixed(2)}s
                     </span>
-                    <span className="event-text">{evt.text}</span>
+                    <div style={{ flex: 1 }}>
+                      <div className="event-text">{evt.text}</div>
+                      {/* Word Timing Chips */}
+                      {evt.words && evt.words.length > 0 && (
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                          {evt.words.map((w) => (
+                            <span
+                              key={w.id}
+                              style={{
+                                fontSize: '10px',
+                                padding: '1px 4px',
+                                backgroundColor: 'var(--bg-base)',
+                                border: '1px solid var(--border-subtle)',
+                                borderRadius: '3px',
+                                color: 'var(--text-muted)',
+                              }}
+                              title={`${w.startTime.toFixed(2)}s - ${w.endTime.toFixed(2)}s (${Math.round(w.confidence * 100)}%)`}
+                            >
+                              {w.word}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {evt.cps && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                        {evt.cps} CPS
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -236,10 +426,57 @@ export const App: React.FC = () => {
 
         {/* Right Inspector & Settings Sidebar */}
         <aside className="sidebar-inspector">
+          {/* ASR Model Management */}
+          <div className="inspector-section">
+            <span className="section-label">ASR Model Management</span>
+
+            <div className="control-group">
+              <label className="control-label">Whisper Model</label>
+              <select
+                className="control-select"
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+              >
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' - Ready' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {currentModel && (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <p style={{ margin: '0 0 8px 0' }}>{currentModel.description}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Status: {currentModel.isDownloaded ? 'Downloaded' : 'Not Downloaded'}</span>
+                  {currentModel.isDownloaded ? (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '11px', padding: '2px 8px' }}
+                      onClick={handleDeleteModel}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      style={{ fontSize: '11px', padding: '2px 8px' }}
+                      disabled={isDownloading}
+                      onClick={handleDownloadModel}
+                    >
+                      {isDownloading ? `Downloading (${downloadProgress.toFixed(0)}%)...` : `Download (${currentModel.sizeMB} MB)`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Project & Language Intelligence */}
           <div className="inspector-section">
             <span className="section-label">Speech Intelligence</span>
-            
+
             <div className="control-group">
               <label className="control-label">Language Mode</label>
               <select
@@ -275,7 +512,7 @@ export const App: React.FC = () => {
                 value={project.settings.performanceMode}
                 onChange={(e) => updateSettings({ performanceMode: e.target.value as PerformanceMode })}
               >
-                <option value="fast">Fast (Quantized Base Model)</option>
+                <option value="fast">Fast (Quantized Tiny/Base Model)</option>
                 <option value="balanced">Balanced (Quantized Small Model)</option>
                 <option value="quality">Maximum Quality (Medium Model)</option>
               </select>

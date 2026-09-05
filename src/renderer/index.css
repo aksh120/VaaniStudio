@@ -377,6 +377,26 @@ html, body, #root {
   border-color: var(--text-muted);
 }
 
+.btn-danger {
+  background-color: var(--accent-error);
+  color: #FFFFFF;
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.event-row-selected {
+  border-color: var(--accent-active) !important;
+  background-color: var(--bg-surface-hover) !important;
+}
+
 /* Bottom Diagnostic Status Bar */
 .statusbar {
   display: flex;

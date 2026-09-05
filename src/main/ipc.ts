@@ -9,6 +9,10 @@ import {
   MediaInfo,
   WaveformData,
   ThumbnailInfo,
+  ModelInfo,
+  TranscriptionOptions,
+  SubtitleEvent,
+  WordTiming,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
 import { logger } from './logger.js';
@@ -16,6 +20,12 @@ import { probeMediaFile } from './media/probe.js';
 import { extractNormalizedAudio } from './media/audio.js';
 import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
+import { listModels, downloadModel, deleteModel } from './asr/modelManager.js';
+import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
+
+const asrEngine = new FasterWhisperEngine();
+let activeTranscriptionController: AbortController | null = null;
+let activeDownloadController: AbortController | null = null;
 
 export function registerIPCHandlers(mainWindow: BrowserWindow): void {
   // Get Hardware Profile
@@ -163,6 +173,174 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
       }
     }
   );
+
+  // Model Management Handlers
+  ipcMain.handle(IPC_CHANNELS.GET_MODELS, async (): Promise<IPCResult<ModelInfo[]>> => {
+    try {
+      const models = listModels();
+      return { success: true, data: models };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to list models: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'GET_MODELS_ERROR', message: err?.message || 'Failed to list models.' },
+      };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DOWNLOAD_MODEL, async (_event, modelId: string): Promise<IPCResult<string>> => {
+    try {
+      if (activeDownloadController) {
+        activeDownloadController.abort();
+      }
+      activeDownloadController = new AbortController();
+
+      const modelPath = await downloadModel(
+        modelId,
+        (percent, message) => {
+          mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
+            stage: 'idle',
+            percent,
+            message,
+          });
+        },
+        activeDownloadController.signal
+      );
+
+      activeDownloadController = null;
+      return { success: true, data: modelPath };
+    } catch (err: any) {
+      activeDownloadController = null;
+      logger.error('IPC', `Model download error for ${modelId}: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'DOWNLOAD_MODEL_ERROR', message: err?.message || 'Failed to download model.' },
+      };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.DELETE_MODEL, async (_event, modelId: string): Promise<IPCResult<boolean>> => {
+    try {
+      const success = deleteModel(modelId);
+      return { success: true, data: success };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to delete model ${modelId}: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'DELETE_MODEL_ERROR', message: err?.message || 'Failed to delete model.' },
+      };
+    }
+  });
+
+  // Speech Transcription Handlers
+  ipcMain.handle(
+    IPC_CHANNELS.START_TRANSCRIPTION,
+    async (
+      _event,
+      mediaOrAudioPath: string,
+      options: TranscriptionOptions
+    ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number }>> => {
+      try {
+        if (activeTranscriptionController) {
+          activeTranscriptionController.abort();
+        }
+        activeTranscriptionController = new AbortController();
+        const signal = activeTranscriptionController.signal;
+
+        let wavPath = mediaOrAudioPath;
+        // If not already 16k WAV, extract normalized audio
+        if (!mediaOrAudioPath.toLowerCase().endsWith('.wav')) {
+          mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
+            stage: 'extracting_audio',
+            percent: 0,
+            message: 'Extracting 16kHz audio for speech recognition...',
+          });
+
+          const extractResult = await extractNormalizedAudio(mediaOrAudioPath, {
+            normalize: true,
+            signal,
+            onProgress: (percent) => {
+              mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
+                stage: 'extracting_audio',
+                percent,
+                message: `Extracting audio: ${percent}%`,
+              });
+            },
+          });
+
+          if (!extractResult.success || !extractResult.outputPath) {
+            throw new Error(extractResult.errorMessage || 'Failed to extract audio track.');
+          }
+          wavPath = extractResult.outputPath;
+        }
+
+        const asrResult = await asrEngine.transcribe(
+          wavPath,
+          options,
+          (progress) => {
+            mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, progress);
+          },
+          undefined,
+          signal
+        );
+
+        // Map ASR segments to SubtitleEvent schema
+        const events: SubtitleEvent[] = asrResult.segments.map((seg, idx) => {
+          const duration = Math.max(0.1, seg.endTime - seg.startTime);
+          const words: WordTiming[] = (seg.words || []).map((w, wIdx) => ({
+            id: `${seg.id}-w${wIdx + 1}`,
+            word: w.word.trim(),
+            startTime: w.startTime,
+            endTime: w.endTime,
+            confidence: w.confidence,
+          }));
+
+          return {
+            id: seg.id || `sub-${idx + 1}`,
+            index: idx + 1,
+            startTime: seg.startTime,
+            endTime: seg.endTime,
+            text: seg.text,
+            words,
+            cps: Math.round((seg.text.length / duration) * 10) / 10,
+            cpl: seg.text.length,
+          };
+        });
+
+        activeTranscriptionController = null;
+        logger.info('IPC', `Transcription complete: ${events.length} subtitle events produced.`);
+
+        return {
+          success: true,
+          data: {
+            events,
+            language: asrResult.language,
+            durationSeconds: asrResult.durationSeconds,
+          },
+        };
+      } catch (err: any) {
+        activeTranscriptionController = null;
+        logger.error('IPC', `Transcription failed: ${err?.message}`);
+        return {
+          success: false,
+          error: {
+            code: 'TRANSCRIPTION_FAILED',
+            message: err?.message || 'Speech recognition failed.',
+          },
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(IPC_CHANNELS.CANCEL_TRANSCRIPTION, async (): Promise<IPCResult<boolean>> => {
+    if (activeTranscriptionController) {
+      logger.info('IPC', 'User requested transcription cancellation.');
+      activeTranscriptionController.abort();
+      activeTranscriptionController = null;
+      return { success: true, data: true };
+    }
+    return { success: true, data: false };
+  });
 
   // Save Project (.vsp) with atomic write
   ipcMain.handle(

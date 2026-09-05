@@ -5,6 +5,12 @@ import {
   HardwareProfile,
   ProjectData,
   MediaInfo,
+  WaveformData,
+  ThumbnailInfo,
+  ModelInfo,
+  TranscriptionOptions,
+  SubtitleEvent,
+  ProgressUpdate,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -30,7 +36,7 @@ export const vaaniAPI = {
   generateWaveform: (
     wavFilePath: string,
     options?: { bucketsPerSecond?: number }
-  ): Promise<IPCResult<import('../shared/types/models.js').WaveformData>> => {
+  ): Promise<IPCResult<WaveformData>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GENERATE_WAVEFORM, wavFilePath, options);
   },
 
@@ -38,11 +44,34 @@ export const vaaniAPI = {
     videoFilePath: string,
     timestampSeconds: number,
     options?: { width?: number }
-  ): Promise<IPCResult<import('../shared/types/models.js').ThumbnailInfo>> => {
+  ): Promise<IPCResult<ThumbnailInfo>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.EXTRACT_FRAME, videoFilePath, timestampSeconds, options);
   },
 
-  onProgress: (callback: (progress: import('../shared/types/models.js').ProgressUpdate) => void): (() => void) => {
+  getModels: (): Promise<IPCResult<ModelInfo[]>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_MODELS);
+  },
+
+  downloadModel: (modelId: string): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.DOWNLOAD_MODEL, modelId);
+  },
+
+  deleteModel: (modelId: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.DELETE_MODEL, modelId);
+  },
+
+  startTranscription: (
+    mediaOrAudioPath: string,
+    options: TranscriptionOptions
+  ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number }>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.START_TRANSCRIPTION, mediaOrAudioPath, options);
+  },
+
+  cancelTranscription: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CANCEL_TRANSCRIPTION);
+  },
+
+  onProgress: (callback: (progress: ProgressUpdate) => void): (() => void) => {
     const listener = (_event: any, data: any) => callback(data);
     ipcRenderer.on(IPC_CHANNELS.PROGRESS_EVENT, listener);
     return () => {
@@ -71,7 +100,7 @@ if (process.contextIsolated) {
     console.error('Failed to expose vaaniAPI to main world:', error);
   }
 } else {
-  // @ts-ignore (for fallback if contextIsolation is disabled in tests)
+  // @ts-ignore
   window.vaaniAPI = vaaniAPI;
 }
 

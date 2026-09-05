@@ -164,6 +164,47 @@ export interface ThumbnailInfo {
   height: number;
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  sizeMB: number;
+  parameters: string;
+  isDownloaded: boolean;
+  isRecommended: boolean;
+  localPath?: string;
+}
+
+export interface TranscriptionOptions {
+  modelId: string;
+  language?: string;
+  scriptMode?: ScriptMode;
+  beamSize?: number;
+  temperature?: number;
+  vadFilter?: boolean;
+}
+
+export interface ASRWord {
+  word: string;
+  startTime: number;
+  endTime: number;
+  confidence: number;
+}
+
+export interface ASRSegment {
+  id: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+  words: ASRWord[];
+}
+
+export interface ASRTranscriptionResult {
+  language: string;
+  durationSeconds: number;
+  segments: ASRSegment[];
+}
+
 /**
  * IPC Channel definitions and Contract Types
  */
@@ -174,6 +215,11 @@ export const IPC_CHANNELS = {
   EXTRACT_AUDIO: 'vaani:extract-audio',
   GENERATE_WAVEFORM: 'vaani:generate-waveform',
   EXTRACT_FRAME: 'vaani:extract-frame',
+  GET_MODELS: 'vaani:get-models',
+  DOWNLOAD_MODEL: 'vaani:download-model',
+  DELETE_MODEL: 'vaani:delete-model',
+  START_TRANSCRIPTION: 'vaani:start-transcription',
+  CANCEL_TRANSCRIPTION: 'vaani:cancel-transcription',
   SAVE_PROJECT: 'vaani:save-project',
   LOAD_PROJECT: 'vaani:load-project',
   LOG_MESSAGE: 'vaani:log-message',

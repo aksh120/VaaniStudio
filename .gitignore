@@ -42,3 +42,5 @@ Thumbs.db
 temp/
 cache/
 scratch/
+tests/fixtures_temp/
+tests/fixtures_waveform/
