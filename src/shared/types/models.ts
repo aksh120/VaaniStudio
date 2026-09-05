@@ -150,6 +150,20 @@ export interface DiagnosticLogEntry {
   message: string;
 }
 
+export interface WaveformData {
+  peaks: number[]; // Normalized amplitude values (0.0 to 1.0)
+  durationSeconds: number;
+  sampleRate: number;
+  bucketsPerSecond: number;
+}
+
+export interface ThumbnailInfo {
+  timestamp: number;
+  filePath: string;
+  width: number;
+  height: number;
+}
+
 /**
  * IPC Channel definitions and Contract Types
  */
@@ -157,6 +171,9 @@ export const IPC_CHANNELS = {
   GET_HARDWARE_PROFILE: 'vaani:get-hardware-profile',
   PROBE_MEDIA: 'vaani:probe-media',
   SELECT_MEDIA_FILE: 'vaani:select-media-file',
+  EXTRACT_AUDIO: 'vaani:extract-audio',
+  GENERATE_WAVEFORM: 'vaani:generate-waveform',
+  EXTRACT_FRAME: 'vaani:extract-frame',
   SAVE_PROJECT: 'vaani:save-project',
   LOAD_PROJECT: 'vaani:load-project',
   LOG_MESSAGE: 'vaani:log-message',

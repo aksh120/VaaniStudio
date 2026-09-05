@@ -20,6 +20,36 @@ export const vaaniAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.PROBE_MEDIA, filePath);
   },
 
+  extractAudio: (
+    filePath: string,
+    options?: { normalize?: boolean; durationSeconds?: number }
+  ): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.EXTRACT_AUDIO, filePath, options);
+  },
+
+  generateWaveform: (
+    wavFilePath: string,
+    options?: { bucketsPerSecond?: number }
+  ): Promise<IPCResult<import('../shared/types/models.js').WaveformData>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GENERATE_WAVEFORM, wavFilePath, options);
+  },
+
+  extractFrame: (
+    videoFilePath: string,
+    timestampSeconds: number,
+    options?: { width?: number }
+  ): Promise<IPCResult<import('../shared/types/models.js').ThumbnailInfo>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.EXTRACT_FRAME, videoFilePath, timestampSeconds, options);
+  },
+
+  onProgress: (callback: (progress: import('../shared/types/models.js').ProgressUpdate) => void): (() => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.PROGRESS_EVENT, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.PROGRESS_EVENT, listener);
+    };
+  },
+
   saveProject: (projectData: ProjectData, targetPath?: string): Promise<IPCResult<string>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.SAVE_PROJECT, projectData, targetPath);
   },

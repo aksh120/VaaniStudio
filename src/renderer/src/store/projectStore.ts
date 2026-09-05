@@ -6,12 +6,15 @@ import {
   SubtitleStyle,
   ProjectSettings,
   MediaInfo,
+  WaveformData,
 } from '../../../shared/types/models.js';
 import { createEmptyProject } from '../../../shared/defaults.js';
 
 interface ProjectState {
   project: ProjectData;
   hardware: HardwareProfile | null;
+  audioWavPath: string | null;
+  waveformData: WaveformData | null;
   currentTime: number;
   selectedEventId: string | null;
   isLoading: boolean;
@@ -20,6 +23,8 @@ interface ProjectState {
   // Actions
   setHardware: (hardware: HardwareProfile) => void;
   setMedia: (media: MediaInfo) => void;
+  setAudioWavPath: (path: string | null) => void;
+  setWaveformData: (data: WaveformData | null) => void;
   updateSettings: (settings: Partial<ProjectSettings>) => void;
   updateStyle: (style: Partial<SubtitleStyle>) => void;
   setEvents: (events: SubtitleEvent[]) => void;
@@ -35,12 +40,16 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>((set) => ({
   project: createEmptyProject(),
   hardware: null,
+  audioWavPath: null,
+  waveformData: null,
   currentTime: 0,
   selectedEventId: null,
   isLoading: false,
   statusMessage: 'Ready',
 
   setHardware: (hardware) => set({ hardware }),
+  setAudioWavPath: (audioWavPath) => set({ audioWavPath }),
+  setWaveformData: (waveformData) => set({ waveformData }),
 
   setMedia: (media) =>
     set((state) => ({

@@ -6,8 +6,12 @@ export const App: React.FC = () => {
   const {
     project,
     hardware,
+    audioWavPath,
+    waveformData,
     setHardware,
     setMedia,
+    setAudioWavPath,
+    setWaveformData,
     updateSettings,
     updateStyle,
     statusMessage,
@@ -24,6 +28,13 @@ export const App: React.FC = () => {
           setStatusMessage(`Hardware detected: ${res.data.cpuModel}`);
         }
       });
+
+      // Listen to streaming progress updates from media pipeline
+      const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
+        setStatusMessage(prog.message);
+      });
+
+      return () => cleanupProgress();
     }
   }, [setHardware, setStatusMessage]);
 
@@ -32,10 +43,39 @@ export const App: React.FC = () => {
     setStatusMessage('Selecting media file...');
     const res = await window.vaaniAPI.selectMediaFile();
     if (res.success && res.data) {
-      const probeRes = await window.vaaniAPI.probeMedia(res.data);
+      const filePath = res.data;
+      setStatusMessage('Probing media container...');
+      const probeRes = await window.vaaniAPI.probeMedia(filePath);
+
       if (probeRes.success && probeRes.data) {
-        setMedia(probeRes.data);
-        setStatusMessage(`Loaded: ${probeRes.data.fileName}`);
+        const mediaInfo = probeRes.data;
+        setMedia(mediaInfo);
+        setStatusMessage(`Probed: ${mediaInfo.fileName} (${mediaInfo.durationSeconds.toFixed(1)}s). Extracting 16kHz audio...`);
+
+        // Extract normalized 16 kHz audio
+        const extractRes = await window.vaaniAPI.extractAudio(filePath, {
+          normalize: true,
+          durationSeconds: mediaInfo.durationSeconds,
+        });
+
+        if (extractRes.success && extractRes.data) {
+          const wavPath = extractRes.data;
+          setAudioWavPath(wavPath);
+          setStatusMessage('Computing audio waveform peaks...');
+
+          // Compute waveform peaks
+          const waveRes = await window.vaaniAPI.generateWaveform(wavPath, { bucketsPerSecond: 50 });
+          if (waveRes.success && waveRes.data) {
+            setWaveformData(waveRes.data);
+            setStatusMessage(`Media ready: ${mediaInfo.fileName} (${waveRes.data.peaks.length} waveform peaks)`);
+          } else {
+            setStatusMessage('Audio extracted, waveform computation skipped.');
+          }
+        } else {
+          setStatusMessage(`Audio extraction failed: ${extractRes.error?.message}`);
+        }
+      } else {
+        setStatusMessage(`Probe failed: ${probeRes.error?.message || 'Unsupported media file'}`);
       }
     } else {
       setStatusMessage('Media selection cancelled.');
@@ -99,10 +139,21 @@ export const App: React.FC = () => {
                 <div className="preview-placeholder">
                   <div className="preview-placeholder-title">{project.media.fileName}</div>
                   <div className="preview-placeholder-subtitle">
-                    Size: {(project.media.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
+                    Duration: {project.media.durationSeconds.toFixed(1)}s | Size: {(project.media.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
                   </div>
-                  <div style={{ marginTop: '12px' }}>
-                    <span className="brand-badge">Ready for ASR Ingestion</span>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span className="brand-badge" style={{ background: 'var(--accent-active)' }}>
+                      Audio: {project.media.audioCodec?.toUpperCase() || 'PCM'} | {project.media.audioSampleRate}Hz | {project.media.audioChannels}ch
+                    </span>
+                    {project.media.videoCodec && (
+                      <span className="brand-badge" style={{ background: 'var(--bg-surface-hover)' }}>
+                        Video: {project.media.videoCodec?.toUpperCase()} | {project.media.width}x{project.media.height}
+                        {project.media.fps ? ` @ ${project.media.fps}fps` : ''}
+                      </span>
+                    )}
+                    <span className="brand-badge" style={{ background: 'var(--accent-success)' }}>
+                      {audioWavPath ? 'Normalized 16kHz WAV Ready' : 'Probed'}
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -122,11 +173,47 @@ export const App: React.FC = () => {
           {/* Subtitle Events & Timeline Pane */}
           <div className="events-pane">
             <div className="pane-header">
-              <span className="pane-title">Subtitle Events ({project.events.length})</span>
+              <span className="pane-title">
+                Subtitle Events ({project.events.length})
+                {waveformData && (
+                  <span style={{ marginLeft: '12px', color: 'var(--accent-active)', fontWeight: 'normal' }}>
+                    Waveform: {waveformData.peaks.length} samples
+                  </span>
+                )}
+              </span>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 Target: {project.settings.maxCharactersPerLine} CPL / {project.settings.targetReadingSpeedCPS} CPS
               </span>
             </div>
+
+            {/* Waveform Visualization Strip */}
+            {waveformData && waveformData.peaks.length > 0 && (
+              <div
+                style={{
+                  height: '42px',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  gap: '1px',
+                  overflowX: 'auto',
+                }}
+              >
+                {waveformData.peaks.slice(0, 300).map((peak, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      flex: '1 0 2px',
+                      height: `${Math.max(4, peak * 36)}px`,
+                      backgroundColor: 'var(--accent-active)',
+                      borderRadius: '1px',
+                      opacity: 0.85,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
             <div className="events-list">
               {project.events.length === 0 ? (
                 <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

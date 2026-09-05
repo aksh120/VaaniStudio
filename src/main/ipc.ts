@@ -7,9 +7,15 @@ import {
   HardwareProfile,
   ProjectData,
   MediaInfo,
+  WaveformData,
+  ThumbnailInfo,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
 import { logger } from './logger.js';
+import { probeMediaFile } from './media/probe.js';
+import { extractNormalizedAudio } from './media/audio.js';
+import { generateWaveformData } from './media/waveform.js';
+import { extractFrameThumbnail } from './media/frames.js';
 
 export function registerIPCHandlers(mainWindow: BrowserWindow): void {
   // Get Hardware Profile
@@ -62,37 +68,101 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Basic probe media (placeholder until Phase 2 FFprobe module)
+  // Probe media using FFprobe
   ipcMain.handle(IPC_CHANNELS.PROBE_MEDIA, async (_event, filePath: string): Promise<IPCResult<MediaInfo>> => {
     try {
-      if (!fs.existsSync(filePath)) {
+      const probeRes = await probeMediaFile(filePath);
+      if (!probeRes.success || !probeRes.mediaInfo) {
         return {
           success: false,
           error: {
-            code: 'FILE_NOT_FOUND',
-            message: `Media file does not exist at path: ${filePath}`,
-            actionableGuidance: 'Please verify that the file exists and has not been moved or deleted.',
+            code: probeRes.errorCode || 'PROBE_FAILED',
+            message: probeRes.errorMessage || 'Failed to inspect media file.',
+            actionableGuidance: probeRes.actionableGuidance,
           },
         };
       }
-
-      const stats = fs.statSync(filePath);
-      const mediaInfo: MediaInfo = {
-        filePath,
-        fileName: path.basename(filePath),
-        durationSeconds: 0, // Populated via FFprobe in Phase 2
-        fileSizeBytes: stats.size,
-      };
-
-      return { success: true, data: mediaInfo };
+      return { success: true, data: probeRes.mediaInfo };
     } catch (err: any) {
-      logger.error('IPC', `Media probe failed for ${filePath}: ${err?.message}`);
+      logger.error('IPC', `Media probe exception for ${filePath}: ${err?.message}`);
       return {
         success: false,
-        error: { code: 'PROBE_FAILED', message: err?.message || 'Failed to inspect media file.' },
+        error: { code: 'PROBE_EXCEPTION', message: err?.message || 'Unexpected failure while probing media.' },
       };
     }
   });
+
+  // Extract normalized 16 kHz mono PCM audio
+  ipcMain.handle(
+    IPC_CHANNELS.EXTRACT_AUDIO,
+    async (_event, filePath: string, options?: { normalize?: boolean; durationSeconds?: number }): Promise<IPCResult<string>> => {
+      try {
+        const result = await extractNormalizedAudio(filePath, {
+          normalize: options?.normalize,
+          durationSeconds: options?.durationSeconds,
+          onProgress: (percent) => {
+            mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
+              stage: 'extracting_audio',
+              percent,
+              message: `Extracting audio: ${percent}%`,
+            });
+          },
+        });
+
+        if (!result.success || !result.outputPath) {
+          return {
+            success: false,
+            error: {
+              code: result.errorCode || 'AUDIO_EXTRACTION_FAILED',
+              message: result.errorMessage || 'Failed to extract audio track.',
+            },
+          };
+        }
+
+        return { success: true, data: result.outputPath };
+      } catch (err: any) {
+        logger.error('IPC', `Audio extraction exception: ${err?.message}`);
+        return {
+          success: false,
+          error: { code: 'AUDIO_EXTRACTION_EXCEPTION', message: err?.message || 'Error extracting audio.' },
+        };
+      }
+    }
+  );
+
+  // Generate audio waveform peaks
+  ipcMain.handle(
+    IPC_CHANNELS.GENERATE_WAVEFORM,
+    async (_event, wavFilePath: string, options?: { bucketsPerSecond?: number }): Promise<IPCResult<WaveformData>> => {
+      try {
+        const waveform = await generateWaveformData(wavFilePath, options);
+        return { success: true, data: waveform };
+      } catch (err: any) {
+        logger.error('IPC', `Waveform generation exception: ${err?.message}`);
+        return {
+          success: false,
+          error: { code: 'WAVEFORM_EXCEPTION', message: err?.message || 'Error generating waveform.' },
+        };
+      }
+    }
+  );
+
+  // Extract video frame thumbnail
+  ipcMain.handle(
+    IPC_CHANNELS.EXTRACT_FRAME,
+    async (_event, videoFilePath: string, timestampSeconds: number, options?: { width?: number }): Promise<IPCResult<ThumbnailInfo>> => {
+      try {
+        const thumb = await extractFrameThumbnail(videoFilePath, timestampSeconds, options);
+        return { success: true, data: thumb };
+      } catch (err: any) {
+        logger.error('IPC', `Frame extraction exception: ${err?.message}`);
+        return {
+          success: false,
+          error: { code: 'FRAME_EXTRACTION_EXCEPTION', message: err?.message || 'Error extracting frame.' },
+        };
+      }
+    }
+  );
 
   // Save Project (.vsp) with atomic write
   ipcMain.handle(
