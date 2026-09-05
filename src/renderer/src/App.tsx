@@ -453,11 +453,38 @@ export const App: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    {evt.cps && (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>
-                        {evt.cps} CPS
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '8px' }}>
+                      {evt.cps && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            backgroundColor: evt.cps > 25 ? 'var(--accent-danger)' : (evt.cps > 21 ? '#ff9800' : 'var(--bg-base)'),
+                            color: evt.cps > 21 ? '#fff' : 'var(--text-muted)',
+                            fontWeight: evt.cps > 21 ? 600 : 400,
+                          }}
+                          title={evt.cps > 21 ? 'High reading speed (>21 CPS)' : 'Reading speed'}
+                        >
+                          {evt.cps} CPS
+                        </span>
+                      )}
+                      {evt.cpl && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            backgroundColor: evt.cpl > 42 ? 'var(--accent-danger)' : (evt.cpl > 37 ? '#ff9800' : 'var(--bg-base)'),
+                            color: evt.cpl > 37 ? '#fff' : 'var(--text-muted)',
+                            fontWeight: evt.cpl > 37 ? 600 : 400,
+                          }}
+                          title={evt.cpl > 37 ? 'Line length exceeds standard (>37 chars)' : 'Characters per line'}
+                        >
+                          {evt.cpl} CPL
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

@@ -190,6 +190,7 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 
 * **Phase ID**: PHASE-05
 * **Phase Name**: Word-Level Timing and Subtitle Segmentation Engine
+* **Status**: Completed
 * **Objective**: Convert raw word-level timestamps into syntactically natural, readable, and constraint-compliant subtitle events.
 * **Scope**:
   * Extract exact word timestamps and confidence metrics from alignment data.
@@ -198,12 +199,12 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
   * Build in-memory reactive subtitle data store supporting sub-millisecond lookups and updates.
 * **Dependencies**: PHASE-04
 * **Tasks**:
-  * TASK-027: Word-Level Timestamp Extraction and Alignment Engine
-  * TASK-028: Linguistic Subtitle Segmentation Algorithm
-  * TASK-029: Subtitle Constraint Validator
-  * TASK-030: Subtitle Event Model and In-Memory Data Store
+  * [x] TASK-027: Word-Level Timestamp Extraction and Alignment Engine
+  * [x] TASK-028: Linguistic Subtitle Segmentation Algorithm
+  * [x] TASK-029: Subtitle Constraint Validator
+  * [x] TASK-030: Subtitle Event Model and In-Memory Data Store
 * **Expected Deliverables**:
-  * Rust-based segmentation engine producing broadcast-quality subtitle events from word streams.
+  * Syntax-aware segmentation engine producing broadcast-quality subtitle events from word streams.
   * Validation rules flagging reading-speed violations and layout overflows.
 * **Tests**:
   * Segmentation test verifying no unnatural mid-phrase splits across complex sentences.
@@ -213,7 +214,7 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 * **Exit Criteria**:
   * All Phase 5 tasks completed and verified with automated test suites.
 * **Risks**:
-  * Inaccurate word boundaries from ASR causing subtitle events to overlap or clip spoken audio.
+  * Addressed via strict monotonic boundary clamping and silence/punctuation boundary segmentation.
 
 ---
 

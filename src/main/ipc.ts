@@ -25,6 +25,9 @@ import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
 import { fuseVocabularyInEvents } from '../shared/intelligence/fusionEngine.js';
 import { transformScript } from '../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../shared/intelligence/textNormalizer.js';
+import { cleanAndAlignWords } from '../shared/subtitles/wordAlignment.js';
+import { segmentWordsIntoSubtitles } from '../shared/subtitles/segmenter.js';
+import { validateSubtitles } from '../shared/subtitles/validator.js';
 
 const asrEngine = new FasterWhisperEngine();
 let activeTranscriptionController: AbortController | null = null;
@@ -287,33 +290,46 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           signal
         );
 
-        // Map ASR segments to SubtitleEvent schema
-        let events: SubtitleEvent[] = asrResult.segments.map((seg, idx) => {
-          const duration = Math.max(0.1, seg.endTime - seg.startTime);
-          const words: WordTiming[] = (seg.words || []).map((w, wIdx) => ({
-            id: `${seg.id}-w${wIdx + 1}`,
-            word: w.word.trim(),
-            startTime: w.startTime,
-            endTime: w.endTime,
-            confidence: w.confidence,
-          }));
+        // 1. Gather all raw words across ASR segments and align cleanly
+        const allRawWords: WordTiming[] = [];
+        for (const seg of asrResult.segments) {
+          for (const w of (seg.words || [])) {
+            allRawWords.push({
+              id: `w-${allRawWords.length + 1}`,
+              word: w.word,
+              startTime: w.startTime,
+              endTime: w.endTime,
+              confidence: w.confidence,
+            });
+          }
+        }
 
-          return {
-            id: seg.id || `sub-${idx + 1}`,
-            index: idx + 1,
-            startTime: seg.startTime,
-            endTime: seg.endTime,
-            text: seg.text,
-            words,
-            cps: Math.round((seg.text.length / duration) * 10) / 10,
-            cpl: seg.text.length,
-          };
-        });
+        const cleanedWords = cleanAndAlignWords(allRawWords);
 
-        // 1. Vocabulary fusion: Restore English technical terms in code-switched speech
+        // 2. Run linguistic segmentation with syntax and pause awareness
+        let events: SubtitleEvent[] = cleanedWords.length > 0
+          ? segmentWordsIntoSubtitles(cleanedWords, {
+              maxCharactersPerLine: 37,
+              maxLinesPerSubtitle: 2,
+            })
+          : asrResult.segments.map((seg, idx) => {
+              const duration = Math.max(0.1, seg.endTime - seg.startTime);
+              return {
+                id: seg.id || `sub-${idx + 1}`,
+                index: idx + 1,
+                startTime: seg.startTime,
+                endTime: seg.endTime,
+                text: seg.text,
+                words: [],
+                cps: Math.round((seg.text.length / duration) * 10) / 10,
+                cpl: seg.text.length,
+              };
+            });
+
+        // 3. Vocabulary fusion: Restore English technical terms in code-switched speech
         events = fuseVocabularyInEvents(events);
 
-        // 2. Script transformation if requested by project settings
+        // 4. Script transformation if requested by project settings
         if (options.scriptMode && options.scriptMode !== 'exact') {
           events = events.map((evt) => ({
             ...evt,
@@ -325,7 +341,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           }));
         }
 
-        // 3. Indian number and text normalization
+        // 5. Indian number and text normalization
         events = events.map((evt) =>
           normalizeSubtitleEvent(evt, {
             normalizeNumbers: true,
@@ -334,8 +350,14 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           })
         );
 
+        // 6. Validate constraints and log metrics
+        const validationReport = validateSubtitles(events);
+
         activeTranscriptionController = null;
-        logger.info('IPC', `Transcription complete: ${events.length} subtitle events produced (Classification: ${asrResult.classification || 'unknown'}).`);
+        logger.info(
+          'IPC',
+          `Transcription complete: ${events.length} subtitle events produced (Classification: ${asrResult.classification || 'unknown'}, Issues: ${validationReport.issues.length}, Avg CPS: ${validationReport.averageCps}).`
+        );
 
         return {
           success: true,
