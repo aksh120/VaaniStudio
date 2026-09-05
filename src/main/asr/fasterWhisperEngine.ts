@@ -63,12 +63,12 @@ export class FasterWhisperEngine implements IASREngine {
       await this.initialize();
     }
 
-    if (!fs.existsSync(audioPath)) {
-      throw new Error(`Audio file does not exist: ${audioPath}`);
-    }
-
     if (signal?.aborted) {
       throw new Error('Transcription aborted prior to execution.');
+    }
+
+    if (!fs.existsSync(audioPath)) {
+      throw new Error(`Audio file does not exist: ${audioPath}`);
     }
 
     // Resolve model path

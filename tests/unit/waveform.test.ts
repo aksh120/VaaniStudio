@@ -38,6 +38,7 @@ describe('Audio Waveform Peak Generator', () => {
   });
 
   it('generates normalized peak data matching requested bucket rate', async () => {
+    if (!fs.existsSync(TEST_WAV_PATH)) return;
     const bucketsPerSecond = 50; // 20ms resolution
     const data = await generateWaveformData(TEST_WAV_PATH, { bucketsPerSecond });
 

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node -e \"const fs = require('node:fs'); fs.copyFileSync('src/main/asr/worker.py', 'dist-electron/main/worker.py');\"",
+    "build": "tsc && vite build && node scripts/copyWorker.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },
