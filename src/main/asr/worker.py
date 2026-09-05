@@ -106,6 +106,7 @@ def run_transcription(args: argparse.Namespace) -> None:
             word_timestamps=True,
             vad_filter=args.vad,
             vad_parameters=vad_parameters,
+            initial_prompt=args.initial_prompt,
         )
 
         total_duration = getattr(info, "duration", 0.0) or 0.0
@@ -190,6 +191,7 @@ def main() -> None:
     tx_parser.add_argument("--language", default="auto", help="Language code (en, hi, or auto)")
     tx_parser.add_argument("--beam-size", type=int, default=5, help="Beam search size")
     tx_parser.add_argument("--temperature", type=float, default=0.0, help="Sampling temperature")
+    tx_parser.add_argument("--initial-prompt", default=None, help="Initial prompt context to prime decoder")
     tx_parser.add_argument("--vad", action="store_true", default=True, help="Enable Silero VAD filtering")
     tx_parser.add_argument("--no-vad", dest="vad", action="store_false", help="Disable VAD filtering")
 

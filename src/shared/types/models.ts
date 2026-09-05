@@ -182,6 +182,7 @@ export interface TranscriptionOptions {
   beamSize?: number;
   temperature?: number;
   vadFilter?: boolean;
+  initialPrompt?: string;
 }
 
 export interface ASRWord {
@@ -203,6 +204,7 @@ export interface ASRTranscriptionResult {
   language: string;
   durationSeconds: number;
   segments: ASRSegment[];
+  classification?: 'pure_english' | 'pure_hindi' | 'code_switched_hinglish';
 }
 
 /**

@@ -6,6 +6,8 @@ import {
   PerformanceMode,
   ModelInfo,
 } from '../../shared/types/models.js';
+import { transformScript } from '../../shared/intelligence/transliteration.js';
+import { normalizeSubtitleEvent } from '../../shared/intelligence/textNormalizer.js';
 
 export const App: React.FC = () => {
   const {
@@ -33,6 +35,7 @@ export const App: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [detectedClassification, setDetectedClassification] = useState<string | null>(null);
 
   // Load models catalog and refresh status
   const refreshModels = async () => {
@@ -145,6 +148,29 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleScriptModeChange = (newMode: ScriptMode) => {
+    updateSettings({ scriptMode: newMode });
+    if (project.events.length > 0) {
+      const transformed = project.events.map((evt) => {
+        const scriptTransformed = transformScript(evt.text, newMode);
+        return normalizeSubtitleEvent({
+          ...evt,
+          text: scriptTransformed,
+          words: (evt.words || []).map((w) => ({
+            ...w,
+            word: transformScript(w.word, newMode),
+          })),
+        }, {
+          normalizeNumbers: true,
+          removeFillerWords: newMode === 'cleaned',
+          formatPunctuation: true,
+        });
+      });
+      setEvents(transformed);
+      setStatusMessage(`Transformed ${transformed.length} subtitles to ${newMode} mode.`);
+    }
+  };
+
   const handleStartTranscription = async () => {
     if (!window.vaaniAPI || !project.media) return;
     const targetAudio = audioWavPath || project.media.filePath;
@@ -153,9 +179,16 @@ export const App: React.FC = () => {
     setTranscriptionProgress(0);
     setStatusMessage('Initiating speech recognition worker...');
 
+    const langParam = project.settings.languageMode === 'auto'
+      ? 'auto'
+      : (project.settings.languageMode === 'hindi'
+        ? 'hi'
+        : (project.settings.languageMode === 'hinglish' ? 'hinglish' : 'en'));
+
     const res = await window.vaaniAPI.startTranscription(targetAudio, {
       modelId: selectedModelId,
-      language: project.settings.languageMode === 'auto' ? 'auto' : (project.settings.languageMode === 'hindi' ? 'hi' : 'en'),
+      language: langParam,
+      scriptMode: project.settings.scriptMode,
       vadFilter: true,
       beamSize: 5,
     });
@@ -164,6 +197,9 @@ export const App: React.FC = () => {
 
     if (res.success && res.data) {
       setEvents(res.data.events);
+      if ((res.data as any).classification) {
+        setDetectedClassification((res.data as any).classification);
+      }
       setStatusMessage(
         `Transcription complete: ${res.data.events.length} subtitle events generated (Detected: ${res.data.language.toUpperCase()}).`
       );
@@ -296,6 +332,11 @@ export const App: React.FC = () => {
             <div className="pane-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span className="pane-title">Subtitle Events ({project.events.length})</span>
+                {detectedClassification && (
+                  <span className="brand-badge" style={{ background: 'var(--accent-active)', fontSize: '10px' }}>
+                    {detectedClassification.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                )}
                 {waveformData && (
                   <span style={{ fontSize: '12px', color: 'var(--accent-active)' }}>
                     Waveform: {waveformData.peaks.length} peaks
@@ -496,7 +537,7 @@ export const App: React.FC = () => {
               <select
                 className="control-select"
                 value={project.settings.scriptMode}
-                onChange={(e) => updateSettings({ scriptMode: e.target.value as ScriptMode })}
+                onChange={(e) => handleScriptModeChange(e.target.value as ScriptMode)}
               >
                 <option value="roman">Roman Hinglish (e.g. "Ye feature better hai")</option>
                 <option value="devanagari">Devanagari (e.g. "ये फीचर बेटर है")</option>

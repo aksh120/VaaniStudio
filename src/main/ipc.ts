@@ -22,6 +22,9 @@ import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
 import { listModels, downloadModel, deleteModel } from './asr/modelManager.js';
 import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
+import { fuseVocabularyInEvents } from '../shared/intelligence/fusionEngine.js';
+import { transformScript } from '../shared/intelligence/transliteration.js';
+import { normalizeSubtitleEvent } from '../shared/intelligence/textNormalizer.js';
 
 const asrEngine = new FasterWhisperEngine();
 let activeTranscriptionController: AbortController | null = null;
@@ -239,7 +242,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
       _event,
       mediaOrAudioPath: string,
       options: TranscriptionOptions
-    ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number }>> => {
+    ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number; classification?: string }>> => {
       try {
         if (activeTranscriptionController) {
           activeTranscriptionController.abort();
@@ -285,7 +288,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         );
 
         // Map ASR segments to SubtitleEvent schema
-        const events: SubtitleEvent[] = asrResult.segments.map((seg, idx) => {
+        let events: SubtitleEvent[] = asrResult.segments.map((seg, idx) => {
           const duration = Math.max(0.1, seg.endTime - seg.startTime);
           const words: WordTiming[] = (seg.words || []).map((w, wIdx) => ({
             id: `${seg.id}-w${wIdx + 1}`,
@@ -307,8 +310,32 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           };
         });
 
+        // 1. Vocabulary fusion: Restore English technical terms in code-switched speech
+        events = fuseVocabularyInEvents(events);
+
+        // 2. Script transformation if requested by project settings
+        if (options.scriptMode && options.scriptMode !== 'exact') {
+          events = events.map((evt) => ({
+            ...evt,
+            text: transformScript(evt.text, options.scriptMode!),
+            words: (evt.words || []).map((w) => ({
+              ...w,
+              word: transformScript(w.word, options.scriptMode!),
+            })),
+          }));
+        }
+
+        // 3. Indian number and text normalization
+        events = events.map((evt) =>
+          normalizeSubtitleEvent(evt, {
+            normalizeNumbers: true,
+            removeFillerWords: options.scriptMode === 'cleaned',
+            formatPunctuation: true,
+          })
+        );
+
         activeTranscriptionController = null;
-        logger.info('IPC', `Transcription complete: ${events.length} subtitle events produced.`);
+        logger.info('IPC', `Transcription complete: ${events.length} subtitle events produced (Classification: ${asrResult.classification || 'unknown'}).`);
 
         return {
           success: true,
@@ -316,6 +343,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
             events,
             language: asrResult.language,
             durationSeconds: asrResult.durationSeconds,
+            classification: asrResult.classification,
           },
         };
       } catch (err: any) {

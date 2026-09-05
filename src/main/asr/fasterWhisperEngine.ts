@@ -13,6 +13,8 @@ import { IASREngine, EngineInitOptions, ProgressCallback, SegmentCallback } from
 import { resolvePythonPath } from './pythonResolver.js';
 import { resolveInferenceDevice } from './gpuFallback.js';
 import { getModelPath, isModelDownloaded, MODEL_CATALOG } from './modelManager.js';
+import { buildHinglishPrompt } from '../../shared/intelligence/fusionEngine.js';
+import { classifyLanguage } from '../../shared/intelligence/languageClassifier.js';
 
 export class FasterWhisperEngine implements IASREngine {
   public readonly name = 'faster-whisper';
@@ -84,6 +86,9 @@ export class FasterWhisperEngine implements IASREngine {
     const computeType = this.defaultComputeType;
     const threads = 4; // Target Intel Core i7-3770 physical core baseline
 
+    const effectiveLanguage = options.language === 'hinglish' ? 'auto' : (options.language || 'auto');
+    const initialPrompt = options.initialPrompt || (options.language === 'hinglish' ? buildHinglishPrompt('tech') : undefined);
+
     const args = [
       this.workerScriptPath,
       'transcribe',
@@ -92,9 +97,13 @@ export class FasterWhisperEngine implements IASREngine {
       '--device', device,
       '--compute-type', computeType,
       '--threads', String(threads),
-      '--language', options.language || 'auto',
+      '--language', effectiveLanguage,
       '--beam-size', String(options.beamSize ?? 5),
     ];
+
+    if (initialPrompt) {
+      args.push('--initial-prompt', initialPrompt);
+    }
 
     if (options.temperature !== undefined) {
       args.push('--temperature', String(options.temperature));
@@ -251,10 +260,14 @@ export class FasterWhisperEngine implements IASREngine {
             message: 'Transcription complete.',
           });
 
+          const fullText = accumulatedSegments.map((s) => s.text).join(' ');
+          const classificationResult = classifyLanguage(fullText);
+
           resolve({
             language: detectedLanguage,
             durationSeconds: totalDuration,
             segments: accumulatedSegments,
+            classification: classificationResult.classification,
           });
         } else {
           logger.error('ASR', `Worker exited with code ${code}. Stderr: ${stderrOutput}`);

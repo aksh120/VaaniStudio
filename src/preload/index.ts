@@ -63,7 +63,7 @@ export const vaaniAPI = {
   startTranscription: (
     mediaOrAudioPath: string,
     options: TranscriptionOptions
-  ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number }>> => {
+  ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number; classification?: string }>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.START_TRANSCRIPTION, mediaOrAudioPath, options);
   },
 
