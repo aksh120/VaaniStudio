@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getFFmpegPaths, runFFmpeg } from '../../src/main/media/ffmpeg.js';
+import { getFFmpegPaths, runFFmpeg, isFFmpegAvailable } from '../../src/main/media/ffmpeg.js';
 import { probeMediaFile } from '../../src/main/media/probe.js';
 import { extractNormalizedAudio } from '../../src/main/media/audio.js';
 import { extractFrameThumbnail } from '../../src/main/media/frames.js';
@@ -12,6 +12,11 @@ const TEST_VIDEO_PATH = path.join(TEST_DIR, 'test_video_2s.mp4');
 
 describe('Media Engine Subsystem (FFmpeg & FFprobe)', () => {
   beforeAll(async () => {
+    if (!isFFmpegAvailable()) {
+      console.warn('FFmpeg not available on current environment; skipping fixture generation.');
+      return;
+    }
+
     if (!fs.existsSync(TEST_DIR)) {
       fs.mkdirSync(TEST_DIR, { recursive: true });
     }

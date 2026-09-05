@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn, execSync, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../logger.js';
@@ -41,19 +41,22 @@ export function getFFmpegPaths(): FFmpegPaths {
 
   // 2. Check local bundled resources directory
   const baseDir = process.env.APP_ROOT || process.cwd();
-  const bundledFfmpeg = path.join(baseDir, 'resources', 'ffmpeg', 'ffmpeg.exe');
-  const bundledFfprobe = path.join(baseDir, 'resources', 'ffmpeg', 'ffprobe.exe');
+  const exeSuffix = process.platform === 'win32' ? '.exe' : '';
+  const bundledFfmpeg = path.join(baseDir, 'resources', 'ffmpeg', `ffmpeg${exeSuffix}`);
+  const bundledFfprobe = path.join(baseDir, 'resources', 'ffmpeg', `ffprobe${exeSuffix}`);
   if (fs.existsSync(bundledFfmpeg) && fs.existsSync(bundledFfprobe)) {
     cachedPaths = { ffmpegPath: bundledFfmpeg, ffprobePath: bundledFfprobe, isAvailable: true };
     return cachedPaths;
   }
 
   // 3. Check known standard Windows locations
-  const standardFfmpeg = 'C:\\ffmpeg\\bin\\ffmpeg.exe';
-  const standardFfprobe = 'C:\\ffmpeg\\bin\\ffprobe.exe';
-  if (fs.existsSync(standardFfmpeg) && fs.existsSync(standardFfprobe)) {
-    cachedPaths = { ffmpegPath: standardFfmpeg, ffprobePath: standardFfprobe, isAvailable: true };
-    return cachedPaths;
+  if (process.platform === 'win32') {
+    const standardFfmpeg = 'C:\\ffmpeg\\bin\\ffmpeg.exe';
+    const standardFfprobe = 'C:\\ffmpeg\\bin\\ffprobe.exe';
+    if (fs.existsSync(standardFfmpeg) && fs.existsSync(standardFfprobe)) {
+      cachedPaths = { ffmpegPath: standardFfmpeg, ffprobePath: standardFfprobe, isAvailable: true };
+      return cachedPaths;
+    }
   }
 
   // 4. Default to standard system PATH names
@@ -63,6 +66,19 @@ export function getFFmpegPaths(): FFmpegPaths {
     isAvailable: true,
   };
   return cachedPaths;
+}
+
+/**
+ * Checks whether FFmpeg executable is runnable on the current host.
+ */
+export function isFFmpegAvailable(): boolean {
+  try {
+    const { ffmpegPath } = getFFmpegPaths();
+    execSync(`"${ffmpegPath}" -version`, { timeout: 3000, windowsHide: true, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

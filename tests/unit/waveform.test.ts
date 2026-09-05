@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runFFmpeg } from '../../src/main/media/ffmpeg.js';
+import { runFFmpeg, isFFmpegAvailable } from '../../src/main/media/ffmpeg.js';
 import { generateWaveformData, downsamplePeaks } from '../../src/main/media/waveform.js';
 
 const TEST_DIR = path.join(process.cwd(), 'tests', 'fixtures_waveform');
@@ -9,6 +9,11 @@ const TEST_WAV_PATH = path.join(TEST_DIR, 'sine_16k_3s.wav');
 
 describe('Audio Waveform Peak Generator', () => {
   beforeAll(async () => {
+    if (!isFFmpegAvailable()) {
+      console.warn('FFmpeg not available on current environment; skipping waveform fixture generation.');
+      return;
+    }
+
     if (!fs.existsSync(TEST_DIR)) {
       fs.mkdirSync(TEST_DIR, { recursive: true });
     }
