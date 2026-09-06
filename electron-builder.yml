@@ -12,8 +12,11 @@ files:
   - package.json
 
 win:
+  icon: assets/icons/icon.ico
   legalTrademarks: Vaani Studio
   requestedExecutionLevel: asInvoker
+  cscLink: certs/vaani-codesign.pfx
+  cscKeyPassword: VaaniStudio2026!
   target:
     - target: nsis
       arch:
