@@ -1,13 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useProjectStore } from './store/projectStore.js';
 import {
   LanguageMode,
   ScriptMode,
   PerformanceMode,
   ModelInfo,
+  SubtitleEvent,
 } from '../../shared/types/models.js';
 import { transformScript } from '../../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../../shared/intelligence/textNormalizer.js';
+import { VideoPlayerPreview, AspectRatioMode } from './components/VideoPlayerPreview.js';
+import { WaveformTimeline } from './components/WaveformTimeline.js';
+import { SubtitleListView } from './components/SubtitleListView.js';
+import { HistoryManager } from './editor/historyManager.js';
+import { ShortcutManager } from './editor/shortcutManager.js';
+import {
+  splitAtPlayhead,
+  mergeSubtitles,
+  insertSubtitle,
+  duplicateSubtitle,
+  deleteSubtitle,
+  updateSubtitleText,
+  updateSubtitleTiming,
+  searchAndReplace,
+  SearchReplaceOptions,
+} from './editor/editorOperations.js';
 
 export const App: React.FC = () => {
   const {
@@ -15,6 +32,7 @@ export const App: React.FC = () => {
     hardware,
     audioWavPath,
     waveformData,
+    currentTime,
     selectedEventId,
     setHardware,
     setMedia,
@@ -22,6 +40,7 @@ export const App: React.FC = () => {
     setWaveformData,
     setEvents,
     selectEvent,
+    setCurrentTime,
     updateSettings,
     updateStyle,
     statusMessage,
@@ -37,6 +56,61 @@ export const App: React.FC = () => {
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [detectedClassification, setDetectedClassification] = useState<string | null>(null);
 
+  // Playback & Viewport state
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+
+  // Undo / Redo History Stack
+  const historyRef = useRef<HistoryManager<SubtitleEvent[]>>(
+    new HistoryManager<SubtitleEvent[]>(project.events)
+  );
+  const [canUndo, setCanUndo] = useState<boolean>(false);
+  const [canRedo, setCanRedo] = useState<boolean>(false);
+
+  const syncHistoryState = useCallback(() => {
+    setCanUndo(historyRef.current.canUndo());
+    setCanRedo(historyRef.current.canRedo());
+  }, []);
+
+  const commitEvents = useCallback(
+    (newEvents: SubtitleEvent[]) => {
+      historyRef.current.pushState(newEvents);
+      setEvents(newEvents);
+      syncHistoryState();
+    },
+    [setEvents, syncHistoryState]
+  );
+
+  const handleUndo = useCallback(() => {
+    const prev = historyRef.current.undo();
+    if (prev) {
+      setEvents(prev);
+      syncHistoryState();
+      setStatusMessage('Undone last edit.');
+    }
+  }, [setEvents, syncHistoryState, setStatusMessage]);
+
+  const handleRedo = useCallback(() => {
+    const next = historyRef.current.redo();
+    if (next) {
+      setEvents(next);
+      syncHistoryState();
+      setStatusMessage('Redone last edit.');
+    }
+  }, [setEvents, syncHistoryState, setStatusMessage]);
+
+  const duration = project.media?.durationSeconds || 0;
+
+  // Find currently active subtitle event for live preview overlay
+  const activeSubtitle = useMemo(() => {
+    return (
+      project.events.find(
+        (e) => currentTime >= e.startTime && currentTime <= e.endTime
+      ) || null
+    );
+  }, [project.events, currentTime]);
+
   // Load models catalog and refresh status
   const refreshModels = async () => {
     if (window.vaaniAPI) {
@@ -48,7 +122,6 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Initialize hardware profile from IPC bridge
     if (window.vaaniAPI) {
       window.vaaniAPI.getHardwareProfile().then((res) => {
         if (res.success && res.data) {
@@ -59,7 +132,6 @@ export const App: React.FC = () => {
 
       refreshModels();
 
-      // Listen to streaming progress updates from media/ASR pipeline
       const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
         setStatusMessage(prog.message);
         if (prog.stage === 'transcribing') {
@@ -72,6 +144,139 @@ export const App: React.FC = () => {
       return () => cleanupProgress();
     }
   }, [setHardware, setStatusMessage, isDownloading]);
+
+  // Editor Operations Handlers
+  const handleSplitAtPlayhead = useCallback(() => {
+    const targetId = selectedEventId || activeSubtitle?.id;
+    if (!targetId) {
+      setStatusMessage('Select a subtitle event or move playhead over an event to split.');
+      return;
+    }
+    const updated = splitAtPlayhead(project.events, targetId, currentTime);
+    if (updated !== project.events) {
+      commitEvents(updated);
+      setStatusMessage(`Split subtitle at ${currentTime.toFixed(2)}s.`);
+    }
+  }, [selectedEventId, activeSubtitle, project.events, currentTime, commitEvents, setStatusMessage]);
+
+  const handleMergeWithNext = useCallback(() => {
+    if (!selectedEventId) return;
+    const idx = project.events.findIndex((e) => e.id === selectedEventId);
+    if (idx !== -1 && idx < project.events.length - 1) {
+      const nextEvt = project.events[idx + 1];
+      const updated = mergeSubtitles(project.events, selectedEventId, nextEvt.id);
+      commitEvents(updated);
+      setStatusMessage('Merged subtitle with adjacent segment.');
+    }
+  }, [selectedEventId, project.events, commitEvents, setStatusMessage]);
+
+  const handleInsertSubtitle = useCallback(() => {
+    const updated = insertSubtitle(
+      project.events,
+      selectedEventId,
+      currentTime > 0 ? currentTime : undefined,
+      2.0,
+      'New Subtitle'
+    );
+    commitEvents(updated);
+    setStatusMessage('Inserted new subtitle event.');
+  }, [project.events, selectedEventId, currentTime, commitEvents, setStatusMessage]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    if (!selectedEventId) return;
+    const updated = duplicateSubtitle(project.events, selectedEventId);
+    commitEvents(updated);
+    setStatusMessage('Duplicated subtitle event.');
+  }, [selectedEventId, project.events, commitEvents, setStatusMessage]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedEventId) return;
+    const updated = deleteSubtitle(project.events, selectedEventId);
+    commitEvents(updated);
+    selectEvent(null);
+    setStatusMessage('Deleted subtitle event.');
+  }, [selectedEventId, project.events, commitEvents, selectEvent, setStatusMessage]);
+
+  const handleUpdateText = useCallback(
+    (id: string, text: string) => {
+      const updated = updateSubtitleText(project.events, id, text);
+      commitEvents(updated);
+    },
+    [project.events, commitEvents]
+  );
+
+  const handleUpdateTiming = useCallback(
+    (id: string, startTime: number, endTime: number) => {
+      const updated = updateSubtitleTiming(project.events, id, startTime, endTime);
+      commitEvents(updated);
+    },
+    [project.events, commitEvents]
+  );
+
+  const handleSearchReplace = useCallback(
+    (search: string, replace: string, options: SearchReplaceOptions) => {
+      const res = searchAndReplace(project.events, search, replace, options);
+      if (res.replacedCount > 0) {
+        commitEvents(res.events);
+        setStatusMessage(`Replaced ${res.replacedCount} occurrences across subtitles.`);
+      } else {
+        setStatusMessage('No matching occurrences found.');
+      }
+    },
+    [project.events, commitEvents, setStatusMessage]
+  );
+
+  // Keyboard Shortcuts Hook
+  useEffect(() => {
+    const shortcutManager = new ShortcutManager({
+      onTogglePlayPause: () => setIsPlaying((p) => !p),
+      onUndo: handleUndo,
+      onRedo: handleRedo,
+      onSplit: handleSplitAtPlayhead,
+      onMerge: handleMergeWithNext,
+      onDelete: handleDeleteSelected,
+      onStepFrame: (dir) => {
+        const step = dir * (1 / 30);
+        setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+      },
+      onStepSecond: (dir) => {
+        const step = dir * 1.0;
+        setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+      },
+      onNextSubtitle: () => {
+        if (project.events.length === 0) return;
+        const currentIdx = project.events.findIndex((e) => e.id === selectedEventId);
+        const nextIdx = currentIdx < project.events.length - 1 ? currentIdx + 1 : 0;
+        selectEvent(project.events[nextIdx].id);
+        setCurrentTime(project.events[nextIdx].startTime);
+      },
+      onPrevSubtitle: () => {
+        if (project.events.length === 0) return;
+        const currentIdx = project.events.findIndex((e) => e.id === selectedEventId);
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : project.events.length - 1;
+        selectEvent(project.events[prevIdx].id);
+        setCurrentTime(project.events[prevIdx].startTime);
+      },
+      onEscape: () => {
+        selectEvent(null);
+      },
+    });
+
+    const cleanup = shortcutManager.attach();
+    return () => cleanup();
+  }, [
+    project.events,
+    selectedEventId,
+    currentTime,
+    duration,
+    handleUndo,
+    handleRedo,
+    handleSplitAtPlayhead,
+    handleMergeWithNext,
+    handleDeleteSelected,
+    selectEvent,
+    setCurrentTime,
+  ]);
 
   const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
@@ -89,7 +294,6 @@ export const App: React.FC = () => {
         setMedia(mediaInfo);
         setStatusMessage(`Probed: ${mediaInfo.fileName} (${mediaInfo.durationSeconds.toFixed(1)}s). Extracting 16kHz audio...`);
 
-        // Extract normalized 16 kHz audio
         const extractRes = await window.vaaniAPI.extractAudio(filePath, {
           normalize: true,
           durationSeconds: mediaInfo.durationSeconds,
@@ -100,7 +304,6 @@ export const App: React.FC = () => {
           setAudioWavPath(wavPath);
           setStatusMessage('Computing audio waveform peaks...');
 
-          // Compute waveform peaks
           const waveRes = await window.vaaniAPI.generateWaveform(wavPath, { bucketsPerSecond: 50 });
           if (waveRes.success && waveRes.data) {
             setWaveformData(waveRes.data);
@@ -153,20 +356,23 @@ export const App: React.FC = () => {
     if (project.events.length > 0) {
       const transformed = project.events.map((evt) => {
         const scriptTransformed = transformScript(evt.text, newMode);
-        return normalizeSubtitleEvent({
-          ...evt,
-          text: scriptTransformed,
-          words: (evt.words || []).map((w) => ({
-            ...w,
-            word: transformScript(w.word, newMode),
-          })),
-        }, {
-          normalizeNumbers: true,
-          removeFillerWords: newMode === 'cleaned',
-          formatPunctuation: true,
-        });
+        return normalizeSubtitleEvent(
+          {
+            ...evt,
+            text: scriptTransformed,
+            words: (evt.words || []).map((w) => ({
+              ...w,
+              word: transformScript(w.word, newMode),
+            })),
+          },
+          {
+            normalizeNumbers: true,
+            removeFillerWords: newMode === 'cleaned',
+            formatPunctuation: true,
+          }
+        );
       });
-      setEvents(transformed);
+      commitEvents(transformed);
       setStatusMessage(`Transformed ${transformed.length} subtitles to ${newMode} mode.`);
     }
   };
@@ -179,11 +385,14 @@ export const App: React.FC = () => {
     setTranscriptionProgress(0);
     setStatusMessage('Initiating speech recognition worker...');
 
-    const langParam = project.settings.languageMode === 'auto'
-      ? 'auto'
-      : (project.settings.languageMode === 'hindi'
+    const langParam =
+      project.settings.languageMode === 'auto'
+        ? 'auto'
+        : project.settings.languageMode === 'hindi'
         ? 'hi'
-        : (project.settings.languageMode === 'hinglish' ? 'hinglish' : 'en'));
+        : project.settings.languageMode === 'hinglish'
+        ? 'hinglish'
+        : 'en';
 
     const res = await window.vaaniAPI.startTranscription(targetAudio, {
       modelId: selectedModelId,
@@ -196,7 +405,10 @@ export const App: React.FC = () => {
     setIsTranscribing(false);
 
     if (res.success && res.data) {
+      historyRef.current.clear(res.data.events);
       setEvents(res.data.events);
+      syncHistoryState();
+
       if ((res.data as any).classification) {
         setDetectedClassification((res.data as any).classification);
       }
@@ -233,13 +445,13 @@ export const App: React.FC = () => {
     const res = await window.vaaniAPI.loadProject();
     if (res.success && res.data) {
       loadProjectData(res.data);
+      historyRef.current.clear(res.data.events);
+      syncHistoryState();
       setStatusMessage(`Opened project: ${res.data.projectName}`);
     } else {
       setStatusMessage('Open project cancelled.');
     }
   };
-
-  const selectedEvent = project.events.find((e) => e.id === selectedEventId) || project.events[0];
 
   return (
     <div className="app-container">
@@ -264,231 +476,192 @@ export const App: React.FC = () => {
         </div>
       </header>
 
+      {/* Editor Workspace Toolbar */}
+      <div className="editor-main-toolbar">
+        <div className="toolbar-group">
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            disabled={!canUndo}
+            onClick={handleUndo}
+            title="Undo (Ctrl+Z)"
+          >
+            ↩ Undo
+          </button>
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            disabled={!canRedo}
+            onClick={handleRedo}
+            title="Redo (Ctrl+Y)"
+          >
+            ↪ Redo
+          </button>
+          <div className="toolbar-divider" />
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            onClick={handleInsertSubtitle}
+            title="Insert New Subtitle Event"
+          >
+            ➕ Insert
+          </button>
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            disabled={!selectedEventId && !activeSubtitle}
+            onClick={handleSplitAtPlayhead}
+            title="Split active subtitle at playhead (Ctrl+K or S)"
+          >
+            ✂ Split
+          </button>
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            disabled={!selectedEventId}
+            onClick={handleMergeWithNext}
+            title="Merge with adjacent subtitle (Ctrl+M)"
+          >
+            🔗 Merge
+          </button>
+          <button
+            className="ctrl-btn ctrl-btn-sm"
+            disabled={!selectedEventId}
+            onClick={handleDuplicateSelected}
+            title="Duplicate subtitle"
+          >
+            📑 Duplicate
+          </button>
+          <button
+            className="ctrl-btn ctrl-btn-sm action-delete"
+            disabled={!selectedEventId}
+            onClick={handleDeleteSelected}
+            title="Delete subtitle (Delete)"
+          >
+            🗑 Delete
+          </button>
+        </div>
+
+        <div className="toolbar-group">
+          {detectedClassification && (
+            <span
+              className="brand-badge"
+              style={{ background: 'var(--accent-active)', fontSize: '10px' }}
+            >
+              {detectedClassification.replace(/_/g, ' ').toUpperCase()}
+            </span>
+          )}
+          {isTranscribing ? (
+            <button className="btn btn-danger btn-sm" onClick={handleCancelTranscription}>
+              Cancel Transcription
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={!project.media || (currentModel && !currentModel.isDownloaded)}
+              onClick={handleStartTranscription}
+            >
+              Generate Subtitles
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Main Studio Viewport and Panels */}
       <main className="studio-main">
         {/* Left / Center Work Area */}
         <section className="editor-workspace">
-          {/* Media Viewport */}
-          <div className="viewport-pane">
-            <div className="preview-canvas-container">
-              {project.media ? (
-                <div className="preview-placeholder">
-                  <div className="preview-placeholder-title">{project.media.fileName}</div>
-                  <div className="preview-placeholder-subtitle">
-                    Duration: {project.media.durationSeconds.toFixed(1)}s | Size: {(project.media.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span className="brand-badge" style={{ background: 'var(--accent-active)' }}>
-                      Audio: {project.media.audioCodec?.toUpperCase() || 'PCM'} | {project.media.audioSampleRate}Hz | {project.media.audioChannels}ch
-                    </span>
-                    {project.media.videoCodec && (
-                      <span className="brand-badge" style={{ background: 'var(--bg-surface-hover)' }}>
-                        Video: {project.media.videoCodec?.toUpperCase()} | {project.media.width}x{project.media.height}
-                        {project.media.fps ? ` @ ${project.media.fps}fps` : ''}
-                      </span>
-                    )}
-                    <span className="brand-badge" style={{ background: 'var(--accent-success)' }}>
-                      {audioWavPath ? 'Normalized 16kHz WAV Ready' : 'Probed'}
-                    </span>
-                  </div>
-
-                  {/* Subtitle Overlay Preview */}
-                  {selectedEvent && (
-                    <div
-                      style={{
-                        marginTop: '24px',
-                        padding: `${project.style.boxPaddingY || 8}px ${project.style.boxPaddingX || 16}px`,
-                        backgroundColor: project.style.hasBackgroundBox ? 'rgba(0,0,0,0.75)' : 'transparent',
-                        borderRadius: `${project.style.boxBorderRadius || 4}px`,
-                        color: project.style.primaryColor,
-                        fontFamily: project.style.fontFamily,
-                        fontSize: `${project.style.fontSize * 0.4}px`,
-                        fontWeight: project.style.fontWeight,
-                        textAlign: project.style.position.alignment,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                        maxWidth: '90%',
-                      }}
-                    >
-                      {selectedEvent.text}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="preview-placeholder">
-                  <div className="preview-placeholder-title">No Media Loaded</div>
-                  <div className="preview-placeholder-subtitle">
-                    Import an audio or video file (MP4, MKV, MOV, WAV, MP3) to begin automated transcription.
-                  </div>
-                  <button className="btn btn-primary" style={{ marginTop: '12px' }} onClick={handleSelectMedia}>
-                    Select Media File
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Subtitle Events & Timeline Pane */}
-          <div className="events-pane">
-            <div className="pane-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="pane-title">Subtitle Events ({project.events.length})</span>
-                {detectedClassification && (
-                  <span className="brand-badge" style={{ background: 'var(--accent-active)', fontSize: '10px' }}>
-                    {detectedClassification.replace(/_/g, ' ').toUpperCase()}
-                  </span>
-                )}
-                {waveformData && (
-                  <span style={{ fontSize: '12px', color: 'var(--accent-active)' }}>
-                    Waveform: {waveformData.peaks.length} peaks
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {isTranscribing ? (
-                  <button className="btn btn-danger" onClick={handleCancelTranscription}>
-                    Cancel
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-primary"
-                    disabled={!project.media || (currentModel && !currentModel.isDownloaded)}
-                    onClick={handleStartTranscription}
-                  >
-                    Generate Subtitles
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Active Transcription Progress Bar */}
-            {isTranscribing && (
-              <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-surface-hover)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                  <span>Transcribing speech with {currentModel?.name}...</span>
-                  <span>{transcriptionProgress.toFixed(1)}%</span>
-                </div>
-                <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-base)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${transcriptionProgress}%`,
-                      height: '100%',
-                      backgroundColor: 'var(--accent-active)',
-                      transition: 'width 200ms ease',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Waveform Visualization Strip */}
-            {waveformData && waveformData.peaks.length > 0 && (
+          {/* Active Transcription Progress Bar */}
+          {isTranscribing && (
+            <div
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-surface-hover)',
+                borderBottom: '1px solid var(--border-subtle)',
+              }}
+            >
               <div
                 style={{
-                  height: '42px',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderBottom: '1px solid var(--border-subtle)',
                   display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 8px',
-                  gap: '1px',
-                  overflowX: 'auto',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  marginBottom: '4px',
+                  color: 'var(--text-muted)',
                 }}
               >
-                {waveformData.peaks.slice(0, 300).map((peak, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      flex: '1 0 2px',
-                      height: `${Math.max(4, peak * 36)}px`,
-                      backgroundColor: 'var(--accent-active)',
-                      borderRadius: '1px',
-                      opacity: 0.85,
-                    }}
-                  />
-                ))}
+                <span>Transcribing speech with {currentModel?.name}...</span>
+                <span>{transcriptionProgress.toFixed(1)}%</span>
               </div>
-            )}
-
-            <div className="events-list">
-              {project.events.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  {project.media
-                    ? 'Media loaded. Click "Generate Subtitles" to begin local AI transcription.'
-                    : 'No subtitle events generated yet. Import media to run local transcription.'}
-                </div>
-              ) : (
-                project.events.map((evt) => (
-                  <div
-                    key={evt.id}
-                    className={`event-row ${selectedEventId === evt.id ? 'event-row-selected' : ''}`}
-                    onClick={() => selectEvent(evt.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <span className="event-index">#{evt.index}</span>
-                    <span className="event-time">
-                      {evt.startTime.toFixed(2)}s - {evt.endTime.toFixed(2)}s
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div className="event-text">{evt.text}</div>
-                      {/* Word Timing Chips */}
-                      {evt.words && evt.words.length > 0 && (
-                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
-                          {evt.words.map((w) => (
-                            <span
-                              key={w.id}
-                              style={{
-                                fontSize: '10px',
-                                padding: '1px 4px',
-                                backgroundColor: 'var(--bg-base)',
-                                border: '1px solid var(--border-subtle)',
-                                borderRadius: '3px',
-                                color: 'var(--text-muted)',
-                              }}
-                              title={`${w.startTime.toFixed(2)}s - ${w.endTime.toFixed(2)}s (${Math.round(w.confidence * 100)}%)`}
-                            >
-                              {w.word}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', marginLeft: '8px' }}>
-                      {evt.cps && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            padding: '1px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: evt.cps > 25 ? 'var(--accent-danger)' : (evt.cps > 21 ? '#ff9800' : 'var(--bg-base)'),
-                            color: evt.cps > 21 ? '#fff' : 'var(--text-muted)',
-                            fontWeight: evt.cps > 21 ? 600 : 400,
-                          }}
-                          title={evt.cps > 21 ? 'High reading speed (>21 CPS)' : 'Reading speed'}
-                        >
-                          {evt.cps} CPS
-                        </span>
-                      )}
-                      {evt.cpl && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            padding: '1px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: evt.cpl > 42 ? 'var(--accent-danger)' : (evt.cpl > 37 ? '#ff9800' : 'var(--bg-base)'),
-                            color: evt.cpl > 37 ? '#fff' : 'var(--text-muted)',
-                            fontWeight: evt.cpl > 37 ? 600 : 400,
-                          }}
-                          title={evt.cpl > 37 ? 'Line length exceeds standard (>37 chars)' : 'Characters per line'}
-                        >
-                          {evt.cpl} CPL
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+              <div
+                style={{
+                  width: '100%',
+                  height: '4px',
+                  backgroundColor: 'var(--bg-base)',
+                  borderRadius: '2px',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${transcriptionProgress}%`,
+                    height: '100%',
+                    backgroundColor: 'var(--accent-active)',
+                    transition: 'width 200ms ease',
+                  }}
+                />
+              </div>
             </div>
+          )}
+
+          {/* Top Half: Video Player Viewport */}
+          <div className="viewport-pane" style={{ flex: '1 1 50%', minHeight: '260px' }}>
+            <VideoPlayerPreview
+              mediaPath={project.media?.filePath || null}
+              duration={duration}
+              currentTime={currentTime}
+              onTimeUpdate={setCurrentTime}
+              isPlaying={isPlaying}
+              onTogglePlayPause={() => setIsPlaying(!isPlaying)}
+              activeSubtitle={activeSubtitle}
+              styleConfig={project.style}
+              aspectRatio={aspectRatio}
+              onAspectRatioChange={setAspectRatio}
+              playbackRate={playbackRate}
+              onPlaybackRateChange={setPlaybackRate}
+              onStepFrame={(dir) => {
+                const step = dir * (1 / 30);
+                setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+              }}
+              onStepSecond={(dir) => {
+                const step = dir * 1.0;
+                setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+              }}
+            />
+          </div>
+
+          {/* Interactive Multi-Scale Waveform Timeline */}
+          <WaveformTimeline
+            duration={duration}
+            currentTime={currentTime}
+            onSeek={setCurrentTime}
+            waveformData={waveformData}
+            events={project.events}
+            selectedEventId={selectedEventId}
+            onSelectEvent={selectEvent}
+            onUpdateEventTiming={handleUpdateTiming}
+            onSplitAtPlayhead={handleSplitAtPlayhead}
+          />
+
+          {/* High-Performance Virtualized Subtitle List View */}
+          <div style={{ flex: '1 1 50%', minHeight: '220px', display: 'flex', flexDirection: 'column' }}>
+            <SubtitleListView
+              events={project.events}
+              selectedEventId={selectedEventId}
+              currentTime={currentTime}
+              onSelectEvent={selectEvent}
+              onUpdateText={handleUpdateText}
+              onUpdateTiming={handleUpdateTiming}
+              onSplit={handleSplitAtPlayhead}
+              onMerge={handleMergeWithNext}
+              onDuplicate={handleDuplicateSelected}
+              onDelete={handleDeleteSelected}
+              onSearchReplace={handleSearchReplace}
+            />
           </div>
         </section>
 

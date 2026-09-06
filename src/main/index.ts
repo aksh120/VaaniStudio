@@ -1,8 +1,22 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, protocol, net } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { registerIPCHandlers } from './ipc.js';
 import { logger } from './logger.js';
+
+// Register privileged custom scheme for zero-sandbox local media playback with HTTP range support
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'media-file',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      stream: true,
+    },
+  },
+]);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +90,28 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   logger.info('LIFECYCLE', 'Vaani Studio application initializing.');
+
+  // Handle streaming local media files with byte-range support for smooth seeking
+  protocol.handle('media-file', (request) => {
+    try {
+      const rawUrl = request.url;
+      let cleanPath = decodeURIComponent(rawUrl.replace(/^media-file:\/\//, ''));
+      if (cleanPath.startsWith('video/')) {
+        cleanPath = cleanPath.slice(6);
+      }
+      if (process.platform === 'win32' && cleanPath.startsWith('/') && /^[a-zA-Z]:/.test(cleanPath.slice(1))) {
+        cleanPath = cleanPath.slice(1);
+      }
+      const fileUrl = pathToFileURL(cleanPath).toString();
+      return net.fetch(fileUrl, {
+        bypassCustomProtocolHandlers: true,
+      });
+    } catch (err: any) {
+      logger.error('MEDIA', `Failed to stream media-file protocol: ${err.message}`);
+      return new Response('File not found', { status: 404 });
+    }
+  });
+
   createWindow();
 
   app.on('activate', () => {
