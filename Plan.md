@@ -401,17 +401,23 @@ Projects are stored as a versioned JSON document with an atomic file-replacement
 
 ## 18. Implementation Phases and Roadmap Status
 
-| Phase | Title | Status | Completed Tasks / Milestones |
-| :--- | :--- | :--- | :--- |
-| **Phase 0** | Research and Architecture | Completed | Hardware baseline (Core i7-3770 / GT 730), framework evaluation, ASR model selection, FFmpeg audit, license cataloging. |
-| **Phase 1** | Development Foundation | Completed | Desktop scaffolding (Electron + Vite + React + TS), design tokens, native IPC bridge, local logging, task runner. |
-| **Phase 2** | Local Media Engine | Completed | FFmpeg & FFprobe wrapper, media ingestion & probing, 16 kHz audio extraction, waveform peak generator. |
-| **Phase 3** | Core Speech Recognition Pipeline | Completed | faster-whisper CTranslate2 worker, Silero VAD, streaming progress, INT8 CPU optimization, model manager. |
-| **Phase 4** | Hinglish & Code-Switching Intelligence | Completed | Multi-script normalization, Devanagari/Roman transliteration, language classifier, lexicon fusion engine. |
-| **Phase 5** | Word Timing & Subtitle Engine | Completed | Monotonic timestamp extraction, syntax-aware segmentation, broadcast validator (CPS/CPL), reactive subtitle store. |
-| **Phase 6** | Desktop Subtitle Editor Workspace | Completed | Virtualized subtitle list (60 FPS), HTML5 Canvas waveform timeline, video preview with media-file:// streaming, transactional editing, undo/redo (100 states), keyboard shortcuts. |
-| **Phase 7** | Subtitle Styling and Preset System | Completed | Subtitle style schema & ASS serialization, visual styling panel, typography & box model controls, built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic), custom preset manager (.vstyle.json). |
-| **Phase 8** | Kinetic Typography & Animation Engine | Planned | Real-time karaoke progress, word-level kinetic emphasis, entrance/exit motion (Fade, Pop, Slide Up, Bounce), preview renderer. |
-| **Phase 9** | Subtitle Export & Video Rendering Pipeline | Planned | SRT, WebVTT, ASS format generators, FFmpeg burned-in video export with NVENC/QuickSync/libx264, batch export. |
-| **Phase 10**| Packaging, Testing & Release | Planned | Benchmark accuracy suite (WER/CER), resource profiling, NSIS Windows installer, signed release build. |
+The project is executed across 15 distinct development phases (Phase 0 through Phase 14) comprising 62 granular tasks defined in `Tasks.md` and `Phases.md`:
+
+| Phase | Phase ID | Title | Status | Scope & Key Milestones |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 0** | PHASE-00 | Research and Technical Architecture Validation | Completed | Hardware baseline (Core i7-3770 / GT 730), framework evaluation, ASR runtime benchmark, FFmpeg audit, license cataloging. (TASK-001 - TASK-005) |
+| **Phase 1** | PHASE-01 | Development Foundation and Project Setup | Completed | Desktop scaffolding (Electron + Vite + React + TS), design tokens, native IPC bridge, local logging, task runner. (TASK-006 - TASK-010) |
+| **Phase 2** | PHASE-02 | Local Media Engine and Audio Processing | Completed | FFmpeg & FFprobe wrapper, media ingestion & probing, 16 kHz audio extraction, waveform peak generator. (TASK-011 - TASK-016) |
+| **Phase 3** | PHASE-03 | Core Speech Recognition Pipeline (English & Hindi) | Completed | faster-whisper CTranslate2 worker, Silero VAD, streaming progress, INT8 CPU optimization, model manager. (TASK-017 - TASK-021) |
+| **Phase 4** | PHASE-04 | Hinglish and Code-Switched Speech Intelligence | Completed | Multi-script normalization, Devanagari/Roman transliteration, language classifier, lexicon fusion engine. (TASK-022 - TASK-026) |
+| **Phase 5** | PHASE-05 | Word-Level Timing and Subtitle Segmentation Engine | Completed | Monotonic timestamp extraction, syntax-aware segmentation, broadcast validator (CPS/CPL), reactive subtitle store. (TASK-027 - TASK-030) |
+| **Phase 6** | PHASE-06 | Desktop Subtitle Editor Workspace | Completed | Virtualized subtitle list (60 FPS), HTML5 Canvas waveform timeline, video preview with media-file:// streaming, transactional editing, undo/redo (100 states), keyboard shortcuts. (TASK-031 - TASK-035) |
+| **Phase 7** | PHASE-07 | Subtitle Styling and Preset System | Completed | Subtitle style schema & ASS serialization, visual styling panel, typography & box model controls, built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic), custom preset manager (.vstyle.json). (TASK-036 - TASK-039) |
+| **Phase 8** | PHASE-08 | Kinetic Typography, Highlighting, and Animation Engine | Planned (Next) | Real-time karaoke progress, word-level kinetic emphasis, entrance/exit motion (Fade, Pop, Slide Up, Bounce), canvas/WebGL preview renderer, ASS animation tags. (TASK-040 - TASK-042) |
+| **Phase 9** | PHASE-09 | Video Rendering and Subtitle Export Pipeline | Planned | SRT, WebVTT, ASS format generators, FFmpeg burned-in video export with NVENC/QuickSync/libx264, export queue & cancellation. (TASK-043 - TASK-046) |
+| **Phase 10** | PHASE-10 | Hardware Optimization and Performance Profiling | Planned | Hardware profile auto-detection (Fast, Balanced, Quality), memory management & chunked audio for long media (60m+), CPU core allocation. (TASK-047 - TASK-049) |
+| **Phase 11** | PHASE-11 | Speech Accuracy Benchmarking and Quality Assurance | Planned | Standardized 25+ sample evaluation dataset, automated WER/CER benchmark suite, hallucination mitigation and VAD tuning. (TASK-050 - TASK-052) |
+| **Phase 12** | PHASE-12 | Project Persistence, Autosave, Crash Recovery, and Reliability | Planned | Atomic .vsp project saving, 60s background autosave journal, crash recovery manager, user-facing error translation. (TASK-053 - TASK-055) |
+| **Phase 13** | PHASE-13 | Windows Packaging, Distribution, and Production Release | Planned | NSIS Windows installer, portable zip bundle, first-run onboarding model download wizard, vulnerability audit, production README & documentation. (TASK-056 - TASK-059) |
+| **Phase 14** | PHASE-14 | Post-MVP Enhancements and Extensibility | Planned | Local speaker diarization with speaker badges, batch media processing queue, headless command-line interface (vaani-cli). (TASK-060 - TASK-062) |
 
