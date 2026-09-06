@@ -1385,3 +1385,267 @@ Rules governing this registry:
   * Returns standard exit codes (0 on success, non-zero on failure).
 * **Verification Method**: Built standalone executable Node.js CLI `bin/vaani-cli.js` with `transcribe`, `render`, and `models` commands, JSON output formatting (`--json`), and standard exit codes. Registered `"bin": { "vaani": "./bin/vaani-cli.js" }` in `package.json`. Verified in `tests/unit/cli.test.ts` (14/14 tests passed).
 * **Notes**: Completed in Phase 14.
+
+---
+
+## Phase 15: Professional Desktop Application UI/UX Redesign
+
+### TASK-063
+* **ID**: TASK-063
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Design Token System and Windows Fluent Theme Engine (Dark and Light Modes)
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-006, TASK-030
+* **Description**: Create a complete Windows desktop design token system eliminating artificial AI glow, neon gradients, and floating rounded card clutter in favor of clean Fluent surfaces, crisp typography, and accessible WCAG contrast.
+* **Implementation Requirements**:
+  * Define surface layers, borders, neutral charcoals, typography scale, 4px spacing scale, and restrained accent palette.
+  * Implement full dark and light mode stylesheets with data-theme attributes.
+  * Eliminate floating cards, glowing borders, and rounded pills across all views.
+* **Acceptance Criteria**:
+  * Application supports seamless toggling between dark and light themes with readable contrast.
+  * Zero emojis or artificial marketing badges.
+* **Verification Method**: Defined in `src/renderer/index.css` with 800+ lines of design tokens and styles. Verified across dark and light themes. Tested with `npm run typecheck` and `npm run build`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-064
+* **ID**: TASK-064
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Desktop Application Shell and Primary Navigation Architecture
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-063
+* **Description**: Restructure the root application container into a native Windows desktop shell with a title bar (branding, project name, dirty state indicator, save action), top workspace navigation bar, context workspace stage, and quiet status bar.
+* **Implementation Requirements**:
+  * Titlebar displays official SVG brand icon, project name, unsaved changes indicator, save button, theme toggle, and help button.
+  * Main navigation exposes clear workflow areas: `Projects` | `Editor` | `Subtitles` | `Style` | `Export` | `Settings`.
+  * Status bar displays operational state, media duration, autosave timestamp, active performance mode, and CPU thread metrics without marketing clutter.
+* **Acceptance Criteria**:
+  * Titlebar and navigation bar provide immediate orientation and workflow clarity.
+  * All secondary diagnostics removed from primary workspace.
+* **Verification Method**: Built `App.tsx` shell layout. Verified with production bundle compilation (`npm run build`) and all 270 unit tests passing.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-065
+* **ID**: TASK-065
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Projects Launchpad View and Recent Projects Persistence
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Design and implement a dedicated home/projects launchpad screen providing clear first-run guidance, primary actions (Import Media, New Project, Open Project, Explore Sample), standard 4-step workflow strip, and a recent projects data table.
+* **Implementation Requirements**:
+  * Clean, simple launchpad screen with zero decorative dashboard widgets.
+  * High-density table for recent projects showing name, file location, duration, subtitle count, last opened timestamp, and quick-open actions.
+  * LocalStorage persistence via `uiStore` keeping up to 15 recent projects.
+* **Acceptance Criteria**:
+  * Starting the application without a project provides immediate, unambiguous launch points.
+  * Opening a recent project restores the project and switches to the Editor workspace.
+* **Verification Method**: Created `ProjectsView.tsx` and persistence in `uiStore.ts`. Tested project loading and creation workflows.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-066
+* **ID**: TASK-066
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Centerpiece Editor Workspace and Contextual Right Inspector
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Redesign the centerpiece Editor workspace with balanced visual hierarchy giving primary attention to the video preview canvas, waveform timeline, and subtitle list, accompanied by a contextual collapsible right inspector.
+* **Implementation Requirements**:
+  * Compact top subtitle toolbar: Undo, Redo, + Add Subtitle, Split, Merge, Duplicate, Delete, Generate Subtitles, and Inspector toggle.
+  * Video preview pane with aspect ratio and playback controls.
+  * Interactive multi-scale waveform timeline with playhead and event markers.
+  * Contextual right inspector: displays subtitle text editor, millisecond timing controls, duration badge, speaker selector, and word timing breakdown when a subtitle is selected; displays project and media properties when deselected.
+* **Acceptance Criteria**:
+  * Editor workspace feels focused, professional, and dense where appropriate.
+  * Inspector can be toggled without breaking layout responsiveness.
+* **Verification Method**: Built `EditorWorkspace.tsx` combining `VideoPlayerPreview`, `WaveformTimeline`, `SubtitleListView`, and inspector panel. Verified in `npm run build`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-067
+* **ID**: TASK-067
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Dedicated High-Density Subtitles Workspace
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Create a dedicated Subtitles workstation view featuring a full-width, high-density transcript data table, search & replace bar (`Ctrl+F`), script mode switcher, speaker management, and expandable word timing chips.
+* **Implementation Requirements**:
+  * Action toolbar with quick subtitle manipulation tools and speaker diarization trigger.
+  * Integrated Find & Replace bar with case sensitivity and whole word matching.
+  * Data table with editable start/end times, durations, speaker tags, and inline text inputs.
+  * Expandable word timing chips showing per-word timestamps and confidence scores.
+* **Acceptance Criteria**:
+  * Users can comfortably review and edit hundreds of subtitle lines in a dense, keyboard-friendly table.
+* **Verification Method**: Built `SubtitlesWorkspace.tsx`. Verified search & replace operations and timing updates with passing unit tests in `tests/unit/editorOperations.test.ts`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-068
+* **ID**: TASK-068
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Dedicated Style Studio Workspace with Compact Presets and Live Preview
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Build a dedicated Style Studio workspace replacing bulky repetitive cards with a compact preset browser, a live preview canvas, and progressive disclosure customization tabs.
+* **Implementation Requirements**:
+  * Left sidebar preset list with built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, News, Bollywood, Social, Cinematic) and custom preset save/delete.
+  * Real-time preview container utilizing `KineticSubtitleRenderer` on sample or active subtitle.
+  * Tabbed customization controls: Typography, Colors & Stroke, Background Box, Position, and Animation.
+* **Acceptance Criteria**:
+  * Applying a preset updates preview immediately.
+  * Customization controls reveal complexity progressively without visual fatigue.
+* **Verification Method**: Built `StyleWorkspace.tsx`. Verified style updates and preset management with passing unit tests in `tests/unit/presetManager.test.ts` and `tests/unit/assStyleSerializer.test.ts`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-069
+* **ID**: TASK-069
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Dedicated Export Workspace for Subtitles and MP4 Video Burn-In
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Provide a first-class Export workspace for standalone subtitle files (SRT, VTT, ASS) and hardware-accelerated FFmpeg video burn-in with progress tracking and batch queue integration.
+* **Implementation Requirements**:
+  * Subtitle format selector with format descriptions, encoding selector (UTF-8, UTF-8-BOM), and ASS kinetic karaoke tags option.
+  * Video burn-in controls with output resolution, render preset, destination path browser, and cancel button.
+  * Live stage-based progress bar and quick link to Batch Processing Queue.
+* **Acceptance Criteria**:
+  * Clean dedicated workflow eliminating modal constraints during long-running export tasks.
+* **Verification Method**: Built `ExportWorkspace.tsx`. Verified export functions and IPC render events with unit tests in `tests/unit/subtitleExporters.test.ts` and `tests/unit/videoRenderer.test.ts`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-070
+* **ID**: TASK-070
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Multi-Section Settings Workspace
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Create a professional Settings workstation featuring left navigation tabs and focused content panes for General, Appearance, Models, Performance, Shortcuts, Privacy, Diagnostics, and About.
+* **Implementation Requirements**:
+  * `General`: Autosave snapshot intervals and audio extraction format.
+  * `Appearance`: Dark Theme / Light Theme selectors.
+  * `Models`: Whisper model catalog with sizes, local status, download/delete buttons.
+  * `Performance`: Fast/Balanced/Quality modes, real-time memory monitor, cache cleanup.
+  * `Shortcuts`: Searchable table of keyboard shortcuts.
+  * `Privacy`: Direct, plain-language guarantee of local-first privacy (zero telemetry, zero cloud uploads).
+  * `Diagnostics`: Hardware profile, CPU cores, RAM, and honest reporting of GPU/CUDA capabilities.
+  * `About`: Application identity, version, open-source license, and credits.
+* **Acceptance Criteria**:
+  * Technical configuration is cleanly organized and accessible without cluttering the editing workflow.
+* **Verification Method**: Built `SettingsWorkspace.tsx`. Verified with `npm run typecheck` and `npm test`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-071
+* **ID**: TASK-071
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Clean Subtitle Generation Dialog with Stage-Based Progress
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Replace the cluttered speech intelligence sidebar with a clean modal dialog for subtitle generation with progressive disclosure.
+* **Implementation Requirements**:
+  * Clear inputs for Spoken Language (Auto, Hinglish, English, Hindi), Script Mode (Roman, Devanagari, Exact, Cleaned), and Quality Profile.
+  * Collapsible "Advanced" section for specific model selection.
+  * Meaningful stage-based progress ("Detecting speech...", "Transcribing speech...", "Aligning timestamps...") and cancel action.
+* **Acceptance Criteria**:
+  * Beginners can trigger transcription in one click; advanced users can configure models without distraction.
+* **Verification Method**: Built `GenerateSubtitlesDialog.tsx`. Tested with transcription handlers in `App.tsx`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-072
+* **ID**: TASK-072
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: First-Run Desktop Tutorial and Help/Troubleshooting Dialog
+* **Priority**: Medium
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Create a non-intrusive 4-step desktop onboarding tutorial and an on-demand Help dialog with searchable keyboard shortcuts and practical troubleshooting solutions.
+* **Implementation Requirements**:
+  * 4-step tutorial modal: Welcome -> Workflow overview -> Default preferences -> Ready launchpad.
+  * Help dialog accessible via `Help` in title bar with keyboard shortcuts table and troubleshooting guide for models, FFmpeg, memory, and GPU acceleration.
+  * Option to restart tutorial anytime from Help dialog.
+* **Acceptance Criteria**:
+  * First-run tutorial explains the core application without looking like a cloud SaaS onboarding flow.
+* **Verification Method**: Built `TutorialDialog.tsx` and `HelpDialog.tsx`. Verified completion persistence in `uiStore`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-073
+* **ID**: TASK-073
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: State Management Separation (`uiStore` vs `projectStore`)
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-064
+* **Description**: Decouple temporary and persisted UI state (active tab, theme, inspector layout, dialog states, recent projects) from core project domain state (`projectStore`).
+* **Implementation Requirements**:
+  * Implement Zustand store `uiStore.ts` with local storage persistence.
+  * Ensure project saving and autosaving are completely unaffected by UI interactions.
+* **Acceptance Criteria**:
+  * Window resizing, panel toggling, and tab switching do not mark projects as dirty.
+* **Verification Method**: Created `src/renderer/src/store/uiStore.ts`. Tested persistence and verified zero regression across project persistence unit tests in `tests/unit/projectPersistence.test.ts`.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-074
+* **ID**: TASK-074
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Official Multi-Resolution Brand Asset Integration Across Window Chrome, Titlebar, and Installer
+* **Priority**: Medium
+* **Status**: [x]
+* **Dependencies**: TASK-063
+* **Description**: Extract official branding assets from brand sheet and integrate them across Windows taskbar, window titlebar, and installer wizard.
+* **Implementation Requirements**:
+  * Multi-resolution `.ico` icon (16x16 to 256x256) and 512x512 PNG app icon.
+  * SVG and PNG in-app header marks.
+  * Windows installer header (`installer-header.bmp`) and sidebar (`installer-sidebar.bmp`).
+  * Configure `electron-builder.yml` to utilize official installer graphics and icons.
+* **Acceptance Criteria**:
+  * Executable, window taskbar icon, titlebar brand mark, and installer wizard display crisp official Vaani Studio branding.
+* **Verification Method**: Created icons in `assets/icons/` and `assets/branding/`. Configured `electron-builder.yml` and `src/main/index.ts`. Verified with `npm run build` and git history.
+* **Notes**: Completed in Phase 15.
+
+---
+
+### TASK-075
+* **ID**: TASK-075
+* **Phase**: Phase 15 - Desktop UI/UX Redesign
+* **Title**: Comprehensive Quality Assurance, Accessibility, and Test Suite Validation
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-063 through TASK-074
+* **Description**: Execute rigorous quality assurance across all workspaces, test keyboard navigation, verify zero emojis, and validate all automated test suites.
+* **Implementation Requirements**:
+  * Validate strict zero-emoji enforcement across all source files, documentation, and components.
+  * Validate TypeScript type check (`npm run typecheck`) with zero errors.
+  * Validate all 39 test suites and 270 unit tests (`npm test`).
+  * Validate production bundle build (`npm run build`).
+* **Acceptance Criteria**:
+  * 100% test pass rate across all 270 unit tests.
+  * Production bundle builds in <10 seconds.
+  * Zero TypeScript compiler errors.
+* **Verification Method**: Verified `npm run typecheck` (0 errors), `npm test` (39/39 suites, 270/270 tests passed), and `npm run build` (built cleanly).
+* **Notes**: Completed in Phase 15.

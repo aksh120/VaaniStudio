@@ -529,3 +529,50 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
   * All Phase 14 tasks completed; verified through automated testing; production bundle built.
 * **Risks**:
   * Resolved: Lightweight acoustic feature clustering runs in <100ms with zero memory overhead, avoiding multi-GB PyTorch GPU dependencies; batch queue isolates corrupt media errors without aborting remaining queued files.
+
+---
+
+### Phase 15: Professional Desktop Application UI/UX Redesign
+
+* **Phase ID**: PHASE-15
+* **Phase Name**: Professional Desktop Application UI/UX Redesign
+* **Status**: Completed
+* **Objective**: Transform Vaani Studio from an AI-generated card dashboard into a mature, professional Windows desktop creative tool with dedicated workspaces, Fluent aesthetics, accessible contrast in dark and light modes, and zero marketing clutter.
+* **Scope**:
+  * Implement Fluent design token system in `src/renderer/index.css` (dark and light themes).
+  * Build desktop application shell in `App.tsx` with title bar, main navigation bar, and calm status bar.
+  * Build dedicated Launchpad workspace (`ProjectsView.tsx`) with recent projects persistence.
+  * Build centerpiece Editor workspace (`EditorWorkspace.tsx`) with video player, waveform timeline, subtitle list, and contextual right inspector.
+  * Build dedicated Subtitle editing workspace (`SubtitlesWorkspace.tsx`) with virtualized data table, search & replace (`Ctrl+F`), and word timing chips.
+  * Build dedicated Style Studio workspace (`StyleWorkspace.tsx`) with compact preset browser and live preview.
+  * Build dedicated Export workspace (`ExportWorkspace.tsx`) for SRT/VTT/ASS and FFmpeg video burn-in with batch queue access.
+  * Build dedicated Settings workspace (`SettingsWorkspace.tsx`) with left-nav tabs for General, Appearance, Models, Performance, Shortcuts, Privacy, Diagnostics, and About.
+  * Build non-intrusive subtitle generation dialog (`GenerateSubtitlesDialog.tsx`) and first-run tutorial (`TutorialDialog.tsx`).
+  * Integrate official multi-resolution brand assets across window taskbar, title bar, and NSIS installer.
+* **Dependencies**: PHASE-14
+* **Tasks**:
+  * [x] TASK-063: Design Token System and Windows Fluent Theme Engine (Dark and Light Modes)
+  * [x] TASK-064: Desktop Application Shell and Primary Navigation Architecture
+  * [x] TASK-065: Projects Launchpad View and Recent Projects Persistence
+  * [x] TASK-066: Centerpiece Editor Workspace and Contextual Right Inspector
+  * [x] TASK-067: Dedicated High-Density Subtitles Workspace
+  * [x] TASK-068: Dedicated Style Studio Workspace with Compact Presets and Live Preview
+  * [x] TASK-069: Dedicated Export Workspace for Subtitles and MP4 Video Burn-In
+  * [x] TASK-070: Multi-Section Settings Workspace
+  * [x] TASK-071: Clean Subtitle Generation Dialog with Stage-Based Progress
+  * [x] TASK-072: First-Run Desktop Tutorial and Help/Troubleshooting Dialog
+  * [x] TASK-073: State Management Separation (`uiStore` vs `projectStore`)
+  * [x] TASK-074: Official Multi-Resolution Brand Asset Integration Across Window Chrome, Titlebar, and Installer
+  * [x] TASK-075: Comprehensive Quality Assurance, Accessibility, and Test Suite Validation
+* **Expected Deliverables**:
+  * Cohesive, calm Windows desktop creative software layout.
+  * Zero AI dashboard clichés: no "PRO" badge, no floating cards, no neon blue glow, no decorative emojis.
+  * 100% preservation of all existing transcription, diarization, styling, autosave, and export engines.
+* **Tests**:
+  * 39/39 vitest test suites passed (270/270 tests passed).
+  * `npm run typecheck` passed with 0 errors.
+  * Production bundle built cleanly with Vite and Electron.
+* **Definition of Done**:
+  * Full application redesign complete, tested across dark and light themes, zero regression in automated tests.
+* **Exit Criteria**:
+  * All Phase 15 tasks completed with passing tests and verified production build.
