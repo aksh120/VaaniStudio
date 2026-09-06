@@ -31,7 +31,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   onRefreshModels,
 }) => {
   const { project, updateSettings, setStatusMessage } = useProjectStore();
-  const { theme, setTheme } = useUIStore();
+  const { theme, setTheme, setIsTutorialOpen } = useUIStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
@@ -205,6 +205,36 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <label className="input-label">Project Workspace Persistence</label>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                 Theme preferences, inspector width, and recent project entries are securely persisted in local storage.
+              </div>
+            </div>
+
+            <div
+              className="control-group"
+              style={{
+                marginTop: '24px',
+                padding: '16px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '2px' }}>
+                    Interactive Application Guide & Tour
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    Revisit the interactive feature walkthrough explaining what does what, editor controls, and export options.
+                  </div>
+                </div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsTutorialOpen(true)}
+                  title="Open Interactive Feature Guide"
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Open Feature Tour & Guide
+                </button>
               </div>
             </div>
           </div>
@@ -553,6 +583,15 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
                 Open-source local creative tool. All media stays on your computer.
               </p>
+              <div style={{ marginTop: '16px' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsTutorialOpen(true)}
+                  title="Launch Interactive App Guide"
+                >
+                  Launch Interactive App Guide
+                </button>
+              </div>
             </div>
           </div>
         )}

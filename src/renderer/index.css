@@ -874,3 +874,130 @@ html, body, #root {
   padding: var(--space-6) var(--space-8);
   max-width: 800px;
 }
+
+/* ==========================================================================
+   Tutorial & Interactive Guide Styles
+   ========================================================================== */
+
+.tutorial-modal-dialog {
+  max-width: 820px;
+  width: 95vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.tutorial-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  overflow-x: auto;
+  padding: 8px 16px;
+  background-color: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tutorial-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.tutorial-step-pill:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.tutorial-step-pill.active {
+  background-color: var(--accent-subtle);
+  border-color: var(--accent-active);
+  color: var(--accent-active);
+  font-weight: 600;
+}
+
+.tutorial-step-pill.completed {
+  color: var(--text-secondary);
+}
+
+.tutorial-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--bg-surface);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tutorial-step-pill.active .tutorial-step-number {
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+}
+
+.tutorial-body {
+  padding: var(--space-5) var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tutorial-diagram-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.tutorial-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.tutorial-feature-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  transition: border-color var(--transition-fast);
+}
+
+.tutorial-feature-card:hover {
+  border-color: var(--border-focus);
+}
+
+.tutorial-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--accent-subtle);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+

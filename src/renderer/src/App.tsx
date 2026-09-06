@@ -98,6 +98,17 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+
+  // First-run automatic tutorial trigger
+  const hasCheckedTutorialRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!hasCheckedTutorialRef.current) {
+      hasCheckedTutorialRef.current = true;
+      if (!tutorialCompleted) {
+        setIsTutorialOpen(true);
+      }
+    }
+  }, [tutorialCompleted, setIsTutorialOpen]);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isDiarizing, setIsDiarizing] = useState<boolean>(false);
 
@@ -182,9 +193,6 @@ export const App: React.FC = () => {
           if (res.success && res.data) {
             if (res.data.recommendedModelId) {
               setSelectedModelId(res.data.recommendedModelId);
-            }
-            if (res.data.isFirstRun && !tutorialCompleted) {
-              setIsTutorialOpen(true);
             }
           }
         });
@@ -708,6 +716,13 @@ export const App: React.FC = () => {
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsTutorialOpen(true)}
+            title="Open Interactive Feature Guide & Tour"
+          >
+            Guide
           </button>
           <button
             className="btn btn-ghost btn-sm"

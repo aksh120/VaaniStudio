@@ -11,6 +11,7 @@ import {
   Trash2,
   ArrowRight,
   Layers,
+  HelpCircle,
 } from 'lucide-react';
 
 interface ProjectsViewProps {
@@ -27,7 +28,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onLoadSample,
 }) => {
   const { loadProjectData, setStatusMessage, setActiveError } = useProjectStore();
-  const { recentProjects, removeRecentProject, setActiveTab, addRecentProject } = useUIStore();
+  const { recentProjects, removeRecentProject, setActiveTab, addRecentProject, setIsTutorialOpen } = useUIStore();
 
   const handleOpenRecent = async (entry: RecentProjectEntry) => {
     if (!window.vaaniAPI) return;
@@ -81,6 +82,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         <button className="btn btn-ghost" onClick={onLoadSample}>
           <Layers size={16} />
           <span>Explore Sample Project</span>
+        </button>
+        <button
+          className="btn btn-ghost"
+          onClick={() => setIsTutorialOpen(true)}
+          title="Open Interactive Feature Guide & Tour"
+        >
+          <HelpCircle size={16} />
+          <span>App Guide</span>
         </button>
       </div>
 
@@ -228,10 +237,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               Import a video or audio file to start generating subtitles, or open an existing
               project file (.vsp).
             </p>
-            <button className="btn btn-primary" onClick={onImportMedia}>
-              <FileVideo size={15} />
-              <span>Import Media to Begin</span>
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn btn-primary" onClick={onImportMedia}>
+                <FileVideo size={15} />
+                <span>Import Media to Begin</span>
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsTutorialOpen(true)}
+                title="Open Interactive Feature Guide & Tour"
+              >
+                <HelpCircle size={15} />
+                <span>Explore App Guide</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
