@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow, app } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -13,7 +13,12 @@ import {
   TranscriptionOptions,
   SubtitleEvent,
   WordTiming,
+  SubtitleStyle,
   StylePreset,
+  SubtitleExportOptions,
+  VideoRenderOptions,
+  RenderProgressUpdate,
+  AnimationConfig,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
 import { logger } from './logger.js';
@@ -23,6 +28,8 @@ import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
 import { listModels, downloadModel, deleteModel } from './asr/modelManager.js';
 import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
+import { exportToSrt, exportToVtt, exportToAss } from '../shared/subtitles/subtitleExporters.js';
+import { exportJobManager } from './media/exportJobManager.js';
 import { fuseVocabularyInEvents } from '../shared/intelligence/fusionEngine.js';
 import { transformScript } from '../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../shared/intelligence/textNormalizer.js';
@@ -576,6 +583,179 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
       return { success: false, error: { code: 'IMPORT_FAILED', message: err?.message || 'Failed to import preset.' } };
     }
   });
+
+  // Select Save Path via Native Windows Dialog
+  ipcMain.handle(
+    IPC_CHANNELS.SELECT_SAVE_PATH,
+    async (
+      _event,
+      options: { defaultPath?: string; filters?: { name: string; extensions: string[] }[]; title?: string }
+    ): Promise<IPCResult<string>> => {
+      try {
+        const result = await dialog.showSaveDialog(mainWindow, {
+          title: options?.title || 'Select Save Destination',
+          defaultPath: options?.defaultPath,
+          filters: options?.filters || [{ name: 'All Files', extensions: ['*'] }],
+        });
+
+        if (result.canceled || !result.filePath) {
+          return { success: false, error: { code: 'SAVE_CANCELLED', message: 'User cancelled destination selection.' } };
+        }
+
+        return { success: true, data: result.filePath };
+      } catch (err: any) {
+        return { success: false, error: { code: 'SAVE_DIALOG_ERROR', message: err?.message || 'Dialog error.' } };
+      }
+    }
+  );
+
+  // Export Subtitle File (SRT, VTT, ASS)
+  ipcMain.handle(
+    IPC_CHANNELS.EXPORT_SUBTITLES,
+    async (
+      _event,
+      payload: {
+        events: SubtitleEvent[];
+        style: SubtitleStyle;
+        options: SubtitleExportOptions;
+      }
+    ): Promise<IPCResult<string>> => {
+      try {
+        const { events, style, options } = payload;
+        let content: string;
+
+        switch (options.format) {
+          case 'srt':
+            content = exportToSrt(events);
+            break;
+          case 'vtt':
+            content = exportToVtt(events);
+            break;
+          case 'ass':
+          default:
+            content = exportToAss(events, style, {
+              includeKaraoke: options.includeKaraoke !== false,
+            });
+            break;
+        }
+
+        let targetPath = options.outputPath;
+
+        if (!targetPath) {
+          const ext = options.format === 'ass' ? 'ass' : options.format === 'vtt' ? 'vtt' : 'srt';
+          const formatName = options.format.toUpperCase();
+          const result = await dialog.showSaveDialog(mainWindow, {
+            title: `Export ${formatName} Subtitle File`,
+            defaultPath: `subtitles.${ext}`,
+            filters: [{ name: `${formatName} Subtitle (*.${ext})`, extensions: [ext] }],
+          });
+
+          if (result.canceled || !result.filePath) {
+            return { success: false, error: { code: 'EXPORT_CANCELLED', message: 'Export cancelled.' } };
+          }
+          targetPath = result.filePath;
+        }
+
+        // Write with optional UTF-8 BOM if requested
+        let writeData: Buffer | string = content;
+        if (options.encoding === 'utf-8-bom') {
+          writeData = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(content, 'utf-8')]);
+        }
+
+        fs.writeFileSync(targetPath, writeData);
+        logger.info('IPC', `Exported ${options.format.toUpperCase()} subtitles to: ${targetPath}`);
+        return { success: true, data: targetPath };
+      } catch (err: any) {
+        logger.error('IPC', `Failed to export subtitles: ${err?.message}`);
+        return { success: false, error: { code: 'SUBTITLE_EXPORT_FAILED', message: err?.message || 'Export failed.' } };
+      }
+    }
+  );
+
+  // Start Video Burn-In Rendering
+  ipcMain.handle(
+    IPC_CHANNELS.START_RENDER_VIDEO,
+    async (
+      _event,
+      payload: {
+        options: VideoRenderOptions;
+        events: SubtitleEvent[];
+        style: SubtitleStyle;
+        totalDurationSeconds: number;
+        animationConfig?: AnimationConfig;
+      }
+    ): Promise<IPCResult<RenderProgressUpdate>> => {
+      try {
+        const jobId = `render_${Date.now()}`;
+        const { options, events, style, totalDurationSeconds, animationConfig } = payload;
+
+        // Run asynchronously in background, sending updates through IPC
+        exportJobManager
+          .startExportJob(
+            jobId,
+            options,
+            events,
+            style,
+            totalDurationSeconds,
+            animationConfig,
+            (update) => {
+              if (!mainWindow.isDestroyed()) {
+                mainWindow.webContents.send(IPC_CHANNELS.RENDER_PROGRESS_EVENT, update);
+              }
+            }
+          )
+          .catch((err) => {
+            logger.error('IPC', `Async render error: ${err?.message}`);
+          });
+
+        return {
+          success: true,
+          data: {
+            jobId,
+            status: 'rendering',
+            percent: 0,
+            elapsedSeconds: 0,
+            outputPath: options.outputPath,
+          },
+        };
+      } catch (err: any) {
+        logger.error('IPC', `Failed to start video rendering: ${err?.message}`);
+        return { success: false, error: { code: 'RENDER_START_FAILED', message: err?.message || 'Failed to start render.' } };
+      }
+    }
+  );
+
+  // Cancel Video Burn-In Rendering
+  ipcMain.handle(
+    IPC_CHANNELS.CANCEL_RENDER_VIDEO,
+    async (_event, jobId?: string): Promise<IPCResult<boolean>> => {
+      try {
+        const cancelled = exportJobManager.cancelJob(jobId);
+        return { success: true, data: cancelled };
+      } catch (err: any) {
+        return { success: false, error: { code: 'CANCEL_FAILED', message: err?.message || 'Failed to cancel render.' } };
+      }
+    }
+  );
+
+  // Show Item in Native Windows Explorer Folder
+  ipcMain.handle(
+    IPC_CHANNELS.SHOW_ITEM_IN_FOLDER,
+    async (_event, filePath: string): Promise<IPCResult<boolean>> => {
+      try {
+        if (filePath && fs.existsSync(filePath)) {
+          shell.showItemInFolder(filePath);
+          return { success: true, data: true };
+        } else if (filePath && fs.existsSync(path.dirname(filePath))) {
+          shell.openPath(path.dirname(filePath));
+          return { success: true, data: true };
+        }
+        return { success: false, error: { code: 'PATH_NOT_FOUND', message: 'Target file or folder not found.' } };
+      } catch (err: any) {
+        return { success: false, error: { code: 'SHOW_IN_FOLDER_FAILED', message: err?.message || 'Could not open folder.' } };
+      }
+    }
+  );
 
   // Client log relay
   ipcMain.on(IPC_CHANNELS.LOG_MESSAGE, (_event, payload: { level: string; category: string; message: string }) => {

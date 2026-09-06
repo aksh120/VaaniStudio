@@ -27,6 +27,7 @@ import {
 } from './editor/editorOperations.js';
 import { StylePresetStudio } from './components/StylePresetStudio.js';
 import { PresetManager } from './editor/presetManager.js';
+import { ExportModal } from './components/ExportModal.js';
 
 export const App: React.FC = () => {
   const {
@@ -63,6 +64,7 @@ export const App: React.FC = () => {
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [sidebarTab, setSidebarTab] = useState<'intelligence' | 'style'>('style');
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
   // Preset Manager instance
   const presetManager = useMemo(() => new PresetManager(), []);
@@ -490,6 +492,9 @@ export const App: React.FC = () => {
           <button className="btn btn-primary" onClick={handleSelectMedia}>
             Import Media
           </button>
+          <button className="btn btn-secondary" onClick={() => setIsExportModalOpen(true)} title="Export Subtitle Files or Burn-In Video">
+            📤 Export
+          </button>
         </div>
       </header>
 
@@ -824,6 +829,14 @@ export const App: React.FC = () => {
           <span>Inference: {hardware ? hardware.inferenceDevice.toUpperCase() : 'CPU'}</span>
         </div>
       </footer>
+
+      {/* Export & Video Burn-in Modal (Phase 9) */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        project={project}
+        onStatusMessage={setStatusMessage}
+      />
     </div>
   );
 };

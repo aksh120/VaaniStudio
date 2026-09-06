@@ -10,8 +10,13 @@ import {
   ModelInfo,
   TranscriptionOptions,
   SubtitleEvent,
+  SubtitleStyle,
   ProgressUpdate,
   StylePreset,
+  SubtitleExportOptions,
+  VideoRenderOptions,
+  RenderProgressUpdate,
+  AnimationConfig,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -106,6 +111,44 @@ export const vaaniAPI = {
 
   importPresetFile: (): Promise<IPCResult<string>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PRESET_FILE);
+  },
+
+  selectSavePath: (options?: { defaultPath?: string; filters?: { name: string; extensions: string[] }[]; title?: string }): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SELECT_SAVE_PATH, options);
+  },
+
+  exportSubtitles: (payload: {
+    events: SubtitleEvent[];
+    style: SubtitleStyle;
+    options: SubtitleExportOptions;
+  }): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.EXPORT_SUBTITLES, payload);
+  },
+
+  startRenderVideo: (payload: {
+    options: VideoRenderOptions;
+    events: SubtitleEvent[];
+    style: SubtitleStyle;
+    totalDurationSeconds: number;
+    animationConfig?: AnimationConfig;
+  }): Promise<IPCResult<RenderProgressUpdate>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.START_RENDER_VIDEO, payload);
+  },
+
+  cancelRenderVideo: (jobId?: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CANCEL_RENDER_VIDEO, jobId);
+  },
+
+  onRenderProgress: (callback: (progress: RenderProgressUpdate) => void): (() => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.RENDER_PROGRESS_EVENT, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.RENDER_PROGRESS_EVENT, listener);
+    };
+  },
+
+  showItemInFolder: (filePath: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SHOW_ITEM_IN_FOLDER, filePath);
   },
 
   log: (level: string, category: string, message: string): void => {

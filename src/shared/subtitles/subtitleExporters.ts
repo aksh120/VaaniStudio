@@ -1,0 +1,119 @@
+/**
+ * Subtitle File Exporters (SRT, WebVTT, ASS)
+ * Phase 9: TASK-043
+ *
+ * Implements standards-compliant subtitle file generators with precise millisecond timestamps,
+ * robust multi-script UTF-8 handling (Devanagari, Roman, symbols), and clean formatting.
+ */
+
+import { SubtitleEvent, SubtitleStyle } from '../types/models.js';
+import { generateAssScript, AssScriptOptions } from './assScriptGenerator.js';
+
+export interface ExporterOptions {
+  lineEnding?: 'crlf' | 'lf';
+  includeHeaderNotes?: boolean;
+}
+
+/**
+ * Format timestamp into SubRip format: HH:MM:SS,mmm
+ */
+export function formatSrtTimestamp(seconds: number): string {
+  const safe = Math.max(0, seconds);
+  const totalMillis = Math.round(safe * 1000);
+  const hours = Math.floor(totalMillis / 3600000);
+  const minutes = Math.floor((totalMillis % 3600000) / 60000);
+  const secs = Math.floor((totalMillis % 60000) / 1000);
+  const millis = totalMillis % 1000;
+
+  const hStr = String(hours).padStart(2, '0');
+  const mStr = String(minutes).padStart(2, '0');
+  const sStr = String(secs).padStart(2, '0');
+  const msStr = String(millis).padStart(3, '0');
+
+  return `${hStr}:${mStr}:${sStr},${msStr}`;
+}
+
+/**
+ * Format timestamp into WebVTT format: HH:MM:SS.mmm
+ */
+export function formatVttTimestamp(seconds: number): string {
+  const safe = Math.max(0, seconds);
+  const totalMillis = Math.round(safe * 1000);
+  const hours = Math.floor(totalMillis / 3600000);
+  const minutes = Math.floor((totalMillis % 3600000) / 60000);
+  const secs = Math.floor((totalMillis % 60000) / 1000);
+  const millis = totalMillis % 1000;
+
+  const hStr = String(hours).padStart(2, '0');
+  const mStr = String(minutes).padStart(2, '0');
+  const sStr = String(secs).padStart(2, '0');
+  const msStr = String(millis).padStart(3, '0');
+
+  return `${hStr}:${mStr}:${sStr}.${msStr}`;
+}
+
+/**
+ * Export subtitle events to SubRip (.srt) format
+ */
+export function exportToSrt(
+  events: SubtitleEvent[],
+  options: ExporterOptions = {}
+): string {
+  const eol = options.lineEnding === 'crlf' ? '\r\n' : '\n';
+  const sorted = [...events].sort((a, b) => a.startTime - b.startTime);
+
+  const blocks: string[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const ev = sorted[i];
+    const index = i + 1;
+    const startStr = formatSrtTimestamp(ev.startTime);
+    const endStr = formatSrtTimestamp(ev.endTime);
+    const cleanText = (ev.text || '').trim();
+
+    blocks.push(`${index}${eol}${startStr} --> ${endStr}${eol}${cleanText}`);
+  }
+
+  return blocks.join(`${eol}${eol}`) + (blocks.length > 0 ? eol : '');
+}
+
+/**
+ * Export subtitle events to WebVTT (.vtt) format
+ */
+export function exportToVtt(
+  events: SubtitleEvent[],
+  options: ExporterOptions = {}
+): string {
+  const eol = options.lineEnding === 'crlf' ? '\r\n' : '\n';
+  const sorted = [...events].sort((a, b) => a.startTime - b.startTime);
+
+  const header = ['WEBVTT'];
+  if (options.includeHeaderNotes !== false) {
+    header.push('Kind: captions', 'Language: en');
+  }
+
+  const cues: string[] = [header.join(eol)];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const ev = sorted[i];
+    const index = i + 1;
+    const startStr = formatVttTimestamp(ev.startTime);
+    const endStr = formatVttTimestamp(ev.endTime);
+    const cleanText = (ev.text || '').trim();
+
+    cues.push(`${index}${eol}${startStr} --> ${endStr}${eol}${cleanText}`);
+  }
+
+  return cues.join(`${eol}${eol}`) + (cues.length > 0 ? eol : '');
+}
+
+/**
+ * Export subtitle events to Advanced SubStation Alpha (.ass) format with full styling and karaoke
+ */
+export function exportToAss(
+  events: SubtitleEvent[],
+  style: SubtitleStyle,
+  options?: AssScriptOptions
+): string {
+  return generateAssScript(events, style, options);
+}

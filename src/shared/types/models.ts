@@ -221,12 +221,52 @@ export interface ASRTranscriptionResult {
 }
 
 /**
+ * Phase 9: Subtitle Export and Video Rendering Types
+ */
+export type SubtitleFormat = 'srt' | 'vtt' | 'ass';
+
+export interface SubtitleExportOptions {
+  format: SubtitleFormat;
+  outputPath?: string;
+  includeKaraoke?: boolean;
+  encoding?: 'utf-8' | 'utf-8-bom';
+}
+
+export type VideoExportResolution = 'original' | '720p' | '1080p' | '4k';
+export type VideoExportPreset = 'ultrafast' | 'fast' | 'medium' | 'slow';
+
+export interface VideoRenderOptions {
+  inputVideoPath: string;
+  outputPath: string;
+  resolution: VideoExportResolution;
+  crf?: number; // 18-28, default 20
+  preset?: VideoExportPreset; // default 'fast'
+  encoder?: 'libx264' | 'h264_qsv' | 'h264_nvenc' | 'auto';
+  audioBitrate?: string;
+  includeKaraoke?: boolean;
+}
+
+export interface RenderProgressUpdate {
+  jobId: string;
+  status: 'rendering' | 'completed' | 'failed' | 'cancelled';
+  percent: number; // 0 to 100
+  currentFrame?: number;
+  fps?: number;
+  speed?: string;
+  elapsedSeconds: number;
+  etaSeconds?: number;
+  outputPath?: string;
+  error?: string;
+}
+
+/**
  * IPC Channel definitions and Contract Types
  */
 export const IPC_CHANNELS = {
   GET_HARDWARE_PROFILE: 'vaani:get-hardware-profile',
   PROBE_MEDIA: 'vaani:probe-media',
   SELECT_MEDIA_FILE: 'vaani:select-media-file',
+  SELECT_SAVE_PATH: 'vaani:select-save-path',
   EXTRACT_AUDIO: 'vaani:extract-audio',
   GENERATE_WAVEFORM: 'vaani:generate-waveform',
   EXTRACT_FRAME: 'vaani:extract-frame',
@@ -242,6 +282,11 @@ export const IPC_CHANNELS = {
   DELETE_CUSTOM_PRESET: 'vaani:delete-custom-preset',
   EXPORT_PRESET_FILE: 'vaani:export-preset-file',
   IMPORT_PRESET_FILE: 'vaani:import-preset-file',
+  EXPORT_SUBTITLES: 'vaani:export-subtitles',
+  START_RENDER_VIDEO: 'vaani:start-render-video',
+  CANCEL_RENDER_VIDEO: 'vaani:cancel-render-video',
+  RENDER_PROGRESS_EVENT: 'vaani:render-progress-event',
+  SHOW_ITEM_IN_FOLDER: 'vaani:show-item-in-folder',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;
