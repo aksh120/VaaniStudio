@@ -50,41 +50,58 @@ if (!gotTheLock) {
   });
 }
 
+process.on('uncaughtException', (error) => {
+  logger.error('CRASH', `Uncaught exception: ${error.stack || error}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('CRASH', `Unhandled rejection: ${reason}`);
+});
+
 function createWindow(): void {
-  mainWindow = new BrowserWindow({
-    title: 'Vaani Studio',
-    width: 1360,
-    height: 860,
-    minWidth: 1024,
-    minHeight: 700,
-    backgroundColor: '#090D16', // Deep slate obsidian background
-    show: false,
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
+  try {
+    mainWindow = new BrowserWindow({
+      title: 'Vaani Studio',
+      width: 1360,
+      height: 860,
+      minWidth: 1024,
+      minHeight: 700,
+      backgroundColor: '#090D16', // Deep slate obsidian background
+      show: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/index.js'),
+        sandbox: false,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
 
-  registerIPCHandlers(mainWindow);
+    registerIPCHandlers(mainWindow);
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show();
-    logger.info('LIFECYCLE', 'Main application window shown.');
-  });
+    mainWindow.on('ready-to-show', () => {
+      mainWindow?.show();
+      logger.info('LIFECYCLE', 'Main application window shown.');
+    });
 
-  // Handle external link clicks securely
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
-    return { action: 'deny' };
-  });
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+      logger.error('LIFECYCLE', `Failed to load ${validatedURL}: ${errorCode} (${errorDescription})`);
+    });
 
-  if (VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'));
+    // Handle external link clicks securely
+    mainWindow.webContents.setWindowOpenHandler((details) => {
+      shell.openExternal(details.url);
+      return { action: 'deny' };
+    });
+
+    if (VITE_DEV_SERVER_URL) {
+      mainWindow.loadURL(VITE_DEV_SERVER_URL);
+    } else {
+      mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'));
+    }
+  } catch (err: any) {
+    logger.error('LIFECYCLE', `Failed to initialize window: ${err?.stack || err?.message}`);
+    throw err;
   }
 }
 

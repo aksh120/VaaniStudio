@@ -12,6 +12,8 @@ files:
   - package.json
 
 win:
+  legalTrademarks: Vaani Studio
+  requestedExecutionLevel: asInvoker
   target:
     - target: nsis
       arch:

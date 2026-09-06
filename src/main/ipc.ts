@@ -628,61 +628,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     }
   );
 
-  // Speaker Diarization Handler
-  ipcMain.handle(
-    IPC_CHANNELS.DIARIZE_SUBTITLES,
-    async (
-      _event,
-      events: SubtitleEvent[],
-      audioWavPath?: string,
-      maxSpeakers?: number
-    ): Promise<IPCResult<DiarizationResult>> => {
-      try {
-        const diarizer = new AcousticDiarizer();
-        const result = await diarizer.diarize(events, audioWavPath, { maxSpeakers });
-        return { success: true, data: result };
-      } catch (err: any) {
-        logger.error('IPC', `Diarization failed: ${err?.message}`);
-        return { success: false, error: { code: 'DIARIZATION_FAILED', message: err?.message } };
-      }
-    }
-  );
 
-  // Batch Media Processing Queue Handlers
-  ipcMain.handle(
-    IPC_CHANNELS.START_BATCH_QUEUE,
-    async (
-      event,
-      items: { filePath: string; fileName: string }[],
-      config: BatchJobConfig
-    ): Promise<IPCResult<BatchQueueState>> => {
-      try {
-        const result = await batchQueueManager.startQueue(items, config, (state) => {
-          if (!event.sender.isDestroyed()) {
-            event.sender.send(IPC_CHANNELS.BATCH_PROGRESS_EVENT, state);
-          }
-        });
-        return { success: true, data: result };
-      } catch (err: any) {
-        logger.error('IPC', `Batch queue failed: ${err?.message}`);
-        return { success: false, error: { code: 'BATCH_QUEUE_FAILED', message: err?.message } };
-      }
-    }
-  );
-
-  ipcMain.handle(IPC_CHANNELS.CANCEL_BATCH_QUEUE, async (): Promise<IPCResult<boolean>> => {
-    batchQueueManager.cancelQueue();
-    return { success: true, data: true };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.GET_BATCH_STATUS, async (): Promise<IPCResult<BatchQueueState>> => {
-    return { success: true, data: batchQueueManager.getQueueState() };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.CLEAR_BATCH_QUEUE, async (): Promise<IPCResult<boolean>> => {
-    batchQueueManager.clearQueue();
-    return { success: true, data: true };
-  });
 
   // Custom Preset Management Handlers
   const getPresetsDirectory = (): string => {
