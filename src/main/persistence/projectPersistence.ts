@@ -132,10 +132,32 @@ export async function saveProjectAtomic(targetPath: string, projectData: Project
   // Compute relative media path if media exists
   if (cloned.media?.filePath) {
     try {
-      const rel = path.relative(projectDir, cloned.media.filePath);
-      // Only use relative path if on the same drive / filesystem
-      if (!path.isAbsolute(rel) && !rel.startsWith('..\\..\\..\\..')) {
-        cloned.relativeMediaPath = rel;
+      // If the media file does not exist at filePath, but relativeMediaPath was already set, preserve it
+      if (!fs.existsSync(cloned.media.filePath) && cloned.relativeMediaPath) {
+        // Keep existing relativeMediaPath when media was already relocated or has broken original path
+      } else {
+        const filePath = cloned.media.filePath;
+        const isWindowsAbs = /^[a-zA-Z]:[\\/]/.test(filePath);
+        const isPosixAbs = filePath.startsWith('/');
+
+        // If the path format is foreign to the current operating system (e.g. Windows drive path on Linux runner),
+        // do not compute a bogus relative path
+        const isForeignPath =
+          (process.platform !== 'win32' && isWindowsAbs) ||
+          (process.platform === 'win32' && isPosixAbs && !/^[a-zA-Z]:/.test(filePath));
+
+        if (!isForeignPath) {
+          const rel = path.relative(projectDir, filePath);
+          const normalizedRel = rel.replace(/\\/g, '/');
+          // Only use relative path if on the same drive / filesystem and not traversing excessively
+          if (
+            !path.isAbsolute(rel) &&
+            !normalizedRel.startsWith('../../../../') &&
+            !/^[a-zA-Z]:/.test(rel)
+          ) {
+            cloned.relativeMediaPath = rel;
+          }
+        }
       }
     } catch {
       // Keep absolute path if cross-drive relative computation fails

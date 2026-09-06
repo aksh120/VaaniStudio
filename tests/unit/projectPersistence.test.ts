@@ -87,8 +87,12 @@ describe('Phase 12: Project File Schema & Atomic Persistence (TASK-053)', () => 
     fs.writeFileSync(mediaPath, 'video content');
 
     const project = createEmptyProject('Relocation Test');
+    const fakeBrokenPath =
+      process.platform === 'win32'
+        ? 'Z:\\NonExistentOriginalDrive\\video.mp4'
+        : '/non_existent_original_mount/video.mp4';
     project.media = {
-      filePath: 'C:\\NonExistentOriginalDrive\\video.mp4', // Broken absolute path
+      filePath: fakeBrokenPath, // Broken absolute path
       fileName: 'video.mp4',
       durationSeconds: 5,
       fileSizeBytes: 500,
