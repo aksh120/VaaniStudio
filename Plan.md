@@ -414,7 +414,7 @@ Projects are stored as a versioned JSON document with an atomic file-replacement
 
 ## 18. Implementation Phases and Roadmap Status
 
-The project is executed across 15 distinct development phases (Phase 0 through Phase 14) comprising 62 granular tasks defined in `Tasks.md` and `Phases.md`:
+The project is executed across 16 distinct development phases (Phase 0 through Phase 15) comprising 75 granular tasks defined in `Tasks.md` and `Phases.md`:
 
 | Phase | Phase ID | Title | Status | Scope & Key Milestones |
 | :--- | :--- | :--- | :--- | :--- |
@@ -433,3 +433,4 @@ The project is executed across 15 distinct development phases (Phase 0 through P
 | **Phase 12** | PHASE-12 | Project Persistence, Autosave, Crash Recovery, and Reliability | Completed | Atomic .vsp project saving, 60s background autosave journal, crash recovery manager, user-facing error translation. (TASK-053 - TASK-055) |
 | **Phase 13** | PHASE-13 | Windows Packaging, Distribution, and Production Release | Completed | NSIS Windows installer, portable zip bundle, first-run onboarding model download wizard, vulnerability audit, production README & documentation. (TASK-056 - TASK-059) |
 | **Phase 14** | PHASE-14 | Post-MVP Enhancements and Extensibility | Completed | Local acoustic speaker diarization with interactive badges, sequential batch media queue with error isolation, standalone headless CLI (vaani-cli). (TASK-060 - TASK-062) |
+| **Phase 15** | PHASE-15 | Professional Desktop Application UI/UX Redesign | Completed | Fluent desktop design tokens, native titlebar & navigation shell, dedicated Projects launchpad, centerpiece Editor with contextual inspector, high-density Subtitles workspace, Style studio, Export hub, multi-section Settings, non-intrusive generation dialog, 4-step tutorial, official branding integration. (TASK-063 - TASK-075) |

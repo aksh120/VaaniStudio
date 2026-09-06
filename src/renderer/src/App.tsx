@@ -1,17 +1,16 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useProjectStore } from './store/projectStore.js';
+import { useUIStore } from './store/uiStore.js';
 import {
-  LanguageMode,
   ScriptMode,
-  PerformanceMode,
   ModelInfo,
   SubtitleEvent,
+  CrashRecoveryEntry,
 } from '../../shared/types/models.js';
 import { transformScript } from '../../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../../shared/intelligence/textNormalizer.js';
-import { VideoPlayerPreview, AspectRatioMode } from './components/VideoPlayerPreview.js';
-import { WaveformTimeline } from './components/WaveformTimeline.js';
-import { SubtitleListView } from './components/SubtitleListView.js';
+import { createEmptyProject } from '../../shared/defaults.js';
+import { AspectRatioMode } from './components/VideoPlayerPreview.js';
 import { HistoryManager } from './editor/historyManager.js';
 import { ShortcutManager } from './editor/shortcutManager.js';
 import {
@@ -25,24 +24,29 @@ import {
   searchAndReplace,
   SearchReplaceOptions,
 } from './editor/editorOperations.js';
-import { StylePresetStudio } from './components/StylePresetStudio.js';
 import { PresetManager } from './editor/presetManager.js';
-import { ExportModal } from './components/ExportModal.js';
-import { HardwarePerformanceModal } from './components/HardwarePerformanceModal.js';
 import { ActionableErrorModal } from './components/ActionableErrorModal.js';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner.js';
-import { OnboardingWizard } from './components/OnboardingWizard.js';
 import { BatchQueueModal } from './components/BatchQueueModal.js';
 import { translateError } from '../../shared/errors/errorTranslator.js';
-import { CrashRecoveryEntry } from '../../shared/types/models.js';
 import logoIcon from './assets/inapp-icon.svg';
+
+// Dedicated Workspace Views
+import { ProjectsView } from './components/ProjectsView.js';
+import { EditorWorkspace } from './components/EditorWorkspace.js';
+import { SubtitlesWorkspace } from './components/SubtitlesWorkspace.js';
+import { StyleWorkspace } from './components/StyleWorkspace.js';
+import { ExportWorkspace } from './components/ExportWorkspace.js';
+import { SettingsWorkspace } from './components/SettingsWorkspace.js';
+import { GenerateSubtitlesDialog } from './components/GenerateSubtitlesDialog.js';
+import { TutorialDialog } from './components/TutorialDialog.js';
+import { HelpDialog } from './components/HelpDialog.js';
 
 export const App: React.FC = () => {
   const {
     project,
     hardware,
     audioWavPath,
-    waveformData,
     currentTime,
     selectedEventId,
     setHardware,
@@ -53,7 +57,6 @@ export const App: React.FC = () => {
     selectEvent,
     setCurrentTime,
     updateSettings,
-    updateStyle,
     statusMessage,
     setStatusMessage,
     loadProjectData,
@@ -70,25 +73,33 @@ export const App: React.FC = () => {
     dismissCrashRecovery,
   } = useProjectStore();
 
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState<string>('whisper-tiny-ct2-int8');
-  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
-  const [isDownloading, setIsDownloading] = useState<boolean>(false);
-  const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [detectedClassification, setDetectedClassification] = useState<string | null>(null);
+  const {
+    activeTab,
+    theme,
+    isGenerateModalOpen,
+    isTutorialOpen,
+    isHelpOpen,
+    tutorialCompleted,
+    recentProjects,
+    setActiveTab,
+    toggleTheme,
+    setIsGenerateModalOpen,
+    setIsTutorialOpen,
+    setIsHelpOpen,
+    addRecentProject,
+  } = useUIStore();
 
-  // Playback & Viewport state
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>('whisper-small-ct2-int8');
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
+
+  // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
-  const [sidebarTab, setSidebarTab] = useState<'intelligence' | 'style'>('style');
-  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
-  const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isDiarizing, setIsDiarizing] = useState<boolean>(false);
-  const [recommendedModelId, setRecommendedModelId] = useState<string>('whisper-small-ct2-int8');
 
   // Preset Manager instance
   const presetManager = useMemo(() => new PresetManager(), []);
@@ -134,7 +145,7 @@ export const App: React.FC = () => {
 
   const duration = project.media?.durationSeconds || 0;
 
-  // Find currently active subtitle event for live preview overlay
+  // Active subtitle helper
   const activeSubtitle = useMemo(() => {
     return (
       project.events.find(
@@ -143,22 +154,25 @@ export const App: React.FC = () => {
     );
   }, [project.events, currentTime]);
 
-  // Load models catalog and refresh status
-  const refreshModels = async () => {
+  // Load models catalog
+  const refreshModels = useCallback(async () => {
     if (window.vaaniAPI) {
       const res = await window.vaaniAPI.getModels();
       if (res.success && res.data) {
         setModels(res.data);
       }
     }
-  };
+  }, []);
 
+  // Initial Hardware & Setup inspection
   useEffect(() => {
+    // Sync data-theme on mount
+    document.documentElement.setAttribute('data-theme', theme);
+
     if (window.vaaniAPI) {
       window.vaaniAPI.getHardwareProfile().then((res) => {
         if (res.success && res.data) {
           setHardware(res.data);
-          setStatusMessage(`Hardware detected: ${res.data.cpuModel}`);
         }
       });
       refreshModels();
@@ -166,9 +180,11 @@ export const App: React.FC = () => {
       if (window.vaaniAPI.checkOnboardingStatus) {
         window.vaaniAPI.checkOnboardingStatus().then((res) => {
           if (res.success && res.data) {
-            setRecommendedModelId(res.data.recommendedModelId);
-            if (res.data.isFirstRun) {
-              setIsOnboardingOpen(true);
+            if (res.data.recommendedModelId) {
+              setSelectedModelId(res.data.recommendedModelId);
+            }
+            if (res.data.isFirstRun && !tutorialCompleted) {
+              setIsTutorialOpen(true);
             }
           }
         });
@@ -190,20 +206,18 @@ export const App: React.FC = () => {
         setStatusMessage(prog.message);
         if (prog.stage === 'transcribing') {
           setTranscriptionProgress(prog.percent);
-        } else if (prog.stage === 'idle' && isDownloading) {
-          setDownloadProgress(prog.percent);
         }
       });
 
       return () => cleanupProgress();
     }
-  }, [setHardware, setStatusMessage, isDownloading]);
+  }, [setHardware, setStatusMessage, refreshModels, presetManager, theme, tutorialCompleted, setIsTutorialOpen]);
 
-  // Editor Operations Handlers
+  // Editor operations
   const handleSplitAtPlayhead = useCallback(() => {
     const targetId = selectedEventId || activeSubtitle?.id;
     if (!targetId) {
-      setStatusMessage('Select a subtitle event or move playhead over an event to split.');
+      setStatusMessage('Move playhead over an event or select a subtitle to split.');
       return;
     }
     const updated = splitAtPlayhead(project.events, targetId, currentTime);
@@ -290,7 +304,7 @@ export const App: React.FC = () => {
       });
       commitEvents(updated);
       setIsDirty(true);
-      setStatusMessage(`Updated speaker for event to "${newSpeaker}".`);
+      setStatusMessage(`Updated speaker to "${newSpeaker}".`);
     },
     [project.events, commitEvents, setIsDirty, setStatusMessage]
   );
@@ -308,7 +322,7 @@ export const App: React.FC = () => {
         commitEvents(res.data.events);
         setIsDirty(true);
         setStatusMessage(
-          `Diarization complete: Identified ${res.data.speakers.length} speakers across ${res.data.events.length} subtitle events.`
+          `Diarization complete: ${res.data.speakers.length} speakers identified.`
         );
       } else {
         setStatusMessage(`Diarization failed: ${res.error?.message || 'Unknown error'}`);
@@ -320,7 +334,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Keyboard Shortcuts Hook
+  // Keyboard Shortcuts
   useEffect(() => {
     const shortcutManager = new ShortcutManager({
       onTogglePlayPause: () => setIsPlaying((p) => !p),
@@ -372,7 +386,21 @@ export const App: React.FC = () => {
     setCurrentTime,
   ]);
 
-  // Phase 12: Startup Crash Recovery Check
+  // Autosave interval (60s snapshot)
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (isDirty && (project.events.length > 0 || project.media) && window.vaaniAPI) {
+        try {
+          await window.vaaniAPI.saveAutosaveSnapshot(project, currentProjectFilePath || undefined);
+        } catch {
+          // Silent
+        }
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [isDirty, project, currentProjectFilePath]);
+
+  // Crash Recovery Check
   useEffect(() => {
     const checkRecovery = async () => {
       if (!window.vaaniAPI) return;
@@ -382,28 +410,11 @@ export const App: React.FC = () => {
           setCrashRecoveries(res.data);
         }
       } catch {
-        // Fail open silently
+        // Silent
       }
     };
     checkRecovery();
   }, [setCrashRecoveries]);
-
-  // Phase 12: 60-second Background Autosave Interval
-  useEffect(() => {
-    const timer = setInterval(async () => {
-      if (isDirty && (project.events.length > 0 || project.media) && window.vaaniAPI) {
-        try {
-          const res = await window.vaaniAPI.saveAutosaveSnapshot(project, currentProjectFilePath || undefined);
-          if (res.success) {
-            setStatusMessage(`Autosaved snapshot at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
-          }
-        } catch {
-          // Autosave fails silently in background
-        }
-      }
-    }, 60000);
-    return () => clearInterval(timer);
-  }, [isDirty, project, currentProjectFilePath, setStatusMessage]);
 
   const handleRestoreCrashRecovery = async (entry: CrashRecoveryEntry) => {
     if (!window.vaaniAPI) return;
@@ -414,9 +425,8 @@ export const App: React.FC = () => {
       historyRef.current.clear(res.data.events);
       syncHistoryState();
       dismissCrashRecovery(entry.projectId);
-      setStatusMessage(`Restored unsaved project from ${new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
-    } else {
-      setActiveError(translateError(res.error?.message || 'Failed to restore project', 'Crash Recovery'));
+      setStatusMessage(`Restored project from autosave snapshot.`);
+      setActiveTab('editor');
     }
   };
 
@@ -424,10 +434,8 @@ export const App: React.FC = () => {
     if (!window.vaaniAPI) return;
     await window.vaaniAPI.discardCrashRecovery(entry.projectId);
     dismissCrashRecovery(entry.projectId);
-    setStatusMessage('Discarded crash recovery journal.');
+    setStatusMessage('Discarded recovery snapshot.');
   };
-
-  const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
   const handleSelectMedia = async () => {
     if (!window.vaaniAPI) return;
@@ -441,7 +449,8 @@ export const App: React.FC = () => {
       if (probeRes.success && probeRes.data) {
         const mediaInfo = probeRes.data;
         setMedia(mediaInfo);
-        setStatusMessage(`Probed: ${mediaInfo.fileName} (${mediaInfo.durationSeconds.toFixed(1)}s). Extracting 16kHz audio...`);
+        setStatusMessage(`Extracting audio from ${mediaInfo.fileName}...`);
+        setActiveTab('editor');
 
         const extractRes = await window.vaaniAPI.extractAudio(filePath, {
           normalize: true,
@@ -456,47 +465,12 @@ export const App: React.FC = () => {
           const waveRes = await window.vaaniAPI.generateWaveform(wavPath, { bucketsPerSecond: 50 });
           if (waveRes.success && waveRes.data) {
             setWaveformData(waveRes.data);
-            setStatusMessage(`Media ready: ${mediaInfo.fileName} (${waveRes.data.peaks.length} waveform peaks)`);
+            setStatusMessage(`Media loaded: ${mediaInfo.fileName}`);
           } else {
-            setStatusMessage('Audio extracted, waveform computation skipped.');
+            setStatusMessage('Audio extracted.');
           }
-        } else {
-          setStatusMessage(`Audio extraction failed: ${extractRes.error?.message}`);
         }
-      } else {
-        setStatusMessage(`Probe failed: ${probeRes.error?.message || 'Unsupported media file'}`);
       }
-    } else {
-      setStatusMessage('Media selection cancelled.');
-    }
-  };
-
-  const handleDownloadModel = async () => {
-    if (!window.vaaniAPI || !currentModel) return;
-    setIsDownloading(true);
-    setDownloadProgress(5);
-    setStatusMessage(`Starting download of ${currentModel.name}...`);
-
-    const res = await window.vaaniAPI.downloadModel(currentModel.id);
-    setIsDownloading(false);
-
-    if (res.success) {
-      setStatusMessage(`Model ${currentModel.name} is ready for transcription.`);
-      await refreshModels();
-    } else {
-      setStatusMessage(`Model download failed: ${res.error?.message}`);
-    }
-  };
-
-  const handleDeleteModel = async () => {
-    if (!window.vaaniAPI || !currentModel) return;
-    setStatusMessage(`Deleting ${currentModel.name}...`);
-    const res = await window.vaaniAPI.deleteModel(currentModel.id);
-    if (res.success) {
-      setStatusMessage(`Deleted local weights for ${currentModel.name}`);
-      await refreshModels();
-    } else {
-      setStatusMessage(`Failed to delete model: ${res.error?.message}`);
     }
   };
 
@@ -522,7 +496,7 @@ export const App: React.FC = () => {
         );
       });
       commitEvents(transformed);
-      setStatusMessage(`Transformed ${transformed.length} subtitles to ${newMode} mode.`);
+      setStatusMessage(`Transformed subtitles to ${newMode} script mode.`);
     }
   };
 
@@ -532,7 +506,7 @@ export const App: React.FC = () => {
 
     setIsTranscribing(true);
     setTranscriptionProgress(0);
-    setStatusMessage('Initiating speech recognition worker...');
+    setStatusMessage('Starting speech recognition...');
 
     const langParam =
       project.settings.languageMode === 'auto'
@@ -552,20 +526,18 @@ export const App: React.FC = () => {
     });
 
     setIsTranscribing(false);
+    setIsGenerateModalOpen(false);
 
     if (res.success && res.data) {
       historyRef.current.clear(res.data.events);
       setEvents(res.data.events);
       syncHistoryState();
-
-      if ((res.data as any).classification) {
-        setDetectedClassification((res.data as any).classification);
-      }
       setStatusMessage(
-        `Transcription complete: ${res.data.events.length} subtitle events generated (Detected: ${res.data.language.toUpperCase()}).`
+        `Generated ${res.data.events.length} subtitles (${res.data.language.toUpperCase()}).`
       );
+      setActiveTab('editor');
     } else {
-      setStatusMessage(`Transcription failed: ${res.error?.message || 'Unknown error'}`);
+      setStatusMessage(`Transcription failed: ${res.error?.message || 'Error'}`);
     }
   };
 
@@ -574,7 +546,7 @@ export const App: React.FC = () => {
     setStatusMessage('Cancelling transcription...');
     await window.vaaniAPI.cancelTranscription();
     setIsTranscribing(false);
-    setStatusMessage('Transcription cancelled by user.');
+    setStatusMessage('Transcription cancelled.');
   };
 
   const handleSaveProject = async () => {
@@ -585,100 +557,225 @@ export const App: React.FC = () => {
       setProjectFilePath(res.data);
       setLastSavedAt(new Date().toISOString());
       setIsDirty(false);
-      setStatusMessage(`Project saved to ${res.data}`);
+      addRecentProject({
+        id: project.projectId,
+        name: project.projectName || 'Project',
+        filePath: res.data,
+        mediaPath: project.media?.filePath,
+        durationSeconds: project.media?.durationSeconds || 0,
+        subtitleCount: project.events.length,
+      });
+      setStatusMessage(`Project saved.`);
     } else if (res.error && res.error.code !== 'SAVE_CANCELLED') {
       setActiveError(translateError(res.error.message, 'Project Save'));
-      setStatusMessage(`Failed to save project: ${res.error.message}`);
-    } else {
-      setStatusMessage('Project save cancelled.');
     }
   };
 
   const handleOpenProject = async () => {
     if (!window.vaaniAPI) return;
-    setStatusMessage('Opening project...');
     const res = await window.vaaniAPI.loadProject();
     if (res.success && res.data) {
       loadProjectData(res.data);
       historyRef.current.clear(res.data.events);
       syncHistoryState();
       setStatusMessage(`Opened project: ${res.data.projectName}`);
-    } else if (res.error && res.error.code !== 'LOAD_CANCELLED') {
-      setActiveError(translateError(res.error.message, 'Project Open'));
-      setStatusMessage(`Failed to open project: ${res.error.message}`);
-    } else {
-      setStatusMessage('Open project cancelled.');
+      setActiveTab('editor');
     }
   };
 
+  const handleNewProject = () => {
+    const empty = createEmptyProject('Untitled Project');
+    loadProjectData(empty);
+    setAudioWavPath(null);
+    setWaveformData(null);
+    setProjectFilePath(null);
+    setIsDirty(false);
+    historyRef.current.clear([]);
+    syncHistoryState();
+    setStatusMessage('New project created.');
+    setActiveTab('editor');
+  };
+
+  const handleLoadSampleProject = () => {
+    const sampleEvents: SubtitleEvent[] = [
+      {
+        id: 'sample-evt-1',
+        index: 1,
+        startTime: 0.5,
+        endTime: 3.2,
+        text: 'Welcome to Vaani Studio native desktop editor.',
+        speakerLabel: 'Host',
+        words: [
+          { id: 'w-1', word: 'Welcome', startTime: 0.5, endTime: 1.0, confidence: 0.99 },
+          { id: 'w-2', word: 'to', startTime: 1.0, endTime: 1.2, confidence: 0.99 },
+          { id: 'w-3', word: 'Vaani', startTime: 1.2, endTime: 1.6, confidence: 0.98 },
+          { id: 'w-4', word: 'Studio', startTime: 1.6, endTime: 2.1, confidence: 0.99 },
+          { id: 'w-5', word: 'native', startTime: 2.1, endTime: 2.5, confidence: 0.97 },
+          { id: 'w-6', word: 'desktop', startTime: 2.5, endTime: 2.8, confidence: 0.96 },
+          { id: 'w-7', word: 'editor.', startTime: 2.8, endTime: 3.2, confidence: 0.99 },
+        ],
+      },
+      {
+        id: 'sample-evt-2',
+        index: 2,
+        startTime: 3.5,
+        endTime: 6.8,
+        text: 'Local AI transcription with English, Hindi and Hinglish support.',
+        speakerLabel: 'Host',
+        words: [
+          { id: 'w-8', word: 'Local', startTime: 3.5, endTime: 3.9, confidence: 0.98 },
+          { id: 'w-9', word: 'AI', startTime: 3.9, endTime: 4.2, confidence: 0.99 },
+          { id: 'w-10', word: 'transcription', startTime: 4.2, endTime: 4.8, confidence: 0.97 },
+          { id: 'w-11', word: 'with', startTime: 4.8, endTime: 5.1, confidence: 0.99 },
+          { id: 'w-12', word: 'English,', startTime: 5.1, endTime: 5.5, confidence: 0.98 },
+          { id: 'w-13', word: 'Hindi', startTime: 5.5, endTime: 5.9, confidence: 0.99 },
+          { id: 'w-14', word: 'and', startTime: 5.9, endTime: 6.1, confidence: 0.99 },
+          { id: 'w-15', word: 'Hinglish', startTime: 6.1, endTime: 6.5, confidence: 0.98 },
+          { id: 'w-16', word: 'support.', startTime: 6.5, endTime: 6.8, confidence: 0.99 },
+        ],
+      },
+      {
+        id: 'sample-evt-3',
+        index: 3,
+        startTime: 7.2,
+        endTime: 10.5,
+        text: 'All processing stays private and offline on your computer.',
+        speakerLabel: 'Guest',
+        words: [
+          { id: 'w-17', word: 'All', startTime: 7.2, endTime: 7.5, confidence: 0.99 },
+          { id: 'w-18', word: 'processing', startTime: 7.5, endTime: 8.1, confidence: 0.98 },
+          { id: 'w-19', word: 'stays', startTime: 8.1, endTime: 8.5, confidence: 0.99 },
+          { id: 'w-20', word: 'private', startTime: 8.5, endTime: 9.0, confidence: 0.99 },
+          { id: 'w-21', word: 'and', startTime: 9.0, endTime: 9.3, confidence: 0.99 },
+          { id: 'w-22', word: 'offline', startTime: 9.3, endTime: 9.8, confidence: 0.98 },
+          { id: 'w-23', word: 'on', startTime: 9.8, endTime: 10.0, confidence: 0.99 },
+          { id: 'w-24', word: 'your', startTime: 10.0, endTime: 10.2, confidence: 0.99 },
+          { id: 'w-25', word: 'computer.', startTime: 10.2, endTime: 10.5, confidence: 0.99 },
+        ],
+      },
+    ];
+
+    const sampleProj = createEmptyProject('Vaani Studio Showcase Demo');
+    sampleProj.events = sampleEvents;
+    sampleProj.speakers = [
+      { id: 'spk-1', name: 'Host', color: '#3B82F6' },
+      { id: 'spk-2', name: 'Guest', color: '#10B981' },
+    ];
+    sampleProj.settings.languageMode = 'hinglish';
+    sampleProj.settings.scriptMode = 'roman';
+
+    loadProjectData(sampleProj);
+    setAudioWavPath(null);
+    setWaveformData(null);
+    setProjectFilePath(null);
+    setIsDirty(false);
+    historyRef.current.clear(sampleEvents);
+    syncHistoryState();
+    setStatusMessage('Loaded sample demo project.');
+    setActiveTab('editor');
+  };
+
   return (
-    <div className="app-container">
-      {/* Top Application Bar */}
-      <header className="titlebar">
-        <div className="titlebar-brand">
-          <img
-            src={logoIcon}
-            alt="Vaani Studio"
-            style={{
-              width: '22px',
-              height: '22px',
-              borderRadius: '5px',
-              flexShrink: 0,
-              display: 'inline-block',
-              verticalAlign: 'middle',
-            }}
-          />
-          <span className="brand-badge">PRO</span>
-          <span className="brand-title">Vaani Studio</span>
-          <span className="brand-tagline">Local AI Subtitles</span>
-          {isDirty && (
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#F59E0B',
-                fontWeight: 600,
-                backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                marginLeft: '6px',
-              }}
-            >
-              Unsaved Changes
-            </span>
-          )}
+    <div className="app-shell" data-theme={theme}>
+      {/* 1. Desktop Title Bar */}
+      <header className="desktop-titlebar">
+        <div className="titlebar-left">
+          <div className="titlebar-brand-mark">
+            <img
+              src={logoIcon}
+              alt="Vaani Studio"
+              style={{ width: '18px', height: '18px', borderRadius: '3px' }}
+            />
+            <span className="titlebar-app-name">Vaani Studio</span>
+          </div>
+          <div className="titlebar-separator" />
+          <span
+            className="titlebar-project-name"
+            title={currentProjectFilePath || project.projectName}
+          >
+            {project.projectName || (project.media ? project.media.fileName : 'Untitled Project')}
+          </span>
+          {isDirty && <div className="titlebar-dirty-dot" title="Unsaved changes" />}
         </div>
 
-        <div className="titlebar-actions">
-          <button className="btn btn-secondary" onClick={handleOpenProject}>
-            Open Project
+        <div className="titlebar-right">
+          <button className="btn btn-ghost btn-sm" onClick={handleSaveProject} title="Save Project (Ctrl+S)">
+            Save
           </button>
-          <button className="btn btn-secondary" onClick={handleSaveProject}>
-            Save Project
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
-          <button className="btn btn-primary" onClick={handleSelectMedia}>
-            Import Media
-          </button>
-          <button className="btn btn-secondary" onClick={() => setIsExportModalOpen(true)} title="Export Subtitle Files or Burn-In Video">
-            Export
-          </button>
-          <button className="btn btn-secondary" onClick={() => setIsBatchModalOpen(true)} title="Batch Process Multiple Media Files">
-            Batch Queue
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsHelpOpen(true)}
+            title="Help & Documentation"
+          >
+            Help
           </button>
         </div>
       </header>
 
-      {/* Crash Recovery Prompt Banner (Phase 12) */}
+      {/* Crash Recovery Prompt Banner */}
       <CrashRecoveryBanner
         recoveries={crashRecoveries}
         onRestore={handleRestoreCrashRecovery}
         onDiscard={handleDiscardCrashRecovery}
       />
 
-      {/* Editor Workspace Toolbar */}
-      <div className="editor-main-toolbar">
-        <div className="toolbar-group">
+      {/* 2. Main Navigation Bar */}
+      <nav className="main-nav-bar">
+        <div className="nav-tabs-group">
           <button
-            className="ctrl-btn ctrl-btn-sm"
+            className={`nav-tab-item ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projects
+            {recentProjects.length > 0 && (
+              <span className="nav-tab-badge">{recentProjects.length}</span>
+            )}
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === 'editor' ? 'active' : ''}`}
+            onClick={() => setActiveTab('editor')}
+          >
+            Editor
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === 'subtitles' ? 'active' : ''}`}
+            onClick={() => setActiveTab('subtitles')}
+          >
+            Subtitles
+            {project.events.length > 0 && (
+              <span className="nav-tab-badge">{project.events.length}</span>
+            )}
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === 'style' ? 'active' : ''}`}
+            onClick={() => setActiveTab('style')}
+          >
+            Style
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === 'export' ? 'active' : ''}`}
+            onClick={() => setActiveTab('export')}
+          >
+            Export
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            Settings
+          </button>
+        </div>
+
+        <div className="nav-utility-group">
+          <button
+            className="btn btn-ghost btn-sm"
             disabled={!canUndo}
             onClick={handleUndo}
             title="Undo (Ctrl+Z)"
@@ -686,421 +783,177 @@ export const App: React.FC = () => {
             Undo
           </button>
           <button
-            className="ctrl-btn ctrl-btn-sm"
+            className="btn btn-ghost btn-sm"
             disabled={!canRedo}
             onClick={handleRedo}
             title="Redo (Ctrl+Y)"
           >
             Redo
           </button>
-          <div className="toolbar-divider" />
           <button
-            className="ctrl-btn ctrl-btn-sm"
-            onClick={handleInsertSubtitle}
-            title="Insert New Subtitle Event"
+            className="btn btn-primary btn-sm"
+            onClick={handleSelectMedia}
+            title="Import Audio or Video Media"
           >
-            Insert
-          </button>
-          <button
-            className="ctrl-btn ctrl-btn-sm"
-            disabled={!selectedEventId && !activeSubtitle}
-            onClick={handleSplitAtPlayhead}
-            title="Split active subtitle at playhead (Ctrl+K or S)"
-          >
-            Split
-          </button>
-          <button
-            className="ctrl-btn ctrl-btn-sm"
-            disabled={!selectedEventId}
-            onClick={handleMergeWithNext}
-            title="Merge with adjacent subtitle (Ctrl+M)"
-          >
-            Merge
-          </button>
-          <button
-            className="ctrl-btn ctrl-btn-sm"
-            disabled={!selectedEventId}
-            onClick={handleDuplicateSelected}
-            title="Duplicate subtitle"
-          >
-            Duplicate
-          </button>
-          <button
-            className="ctrl-btn ctrl-btn-sm action-delete"
-            disabled={!selectedEventId}
-            onClick={handleDeleteSelected}
-            title="Delete subtitle (Delete)"
-          >
-            Delete
+            Import Media
           </button>
         </div>
+      </nav>
 
-        <div className="toolbar-group">
-          {detectedClassification && (
-            <span
-              className="brand-badge"
-              style={{ background: 'var(--accent-active)', fontSize: '10px' }}
-            >
-              {detectedClassification.replace(/_/g, ' ').toUpperCase()}
-            </span>
-          )}
-          {isTranscribing ? (
-            <button className="btn btn-danger btn-sm" onClick={handleCancelTranscription}>
-              Cancel Transcription
-            </button>
-          ) : (
-            <button
-              className="btn btn-primary btn-sm"
-              disabled={!project.media || (currentModel && !currentModel.isDownloaded)}
-              onClick={handleStartTranscription}
-            >
-              Generate Subtitles
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Studio Viewport and Panels */}
-      <main className="studio-main">
-        {/* Left / Center Work Area */}
-        <section className="editor-workspace">
-          {/* Active Transcription Progress Bar */}
-          {isTranscribing && (
-            <div
-              style={{
-                padding: '8px 12px',
-                backgroundColor: 'var(--bg-surface-hover)',
-                borderBottom: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '11px',
-                  marginBottom: '4px',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <span>Transcribing speech with {currentModel?.name}...</span>
-                <span>{transcriptionProgress.toFixed(1)}%</span>
-              </div>
-              <div
-                style={{
-                  width: '100%',
-                  height: '4px',
-                  backgroundColor: 'var(--bg-base)',
-                  borderRadius: '2px',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${transcriptionProgress}%`,
-                    height: '100%',
-                    backgroundColor: 'var(--accent-active)',
-                    transition: 'width 200ms ease',
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Top Half: Video Player Viewport */}
-          <div className="viewport-pane" style={{ flex: '1 1 50%', minHeight: '260px' }}>
-            <VideoPlayerPreview
-              mediaPath={project.media?.filePath || null}
-              duration={duration}
-              currentTime={currentTime}
-              onTimeUpdate={setCurrentTime}
-              isPlaying={isPlaying}
-              onTogglePlayPause={() => setIsPlaying(!isPlaying)}
-              activeSubtitle={activeSubtitle}
-              styleConfig={project.style}
-              aspectRatio={aspectRatio}
-              onAspectRatioChange={setAspectRatio}
-              playbackRate={playbackRate}
-              onPlaybackRateChange={setPlaybackRate}
-              onStepFrame={(dir) => {
-                const step = dir * (1 / 30);
-                setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
-              }}
-              onStepSecond={(dir) => {
-                const step = dir * 1.0;
-                setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
-              }}
-            />
-          </div>
-
-          {/* Interactive Multi-Scale Waveform Timeline */}
-          <WaveformTimeline
-            duration={duration}
-            currentTime={currentTime}
-            onSeek={setCurrentTime}
-            waveformData={waveformData}
-            events={project.events}
-            selectedEventId={selectedEventId}
-            onSelectEvent={selectEvent}
-            onUpdateEventTiming={handleUpdateTiming}
-            onSplitAtPlayhead={handleSplitAtPlayhead}
+      {/* 3. Main Workspace Viewport */}
+      <main className="main-workspace">
+        {activeTab === 'projects' && (
+          <ProjectsView
+            onImportMedia={handleSelectMedia}
+            onOpenProject={handleOpenProject}
+            onNewProject={handleNewProject}
+            onLoadSample={handleLoadSampleProject}
           />
+        )}
 
-          {/* High-Performance Virtualized Subtitle List View */}
-          <div style={{ flex: '1 1 50%', minHeight: '220px', display: 'flex', flexDirection: 'column' }}>
-            <SubtitleListView
-              events={project.events}
-              selectedEventId={selectedEventId}
-              currentTime={currentTime}
-              onSelectEvent={selectEvent}
-              onUpdateText={handleUpdateText}
-              onUpdateTiming={handleUpdateTiming}
-              onSplit={handleSplitAtPlayhead}
-              onMerge={handleMergeWithNext}
-              onDuplicate={handleDuplicateSelected}
-              onDelete={handleDeleteSelected}
-              onSearchReplace={handleSearchReplace}
-              onUpdateSpeaker={handleUpdateSpeaker}
-              speakers={project.speakers}
-            />
-          </div>
-        </section>
+        {activeTab === 'editor' && (
+          <EditorWorkspace
+            isPlaying={isPlaying}
+            onTogglePlayPause={() => setIsPlaying(!isPlaying)}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            playbackRate={playbackRate}
+            onPlaybackRateChange={setPlaybackRate}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onInsertSubtitle={handleInsertSubtitle}
+            onSplitAtPlayhead={handleSplitAtPlayhead}
+            onMergeWithNext={handleMergeWithNext}
+            onDuplicateSelected={handleDuplicateSelected}
+            onDeleteSelected={handleDeleteSelected}
+            onUpdateText={handleUpdateText}
+            onUpdateTiming={handleUpdateTiming}
+            onSearchReplace={handleSearchReplace}
+            onUpdateSpeaker={handleUpdateSpeaker}
+            onDiarizeSpeakers={handleDiarizeSpeakers}
+            isDiarizing={isDiarizing}
+            onOpenGenerateModal={() => setIsGenerateModalOpen(true)}
+            onScriptModeChange={handleScriptModeChange}
+          />
+        )}
 
-        {/* Right Inspector & Settings Sidebar */}
-        <aside className="sidebar-inspector">
-          {/* Sidebar Mode Switcher */}
-          <div style={{ display: 'flex', gap: '4px', padding: '10px 10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-            <button
-              className={`style-nav-tab ${sidebarTab === 'style' ? 'active' : ''}`}
-              onClick={() => setSidebarTab('style')}
-              style={{ flex: 1 }}
-            >
-              Style Studio
-            </button>
-            <button
-              className={`style-nav-tab ${sidebarTab === 'intelligence' ? 'active' : ''}`}
-              onClick={() => setSidebarTab('intelligence')}
-              style={{ flex: 1 }}
-            >
-              Speech & ASR
-            </button>
-          </div>
+        {activeTab === 'subtitles' && (
+          <SubtitlesWorkspace
+            onInsertSubtitle={handleInsertSubtitle}
+            onSplitAtPlayhead={handleSplitAtPlayhead}
+            onMergeWithNext={handleMergeWithNext}
+            onDuplicateSelected={handleDuplicateSelected}
+            onDeleteSelected={handleDeleteSelected}
+            onUpdateText={handleUpdateText}
+            onUpdateTiming={handleUpdateTiming}
+            onSearchReplace={handleSearchReplace}
+            onUpdateSpeaker={handleUpdateSpeaker}
+            onDiarizeSpeakers={handleDiarizeSpeakers}
+            isDiarizing={isDiarizing}
+            onScriptModeChange={handleScriptModeChange}
+            onOpenGenerateModal={() => setIsGenerateModalOpen(true)}
+          />
+        )}
 
-          {sidebarTab === 'style' ? (
-            <StylePresetStudio
-              currentStyle={project.style}
-              onUpdateStyle={(updated) => updateStyle(updated)}
-              presetManager={presetManager}
-            />
-          ) : (
-            <>
-              {/* ASR Model Management */}
-              <div className="inspector-section">
-                <span className="section-label">ASR Model Management</span>
+        {activeTab === 'style' && (
+          <StyleWorkspace presetManager={presetManager} />
+        )}
 
-                <div className="control-group">
-                  <label className="control-label">Whisper Model</label>
-                  <select
-                    className="control-select"
-                    value={selectedModelId}
-                    onChange={(e) => setSelectedModelId(e.target.value)}
-                  >
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' - Ready' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        {activeTab === 'export' && (
+          <ExportWorkspace onOpenBatchQueue={() => setIsBatchModalOpen(true)} />
+        )}
 
-                {currentModel && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    <p style={{ margin: '0 0 8px 0' }}>{currentModel.description}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Status: {currentModel.isDownloaded ? 'Downloaded' : 'Not Downloaded'}</span>
-                      {currentModel.isDownloaded ? (
-                        <button
-                          className="btn btn-secondary"
-                          style={{ fontSize: '11px', padding: '2px 8px' }}
-                          onClick={handleDeleteModel}
-                        >
-                          Delete
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-primary"
-                          style={{ fontSize: '11px', padding: '2px 8px' }}
-                          disabled={isDownloading}
-                          onClick={handleDownloadModel}
-                        >
-                          {isDownloading ? `Downloading (${downloadProgress.toFixed(0)}%)...` : `Download (${currentModel.sizeMB} MB)`}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Project & Language Intelligence */}
-              <div className="inspector-section">
-                <span className="section-label">Speech Intelligence</span>
-
-                <div className="control-group">
-                  <label className="control-label">Language Mode</label>
-                  <select
-                    className="control-select"
-                    value={project.settings.languageMode}
-                    onChange={(e) => updateSettings({ languageMode: e.target.value as LanguageMode })}
-                  >
-                    <option value="hinglish">Hinglish (Mixed Hindi & English)</option>
-                    <option value="english">English (Global / Indian Accent)</option>
-                    <option value="hindi">Hindi (Pure Devanagari)</option>
-                    <option value="auto">Auto-Detect Language</option>
-                  </select>
-                </div>
-
-                <div className="control-group">
-                  <label className="control-label">Script Mode</label>
-                  <select
-                    className="control-select"
-                    value={project.settings.scriptMode}
-                    onChange={(e) => handleScriptModeChange(e.target.value as ScriptMode)}
-                  >
-                    <option value="roman">Roman Hinglish (e.g. "Ye feature better hai")</option>
-                    <option value="devanagari">Devanagari (e.g. "ये फीचर बेटर है")</option>
-                    <option value="exact">Exact Spoken (Verbatim)</option>
-                    <option value="cleaned">Cleaned Speech (Filler Removed)</option>
-                  </select>
-                </div>
-
-                <div className="control-group">
-                  <label className="control-label">Performance Mode</label>
-                  <select
-                    className="control-select"
-                    value={project.settings.performanceMode}
-                    onChange={(e) => updateSettings({ performanceMode: e.target.value as PerformanceMode })}
-                  >
-                    <option value="fast">Fast (Quantized Tiny/Base Model)</option>
-                    <option value="balanced">Balanced (Quantized Small Model)</option>
-                    <option value="quality">Maximum Quality (Medium Model)</option>
-                  </select>
-                </div>
-
-                <div className="control-group" style={{ marginTop: '16px' }}>
-                  <label className="control-label">Speaker Diarization</label>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    style={{ width: '100%' }}
-                    disabled={!audioWavPath || project.events.length === 0 || isDiarizing}
-                    onClick={handleDiarizeSpeakers}
-                  >
-                    {isDiarizing ? 'Diarizing Speakers...' : 'Diarize Speakers'}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </aside>
+        {activeTab === 'settings' && (
+          <SettingsWorkspace
+            models={models}
+            hardware={hardware}
+            onRefreshModels={refreshModels}
+          />
+        )}
       </main>
 
-      {/* Bottom Diagnostic Status Bar */}
-      <footer className="statusbar">
-        <div className="statusbar-left">
-          <div className="status-indicator">
-            <span className="status-dot"></span>
-            <span>Local & Private (Zero Cloud)</span>
+      {/* 4. Desktop Status Bar */}
+      <footer className="desktop-statusbar">
+        <div className="statusbar-section">
+          <div className="statusbar-item">
+            <span className={`statusbar-dot ${isDirty ? 'warning' : ''}`} />
+            <span>{statusMessage || 'Ready'}</span>
           </div>
-          <span>|</span>
-          <span>{statusMessage}</span>
-          {lastSavedAt ? (
+          {project.media && (
             <>
-              <span>|</span>
-              <span style={{ opacity: 0.75 }}>
-                {isDirty ? 'Unsaved edits' : `Saved at ${new Date(lastSavedAt).toLocaleTimeString()}`}
-              </span>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>{project.media.durationSeconds.toFixed(1)}s</span>
+              </div>
             </>
-          ) : null}
+          )}
+          {lastSavedAt && (
+            <>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>
+                  {isDirty
+                    ? 'Unsaved changes'
+                    : `Saved ${new Date(lastSavedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="statusbar-right">
+        <div className="statusbar-section">
           <button
-            className="statusbar-link-btn"
-            onClick={() => setIsOnboardingOpen(true)}
-            title="Open Setup & Model Wizard"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary, #94a3b8)',
-              cursor: 'pointer',
-              fontSize: '11px',
-              padding: '0 4px',
-            }}
+            className="statusbar-btn"
+            onClick={() => setActiveTab('settings')}
+            title="Configure Performance"
           >
-            Setup Wizard
+            Mode: {project.settings.performanceMode.toUpperCase()}
           </button>
-          <span>|</span>
-          <button
-            className="statusbar-link-btn"
-            onClick={() => setIsHardwareModalOpen(true)}
-            title="Configure Hardware & Performance Profile"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent-active)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11px',
-              padding: '0 4px',
-              fontWeight: 600,
-            }}
-          >
-            <span>Mode: {project.settings.performanceMode.toUpperCase()}</span>
-          </button>
-          <span>|</span>
-          <span>CPU: {hardware ? `${hardware.physicalCores} Cores / ${hardware.logicalCores} Threads` : 'Probing...'}</span>
-          <span>|</span>
-          <span>Inference: {hardware ? hardware.inferenceDevice.toUpperCase() : 'CPU'}</span>
+          <span style={{ opacity: 0.4 }}>|</span>
+          <span>
+            CPU: {hardware ? `${hardware.physicalCores}C / ${hardware.logicalCores}T` : 'CPU'}
+          </span>
+          <span style={{ opacity: 0.4 }}>|</span>
+          <span>Inference: CPU INT8</span>
         </div>
       </footer>
 
-      {/* Export & Video Burn-in Modal (Phase 9) */}
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        project={project}
-        onStatusMessage={setStatusMessage}
+      {/* 5. Clean Dialogs and Modals */}
+      <GenerateSubtitlesDialog
+        isOpen={isGenerateModalOpen}
+        onClose={() => setIsGenerateModalOpen(false)}
+        models={models}
+        selectedModelId={selectedModelId}
+        onSelectModelId={setSelectedModelId}
+        isTranscribing={isTranscribing}
+        transcriptionProgress={transcriptionProgress}
+        onStartTranscription={handleStartTranscription}
+        onCancelTranscription={handleCancelTranscription}
       />
 
-      {/* Hardware & Performance Optimization Modal (Phase 10) */}
-      <HardwarePerformanceModal
-        isOpen={isHardwareModalOpen}
-        onClose={() => setIsHardwareModalOpen(false)}
-        hardware={hardware}
-        activeMode={project.settings.performanceMode}
-        onSelectMode={(mode) => {
-          updateSettings({ performanceMode: mode });
-          setStatusMessage(`Switched performance mode to ${mode.toUpperCase()}.`);
-        }}
+      <TutorialDialog
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+        onSelectMedia={handleSelectMedia}
+        onExploreSample={handleLoadSampleProject}
       />
 
-      {/* Actionable Error Translation Modal (Phase 12) */}
+      <HelpDialog
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        onRestartTutorial={() => setIsTutorialOpen(true)}
+      />
+
       <ActionableErrorModal
         error={activeError}
         onClose={() => setActiveError(null)}
       />
 
-      {/* First-Run Onboarding and Model Download Wizard (Phase 13) */}
-      <OnboardingWizard
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        hardware={hardware}
-        models={models}
-        recommendedModelId={recommendedModelId}
-        onModelDownloaded={refreshModels}
-      />
-
-      {/* Batch Processing Queue Modal (Phase 14) */}
       <BatchQueueModal
         isOpen={isBatchModalOpen}
         onClose={() => setIsBatchModalOpen(false)}
