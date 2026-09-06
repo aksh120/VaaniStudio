@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v0.1.0)'
+        required: false
+        default: 'v0.1.0'
+      draft:
+        description: 'Create Draft Release'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as Pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Executables
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        with:
+          ffmpeg-version: release
+          linking-type: static
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npm run typecheck
+
+      - name: Build production bundles
+        run: npm run build
+
+      - name: Package Windows Executables (NSIS, Portable, ZIP)
+        run: npx electron-builder --win --x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Windows SHA256 Checksums
+        shell: powershell
+        run: |
+          Get-ChildItem -Path dist-release -File | Where-Object { $_.Extension -in '.exe', '.zip' } | ForEach-Object {
+            (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower() + "  " + $_.Name | Out-File -FilePath dist-release/SHA256SUMS-windows.txt -Append -Encoding ascii
+          }
+          Get-Content dist-release/SHA256SUMS-windows.txt
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: |
+            dist-release/*.exe
+            dist-release/*.zip
+            dist-release/SHA256SUMS-windows.txt
+          retention-days: 5
+
+  build-linux:
+    name: Build Linux Executables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup FFmpeg & Packaging Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libarchive-tools
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npm run typecheck
+
+      - name: Build production bundles
+        run: npm run build
+
+      - name: Package Linux Executables (AppImage, DEB, tar.gz)
+        run: npx electron-builder --linux --x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Linux SHA256 Checksums
+        run: |
+          cd dist-release
+          sha256sum *.AppImage *.deb *.tar.gz > SHA256SUMS-linux.txt 2>/dev/null || true
+          cat SHA256SUMS-linux.txt
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: |
+            dist-release/*.AppImage
+            dist-release/*.deb
+            dist-release/*.tar.gz
+            dist-release/SHA256SUMS-linux.txt
+          retention-days: 5
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create release directory
+        run: mkdir -p release-assets
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binaries
+          path: release-assets
+
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-binaries
+          path: release-assets
+
+      - name: Consolidate SHA256 Checksums
+        run: |
+          cd release-assets
+          cat SHA256SUMS-windows.txt SHA256SUMS-linux.txt > SHA256SUMS.txt
+          rm -f SHA256SUMS-windows.txt SHA256SUMS-linux.txt
+          cat SHA256SUMS.txt
+
+      - name: Determine Release Tag
+        id: release_info
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build Release Notes Body
+        id: release_notes
+        run: |
+          TAG="${{ steps.release_info.outputs.tag }}"
+          cat << 'EOF' > release_body.md
+          ## Vaani Studio Release
+
+          Vaani Studio is a free, local-first AI subtitle generation and video burn-in application built for English, Hindi, and Hinglish.
+
+          ### Download Options
+
+          | Platform | Format | File Name | Description |
+          |---|---|---|---|
+          | **Windows** | Setup Installer | `VaaniStudio-Setup-*.exe` | Recommended installer with desktop & start menu shortcuts |
+          | **Windows** | Portable Executable | `VaaniStudio-Portable-*.exe` | Standalone zero-install executable |
+          | **Windows** | Portable ZIP | `VaaniStudio-Windows-*.zip` | Portable archive folder |
+          | **Linux** | Universal AppImage | `VaaniStudio-*.AppImage` | Standalone executable for all modern Linux distros |
+          | **Linux** | Debian / Ubuntu | `VaaniStudio-*.deb` | Native deb package for Ubuntu, Debian, Mint |
+          | **Linux** | Tarball | `VaaniStudio-*.tar.gz` | Standalone Linux archive |
+
+          ### Key Features
+          * **100% Offline & Private**: Zero cloud audio upload. All transcription runs locally on your device.
+          * **Multi-Format Subtitle Export**: SRT, WebVTT, ASS with animated karaoke styling, TXT, and JSON.
+          * **Video Burn-In Engine**: Direct subtitle rendering into MP4/MKV videos with GPU acceleration.
+          * **Acoustic Speaker Diarization**: Turn-taking speaker clustering with custom speaker naming and palette colors.
+          * **Batch Processing Queue**: Automated unattended multi-file transcription with per-item error isolation.
+          * **Headless CLI**: Scriptable terminal automation (`vaani transcribe` and `vaani render`).
+
+          ### Verification & Integrity
+          Verify the integrity of downloaded files against `SHA256SUMS.txt`:
+          ```bash
+          # Linux / macOS
+          sha256sum -c SHA256SUMS.txt
+
+          # Windows PowerShell
+          Get-FileHash <filename> -Algorithm SHA256
+          ```
+          EOF
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: Vaani Studio ${{ steps.release_info.outputs.tag }}
+          body_path: release_body.md
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          generate_release_notes: true
+          files: |
+            release-assets/VaaniStudio-Setup-*.exe
+            release-assets/VaaniStudio-Portable-*.exe
+            release-assets/VaaniStudio-Windows-*.zip
+            release-assets/VaaniStudio-*.AppImage
+            release-assets/VaaniStudio-*.deb
+            release-assets/VaaniStudio-*.tar.gz
+            release-assets/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

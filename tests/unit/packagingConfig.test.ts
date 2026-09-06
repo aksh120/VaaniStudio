@@ -44,6 +44,20 @@ describe('Phase 13: Packaging and Windows Distribution Configuration (TASK-056)'
     expect(content).toContain('artifactName: VaaniStudio-Portable-${version}.exe');
   });
 
+  it('verifies multi-format distribution targets for Windows and Linux', () => {
+    const content = fs.readFileSync(configPath, 'utf8');
+
+    // Windows targets: NSIS, Portable, ZIP
+    expect(content).toContain('target: zip');
+    expect(content).toContain('artifactName: VaaniStudio-Setup-${version}.exe');
+
+    // Linux targets: AppImage, DEB, tar.gz
+    expect(content).toContain('target: AppImage');
+    expect(content).toContain('target: deb');
+    expect(content).toContain('target: tar.gz');
+    expect(content).toContain('category: AudioVideo');
+  });
+
   it('verifies package.json contains production packaging build scripts', () => {
     const packageRaw = fs.readFileSync(packageJsonPath, 'utf8');
     const pkg = JSON.parse(packageRaw);
@@ -51,6 +65,9 @@ describe('Phase 13: Packaging and Windows Distribution Configuration (TASK-056)'
     expect(pkg.name).toBe('vaani-studio');
     expect(pkg.scripts.pack).toBeDefined();
     expect(pkg.scripts.dist).toBeDefined();
+    expect(pkg.scripts['dist:win']).toBeDefined();
+    expect(pkg.scripts['dist:linux']).toBeDefined();
+    expect(pkg.scripts['dist:all']).toBeDefined();
     expect(pkg.scripts.pack).toContain('electron-builder');
     expect(pkg.scripts.dist).toContain('electron-builder');
   });

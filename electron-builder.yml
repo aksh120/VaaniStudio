@@ -19,6 +19,9 @@ win:
     - target: portable
       arch:
         - x64
+    - target: zip
+      arch:
+        - x64
   fileAssociations:
     - ext: vsp
       name: Vaani Studio Project
@@ -34,6 +37,24 @@ nsis:
   shortcutName: Vaani Studio
   uninstallDisplayName: Vaani Studio
   deleteAppDataOnUninstall: false
+  artifactName: VaaniStudio-Setup-${version}.exe
 
 portable:
   artifactName: VaaniStudio-Portable-${version}.exe
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: tar.gz
+      arch:
+        - x64
+  category: AudioVideo
+  synopsis: Free local-first AI subtitle studio
+  description: Local-first AI subtitle generator and video burn-in studio with faster-whisper speech recognition and custom typography styling.
+  artifactName: VaaniStudio-${version}.${ext}
+

@@ -11,7 +11,10 @@
     "test": "vitest run --config vitest.config.ts",
     "cli": "node bin/vaani-cli.js",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:all": "electron-builder -wl"
   },
   "bin": {
     "vaani": "./bin/vaani-cli.js"
@@ -41,6 +44,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^35.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.0",
     "vite-plugin-electron": "^0.29.0",
