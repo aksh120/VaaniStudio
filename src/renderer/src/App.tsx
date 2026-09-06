@@ -32,6 +32,7 @@ import { HardwarePerformanceModal } from './components/HardwarePerformanceModal.
 import { ActionableErrorModal } from './components/ActionableErrorModal.js';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner.js';
 import { OnboardingWizard } from './components/OnboardingWizard.js';
+import { BatchQueueModal } from './components/BatchQueueModal.js';
 import { translateError } from '../../shared/errors/errorTranslator.js';
 import { CrashRecoveryEntry } from '../../shared/types/models.js';
 
@@ -84,6 +85,8 @@ export const App: React.FC = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
+  const [isDiarizing, setIsDiarizing] = useState<boolean>(false);
   const [recommendedModelId, setRecommendedModelId] = useState<string>('whisper-small-ct2-int8');
 
   // Preset Manager instance
@@ -275,6 +278,46 @@ export const App: React.FC = () => {
     },
     [project.events, commitEvents, setStatusMessage]
   );
+
+  const handleUpdateSpeaker = useCallback(
+    (id: string, newSpeaker: string) => {
+      const updated = project.events.map((ev) => {
+        if (ev.id === id) {
+          return { ...ev, speakerLabel: newSpeaker };
+        }
+        return ev;
+      });
+      commitEvents(updated);
+      setIsDirty(true);
+      setStatusMessage(`Updated speaker for event to "${newSpeaker}".`);
+    },
+    [project.events, commitEvents, setIsDirty, setStatusMessage]
+  );
+
+  const handleDiarizeSpeakers = async () => {
+    if (!window.vaaniAPI || !audioWavPath || project.events.length === 0) return;
+    setIsDiarizing(true);
+    setStatusMessage('Diarizing speakers from audio track...');
+    try {
+      const res = await window.vaaniAPI.diarizeSubtitles({
+        audioPath: audioWavPath,
+        events: project.events,
+      });
+      if (res.success && res.data) {
+        commitEvents(res.data.events);
+        setIsDirty(true);
+        setStatusMessage(
+          `Diarization complete: Identified ${res.data.speakers.length} speakers across ${res.data.events.length} subtitle events.`
+        );
+      } else {
+        setStatusMessage(`Diarization failed: ${res.error?.message || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      setStatusMessage(`Diarization error: ${err?.message || err}`);
+    } finally {
+      setIsDiarizing(false);
+    }
+  };
 
   // Keyboard Shortcuts Hook
   useEffect(() => {
@@ -605,6 +648,9 @@ export const App: React.FC = () => {
           <button className="btn btn-secondary" onClick={() => setIsExportModalOpen(true)} title="Export Subtitle Files or Burn-In Video">
             Export
           </button>
+          <button className="btn btn-secondary" onClick={() => setIsBatchModalOpen(true)} title="Batch Process Multiple Media Files">
+            Batch Queue
+          </button>
         </div>
       </header>
 
@@ -800,6 +846,8 @@ export const App: React.FC = () => {
               onDuplicate={handleDuplicateSelected}
               onDelete={handleDeleteSelected}
               onSearchReplace={handleSearchReplace}
+              onUpdateSpeaker={handleUpdateSpeaker}
+              speakers={project.speakers}
             />
           </div>
         </section>
@@ -923,6 +971,18 @@ export const App: React.FC = () => {
                     <option value="quality">Maximum Quality (Medium Model)</option>
                   </select>
                 </div>
+
+                <div className="control-group" style={{ marginTop: '16px' }}>
+                  <label className="control-label">Speaker Diarization</label>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%' }}
+                    disabled={!audioWavPath || project.events.length === 0 || isDiarizing}
+                    onClick={handleDiarizeSpeakers}
+                  >
+                    {isDiarizing ? 'Diarizing Speakers...' : 'Diarize Speakers'}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -1025,6 +1085,13 @@ export const App: React.FC = () => {
         models={models}
         recommendedModelId={recommendedModelId}
         onModelDownloaded={refreshModels}
+      />
+
+      {/* Batch Processing Queue Modal (Phase 14) */}
+      <BatchQueueModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        models={models}
       />
     </div>
   );

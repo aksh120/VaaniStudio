@@ -9,8 +9,12 @@
     "build": "tsc && vite build && node scripts/copyWorker.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
+    "cli": "node bin/vaani-cli.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
+  },
+  "bin": {
+    "vaani": "./bin/vaani-cli.js"
   },
   "keywords": [
     "subtitles",

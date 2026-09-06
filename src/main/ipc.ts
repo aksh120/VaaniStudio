@@ -22,7 +22,11 @@ import {
   MemoryStats,
   OnboardingStatus,
   ModelIntegrityResult,
+  BatchJobConfig,
+  BatchQueueState,
 } from '../shared/types/models.js';
+import { AcousticDiarizer, DiarizationResult } from './asr/diarizationEngine.js';
+import { batchQueueManager } from './media/batchQueueManager.js';
 import { detectHardwareProfile } from './hardware.js';
 import { getMemorySnapshot, cleanupApplicationCache } from './hardware/memoryManager.js';
 import { logger } from './logger.js';
@@ -622,6 +626,62 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     }
   );
 
+  // Speaker Diarization Handler
+  ipcMain.handle(
+    IPC_CHANNELS.DIARIZE_SUBTITLES,
+    async (
+      _event,
+      events: SubtitleEvent[],
+      audioWavPath?: string,
+      maxSpeakers?: number
+    ): Promise<IPCResult<DiarizationResult>> => {
+      try {
+        const diarizer = new AcousticDiarizer();
+        const result = await diarizer.diarize(events, audioWavPath, { maxSpeakers });
+        return { success: true, data: result };
+      } catch (err: any) {
+        logger.error('IPC', `Diarization failed: ${err?.message}`);
+        return { success: false, error: { code: 'DIARIZATION_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  // Batch Media Processing Queue Handlers
+  ipcMain.handle(
+    IPC_CHANNELS.START_BATCH_QUEUE,
+    async (
+      event,
+      items: { filePath: string; fileName: string }[],
+      config: BatchJobConfig
+    ): Promise<IPCResult<BatchQueueState>> => {
+      try {
+        const result = await batchQueueManager.startQueue(items, config, (state) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(IPC_CHANNELS.BATCH_PROGRESS_EVENT, state);
+          }
+        });
+        return { success: true, data: result };
+      } catch (err: any) {
+        logger.error('IPC', `Batch queue failed: ${err?.message}`);
+        return { success: false, error: { code: 'BATCH_QUEUE_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  ipcMain.handle(IPC_CHANNELS.CANCEL_BATCH_QUEUE, async (): Promise<IPCResult<boolean>> => {
+    batchQueueManager.cancelQueue();
+    return { success: true, data: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_BATCH_STATUS, async (): Promise<IPCResult<BatchQueueState>> => {
+    return { success: true, data: batchQueueManager.getQueueState() };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.CLEAR_BATCH_QUEUE, async (): Promise<IPCResult<boolean>> => {
+    batchQueueManager.clearQueue();
+    return { success: true, data: true };
+  });
+
   // Custom Preset Management Handlers
   const getPresetsDirectory = (): string => {
     const dir = path.join(app.getPath('userData'), 'presets');
@@ -894,6 +954,104 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: { code: 'PATH_NOT_FOUND', message: 'Target file or folder not found.' } };
       } catch (err: any) {
         return { success: false, error: { code: 'SHOW_IN_FOLDER_FAILED', message: err?.message || 'Could not open folder.' } };
+      }
+    }
+  );
+
+  // Speaker Diarization
+  ipcMain.handle(
+    IPC_CHANNELS.DIARIZE_SUBTITLES,
+    async (
+      _event,
+      payload: { audioPath: string; events: SubtitleEvent[]; numSpeakers?: number }
+    ): Promise<IPCResult<DiarizationResult>> => {
+      try {
+        const diarizer = new AcousticDiarizer();
+        const result = await diarizer.diarize(payload.events, payload.audioPath, {
+          maxSpeakers: payload.numSpeakers || 2,
+        });
+        return { success: true, data: result };
+      } catch (err: any) {
+        logger.error('IPC', `Diarization failed: ${err?.message}`);
+        return {
+          success: false,
+          error: { code: 'DIARIZATION_FAILED', message: err?.message || 'Diarization failed.' },
+        };
+      }
+    }
+  );
+
+  // Start Batch Queue
+  ipcMain.handle(
+    IPC_CHANNELS.START_BATCH_QUEUE,
+    async (
+      _event,
+      payload: { files: { filePath: string; fileName: string }[]; config: BatchJobConfig }
+    ): Promise<IPCResult<BatchQueueState>> => {
+      try {
+        const state = await batchQueueManager.startQueue(
+          payload.files,
+          payload.config,
+          (progressState) => {
+            if (!mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(IPC_CHANNELS.BATCH_PROGRESS_EVENT, progressState);
+            }
+          }
+        );
+        return { success: true, data: state };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: { code: 'BATCH_QUEUE_FAILED', message: err?.message || 'Failed to start batch queue.' },
+        };
+      }
+    }
+  );
+
+  // Cancel Batch Queue
+  ipcMain.handle(
+    IPC_CHANNELS.CANCEL_BATCH_QUEUE,
+    async (): Promise<IPCResult<boolean>> => {
+      try {
+        batchQueueManager.cancelQueue();
+        return { success: true, data: true };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: { code: 'CANCEL_BATCH_FAILED', message: err?.message || 'Failed to cancel batch queue.' },
+        };
+      }
+    }
+  );
+
+  // Get Batch Queue Status
+  ipcMain.handle(
+    IPC_CHANNELS.GET_BATCH_STATUS,
+    async (): Promise<IPCResult<BatchQueueState>> => {
+      try {
+        const state = batchQueueManager.getQueueState();
+        return { success: true, data: state };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: { code: 'GET_BATCH_STATUS_FAILED', message: err?.message || 'Failed to get batch status.' },
+        };
+      }
+    }
+  );
+
+  // Clear Batch Queue
+  ipcMain.handle(
+    IPC_CHANNELS.CLEAR_BATCH_QUEUE,
+    async (): Promise<IPCResult<boolean>> => {
+      try {
+        batchQueueManager.clearQueue();
+        return { success: true, data: true };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: { code: 'CLEAR_BATCH_FAILED', message: err?.message || 'Failed to clear batch queue.' },
+        };
       }
     }
   );

@@ -12,6 +12,7 @@ import { generateAssScript, AssScriptOptions } from './assScriptGenerator.js';
 export interface ExporterOptions {
   lineEnding?: 'crlf' | 'lf';
   includeHeaderNotes?: boolean;
+  includeSpeakerLabels?: boolean;
 }
 
 /**
@@ -69,9 +70,13 @@ export function exportToSrt(
     const index = i + 1;
     const startStr = formatSrtTimestamp(ev.startTime);
     const endStr = formatSrtTimestamp(ev.endTime);
-    const cleanText = (ev.text || '').trim();
+    let text = (ev.text || '').trim();
 
-    blocks.push(`${index}${eol}${startStr} --> ${endStr}${eol}${cleanText}`);
+    if (options.includeSpeakerLabels && ev.speakerLabel) {
+      text = `[${ev.speakerLabel}]: ${text}`;
+    }
+
+    blocks.push(`${index}${eol}${startStr} --> ${endStr}${eol}${text}`);
   }
 
   return blocks.join(`${eol}${eol}`) + (blocks.length > 0 ? eol : '');
@@ -99,9 +104,13 @@ export function exportToVtt(
     const index = i + 1;
     const startStr = formatVttTimestamp(ev.startTime);
     const endStr = formatVttTimestamp(ev.endTime);
-    const cleanText = (ev.text || '').trim();
+    let text = (ev.text || '').trim();
 
-    cues.push(`${index}${eol}${startStr} --> ${endStr}${eol}${cleanText}`);
+    if (options.includeSpeakerLabels && ev.speakerLabel) {
+      text = `<v ${ev.speakerLabel}>${text}</v>`;
+    }
+
+    cues.push(`${index}${eol}${startStr} --> ${endStr}${eol}${text}`);
   }
 
   return cues.join(`${eol}${eol}`) + (cues.length > 0 ? eol : '');

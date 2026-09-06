@@ -21,6 +21,9 @@ import {
   CrashRecoveryEntry,
   OnboardingStatus,
   ModelIntegrityResult,
+  SpeakerProfile,
+  BatchJobConfig,
+  BatchQueueState,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -189,6 +192,41 @@ export const vaaniAPI = {
 
   showItemInFolder: (filePath: string): Promise<IPCResult<boolean>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.SHOW_ITEM_IN_FOLDER, filePath);
+  },
+
+  diarizeSubtitles: (payload: {
+    audioPath: string;
+    events: SubtitleEvent[];
+    numSpeakers?: number;
+  }): Promise<IPCResult<{ events: SubtitleEvent[]; speakers: SpeakerProfile[] }>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.DIARIZE_SUBTITLES, payload);
+  },
+
+  startBatchQueue: (
+    files: { filePath: string; fileName: string }[],
+    config: BatchJobConfig
+  ): Promise<IPCResult<BatchQueueState>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.START_BATCH_QUEUE, { files, config });
+  },
+
+  cancelBatchQueue: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CANCEL_BATCH_QUEUE);
+  },
+
+  getBatchStatus: (): Promise<IPCResult<BatchQueueState>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_BATCH_STATUS);
+  },
+
+  clearBatchQueue: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CLEAR_BATCH_QUEUE);
+  },
+
+  onBatchProgress: (callback: (state: BatchQueueState) => void): (() => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.BATCH_PROGRESS_EVENT, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.BATCH_PROGRESS_EVENT, listener);
+    };
   },
 
   log: (level: string, category: string, message: string): void => {

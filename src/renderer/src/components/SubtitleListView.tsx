@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { SubtitleEvent } from '../../../shared/types/models.js';
+import { SubtitleEvent, SpeakerProfile } from '../../../shared/types/models.js';
 import { formatTimecode, parseTimecode } from '../../../shared/utils/timecode.js';
 import { SearchReplaceOptions } from '../editor/editorOperations.js';
 
@@ -15,6 +15,8 @@ export interface SubtitleListViewProps {
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onSearchReplace: (search: string, replace: string, options: SearchReplaceOptions) => void;
+  onUpdateSpeaker?: (id: string, speakerLabel: string) => void;
+  speakers?: SpeakerProfile[];
 }
 
 const ROW_HEIGHT = 76; // px per virtual row
@@ -32,6 +34,8 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
   onDuplicate,
   onDelete,
   onSearchReplace,
+  onUpdateSpeaker,
+  speakers,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState<number>(0);
@@ -260,8 +264,46 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                   }}
                   onClick={() => onSelectEvent(evt.id)}
                 >
-                  {/* Row Index */}
-                  <div className="row-index">#{evt.index}</div>
+                  {/* Row Index & Speaker Badge */}
+                  <div className="row-index" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                    <span>#{evt.index}</span>
+                    {evt.speakerLabel ? (() => {
+                      const spkLabel = evt.speakerLabel;
+                      const profile = speakers?.find((s) => s.id === evt.speakerId || s.name === spkLabel);
+                      const badgeColor = profile?.color || '#3b82f6';
+                      return (
+                        <span
+                          className="speaker-badge"
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            backgroundColor: `${badgeColor}25`,
+                            color: badgeColor,
+                            border: `1px solid ${badgeColor}50`,
+                            whiteSpace: 'nowrap',
+                            maxWidth: '56px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            cursor: onUpdateSpeaker ? 'pointer' : 'default',
+                          }}
+                          title={`Speaker: ${spkLabel} (Click to edit)`}
+                          onClick={(e) => {
+                            if (onUpdateSpeaker) {
+                              e.stopPropagation();
+                              const newName = window.prompt('Enter speaker name:', spkLabel);
+                              if (newName && newName.trim()) {
+                                onUpdateSpeaker(evt.id, newName.trim());
+                              }
+                            }
+                          }}
+                        >
+                          {spkLabel}
+                        </span>
+                      );
+                    })() : null}
+                  </div>
 
                   {/* Timecodes: Start, End, Duration */}
                   <div className="row-timecodes">

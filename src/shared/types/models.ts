@@ -25,6 +25,14 @@ export interface WordTiming {
   endTime: number;   // Seconds (e.g. 1.68)
   confidence: number; // 0.0 to 1.0
   punctuationFollows?: string;
+  speakerId?: string;
+}
+
+export interface SpeakerProfile {
+  id: string;
+  name: string;
+  color: string;
+  styleOverrides?: Partial<SubtitleStyle>;
 }
 
 export interface SubtitleEvent {
@@ -175,6 +183,36 @@ export interface ProjectData {
   style: SubtitleStyle;
   animation: AnimationConfig;
   exportHistory?: ProjectExportRecord[];
+  speakers?: SpeakerProfile[];
+}
+
+export interface BatchJobItem {
+  id: string;
+  filePath: string;
+  fileName: string;
+  status: 'queued' | 'extracting' | 'transcribing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  durationSeconds?: number;
+  outputPath?: string;
+  error?: string;
+}
+
+export interface BatchJobConfig {
+  languageMode: LanguageMode;
+  scriptMode: ScriptMode;
+  modelId: string;
+  exportFormat: 'srt' | 'vtt' | 'ass';
+  outputDirectory: string;
+  renderVideo?: boolean;
+  autoDiarize?: boolean;
+}
+
+export interface BatchQueueState {
+  isProcessing: boolean;
+  activeItemId: string | null;
+  items: BatchJobItem[];
+  completedCount: number;
+  totalCount: number;
 }
 
 export interface MemoryStats {
@@ -354,6 +392,12 @@ export const IPC_CHANNELS = {
   SHOW_ITEM_IN_FOLDER: 'vaani:show-item-in-folder',
   GET_MEMORY_STATS: 'vaani:get-memory-stats',
   CLEAN_CACHE: 'vaani:clean-cache',
+  DIARIZE_SUBTITLES: 'vaani:diarize-subtitles',
+  START_BATCH_QUEUE: 'vaani:start-batch-queue',
+  CANCEL_BATCH_QUEUE: 'vaani:cancel-batch-queue',
+  GET_BATCH_STATUS: 'vaani:get-batch-status',
+  CLEAR_BATCH_QUEUE: 'vaani:clear-batch-queue',
+  BATCH_PROGRESS_EVENT: 'vaani:batch-progress-event',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;
