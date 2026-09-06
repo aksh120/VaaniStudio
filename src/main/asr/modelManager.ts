@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import { ModelInfo } from '../../shared/types/models.js';
+import { ModelInfo, ModelIntegrityResult } from '../../shared/types/models.js';
 import { logger } from '../logger.js';
 import { resolvePythonPath } from './pythonResolver.js';
 
@@ -293,3 +294,111 @@ export function deleteModel(modelId: string): boolean {
   }
   return false;
 }
+
+/**
+ * Verifies the integrity of a locally downloaded model.
+ * Validates presence of essential model assets and computes a SHA-256 fingerprint.
+ */
+export async function verifyModelIntegrity(modelId: string): Promise<ModelIntegrityResult> {
+  const modelDir = getModelPath(modelId);
+  if (!fs.existsSync(modelDir)) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked: [],
+      totalBytes: 0,
+      error: `Model directory not found on disk: ${modelDir}`,
+    };
+  }
+
+  const filesChecked: string[] = [];
+  let totalBytes = 0;
+
+  // Check config.json
+  const configPath = path.join(modelDir, 'config.json');
+  if (!fs.existsSync(configPath)) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: 'Missing required configuration file: config.json',
+    };
+  }
+  try {
+    const configRaw = fs.readFileSync(configPath, 'utf8');
+    JSON.parse(configRaw);
+    filesChecked.push('config.json');
+    totalBytes += fs.statSync(configPath).size;
+  } catch (err: any) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: `Invalid or corrupted config.json: ${err.message}`,
+    };
+  }
+
+  // Check weights (model.bin or model.safetensors)
+  const binPath = path.join(modelDir, 'model.bin');
+  const safePath = path.join(modelDir, 'model.safetensors');
+  let weightsPath: string | null = null;
+  if (fs.existsSync(binPath)) {
+    weightsPath = binPath;
+    filesChecked.push('model.bin');
+  } else if (fs.existsSync(safePath)) {
+    weightsPath = safePath;
+    filesChecked.push('model.safetensors');
+  }
+
+  if (!weightsPath) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: 'Missing model weights (neither model.bin nor model.safetensors found)',
+    };
+  }
+
+  const weightsStat = fs.statSync(weightsPath);
+  if (weightsStat.size === 0) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: 'Model weights file is empty (0 bytes)',
+    };
+  }
+  totalBytes += weightsStat.size;
+
+  // Check vocabulary or tokenizer if present
+  for (const optionalFile of ['vocabulary.json', 'tokenizer.json', 'vocabulary.txt']) {
+    const optPath = path.join(modelDir, optionalFile);
+    if (fs.existsSync(optPath)) {
+      filesChecked.push(optionalFile);
+      totalBytes += fs.statSync(optPath).size;
+    }
+  }
+
+  // Compute fast SHA-256 fingerprint from config + sample of weights
+  const hash = crypto.createHash('sha256');
+  hash.update(fs.readFileSync(configPath));
+  const fd = fs.openSync(weightsPath, 'r');
+  const buffer = Buffer.alloc(Math.min(65536, weightsStat.size));
+  fs.readSync(fd, buffer, 0, buffer.length, 0);
+  fs.closeSync(fd);
+  hash.update(buffer);
+  const sha256 = hash.digest('hex');
+
+  return {
+    valid: true,
+    modelId,
+    filesChecked,
+    totalBytes,
+    sha256,
+  };
+}
+

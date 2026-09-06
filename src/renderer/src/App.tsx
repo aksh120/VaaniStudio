@@ -31,6 +31,7 @@ import { ExportModal } from './components/ExportModal.js';
 import { HardwarePerformanceModal } from './components/HardwarePerformanceModal.js';
 import { ActionableErrorModal } from './components/ActionableErrorModal.js';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner.js';
+import { OnboardingWizard } from './components/OnboardingWizard.js';
 import { translateError } from '../../shared/errors/errorTranslator.js';
 import { CrashRecoveryEntry } from '../../shared/types/models.js';
 
@@ -82,6 +83,8 @@ export const App: React.FC = () => {
   const [sidebarTab, setSidebarTab] = useState<'intelligence' | 'style'>('style');
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [recommendedModelId, setRecommendedModelId] = useState<string>('whisper-small-ct2-int8');
 
   // Preset Manager instance
   const presetManager = useMemo(() => new PresetManager(), []);
@@ -155,6 +158,17 @@ export const App: React.FC = () => {
         }
       });
       refreshModels();
+
+      if (window.vaaniAPI.checkOnboardingStatus) {
+        window.vaaniAPI.checkOnboardingStatus().then((res) => {
+          if (res.success && res.data) {
+            setRecommendedModelId(res.data.recommendedModelId);
+            if (res.data.isFirstRun) {
+              setIsOnboardingOpen(true);
+            }
+          }
+        });
+      }
 
       if (window.vaaniAPI.getCustomPresets) {
         window.vaaniAPI.getCustomPresets().then((res) => {
@@ -937,6 +951,22 @@ export const App: React.FC = () => {
         <div className="statusbar-right">
           <button
             className="statusbar-link-btn"
+            onClick={() => setIsOnboardingOpen(true)}
+            title="Open Setup & Model Wizard"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary, #94a3b8)',
+              cursor: 'pointer',
+              fontSize: '11px',
+              padding: '0 4px',
+            }}
+          >
+            Setup Wizard
+          </button>
+          <span>|</span>
+          <button
+            className="statusbar-link-btn"
             onClick={() => setIsHardwareModalOpen(true)}
             title="Configure Hardware & Performance Profile"
             style={{
@@ -985,6 +1015,16 @@ export const App: React.FC = () => {
       <ActionableErrorModal
         error={activeError}
         onClose={() => setActiveError(null)}
+      />
+
+      {/* First-Run Onboarding and Model Download Wizard (Phase 13) */}
+      <OnboardingWizard
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        hardware={hardware}
+        models={models}
+        recommendedModelId={recommendedModelId}
+        onModelDownloaded={refreshModels}
       />
     </div>
   );

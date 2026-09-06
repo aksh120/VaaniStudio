@@ -1,0 +1,39 @@
+appId: com.vaanistudio.desktop
+productName: Vaani Studio
+copyright: Copyright 2026 Vaani Studio Contributors
+
+directories:
+  output: dist-release
+  buildResources: build
+
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  fileAssociations:
+    - ext: vsp
+      name: Vaani Studio Project
+      description: Vaani Studio Subtitle Project File
+      role: Editor
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Vaani Studio
+  uninstallDisplayName: Vaani Studio
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: VaaniStudio-Portable-${version}.exe

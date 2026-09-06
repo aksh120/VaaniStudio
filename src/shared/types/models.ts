@@ -145,6 +145,22 @@ export interface CrashRecoveryEntry {
   mediaFileName?: string;
 }
 
+export interface OnboardingStatus {
+  isFirstRun: boolean;
+  hasCompletedOnboarding: boolean;
+  recommendedModelId: string;
+  downloadedModelIds: string[];
+}
+
+export interface ModelIntegrityResult {
+  valid: boolean;
+  modelId: string;
+  filesChecked: string[];
+  totalBytes: number;
+  sha256?: string;
+  error?: string;
+}
+
 export interface ProjectData {
   projectVersion: number; // Current schema version: 1
   projectId: string;
@@ -323,6 +339,9 @@ export const IPC_CHANNELS = {
   DISCARD_CRASH_RECOVERY: 'vaani:discard-crash-recovery',
   SAVE_AUTOSAVE_SNAPSHOT: 'vaani:save-autosave-snapshot',
   GET_DIAGNOSTIC_REPORT: 'vaani:get-diagnostic-report',
+  CHECK_ONBOARDING_STATUS: 'vaani:check-onboarding-status',
+  COMPLETE_ONBOARDING: 'vaani:complete-onboarding',
+  VERIFY_MODEL_INTEGRITY: 'vaani:verify-model-integrity',
   GET_CUSTOM_PRESETS: 'vaani:get-custom-presets',
   SAVE_CUSTOM_PRESET: 'vaani:save-custom-preset',
   DELETE_CUSTOM_PRESET: 'vaani:delete-custom-preset',

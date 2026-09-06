@@ -19,6 +19,8 @@ import {
   AnimationConfig,
   MemoryStats,
   CrashRecoveryEntry,
+  OnboardingStatus,
+  ModelIntegrityResult,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -117,6 +119,18 @@ export const vaaniAPI = {
 
   getDiagnosticReport: (errorDetails?: { code: string; message: string }): Promise<IPCResult<string>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_DIAGNOSTIC_REPORT, errorDetails);
+  },
+
+  checkOnboardingStatus: (): Promise<IPCResult<OnboardingStatus>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CHECK_ONBOARDING_STATUS);
+  },
+
+  completeOnboarding: (selectedModelId?: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.COMPLETE_ONBOARDING, selectedModelId);
+  },
+
+  verifyModelIntegrity: (modelId: string): Promise<IPCResult<ModelIntegrityResult>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.VERIFY_MODEL_INTEGRITY, modelId);
   },
 
   getCustomPresets: (): Promise<IPCResult<StylePreset[]>> => {

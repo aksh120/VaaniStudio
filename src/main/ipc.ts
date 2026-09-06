@@ -20,6 +20,8 @@ import {
   RenderProgressUpdate,
   AnimationConfig,
   MemoryStats,
+  OnboardingStatus,
+  ModelIntegrityResult,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
 import { getMemorySnapshot, cleanupApplicationCache } from './hardware/memoryManager.js';
@@ -28,7 +30,8 @@ import { probeMediaFile } from './media/probe.js';
 import { extractNormalizedAudio } from './media/audio.js';
 import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
-import { listModels, downloadModel, deleteModel } from './asr/modelManager.js';
+import { listModels, downloadModel, deleteModel, verifyModelIntegrity } from './asr/modelManager.js';
+import { checkOnboardingStatus, completeOnboarding } from './onboarding/onboardingManager.js';
 import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
 import { exportToSrt, exportToVtt, exportToAss } from '../shared/subtitles/subtitleExporters.js';
 import { exportJobManager } from './media/exportJobManager.js';
@@ -572,6 +575,49 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         return { success: true, data: report };
       } catch (err: any) {
         return { success: false, error: { code: 'DIAGNOSTIC_REPORT_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  // Check Onboarding Status
+  ipcMain.handle(
+    IPC_CHANNELS.CHECK_ONBOARDING_STATUS,
+    async (): Promise<IPCResult<OnboardingStatus>> => {
+      try {
+        const hardware = detectHardwareProfile();
+        const status = checkOnboardingStatus(hardware);
+        return { success: true, data: status };
+      } catch (err: any) {
+        logger.error('IPC', `Check onboarding status failed: ${err?.message}`);
+        return { success: false, error: { code: 'ONBOARDING_CHECK_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  // Complete Onboarding
+  ipcMain.handle(
+    IPC_CHANNELS.COMPLETE_ONBOARDING,
+    async (_event, selectedModelId?: string): Promise<IPCResult<boolean>> => {
+      try {
+        completeOnboarding(selectedModelId);
+        return { success: true, data: true };
+      } catch (err: any) {
+        logger.error('IPC', `Complete onboarding failed: ${err?.message}`);
+        return { success: false, error: { code: 'COMPLETE_ONBOARDING_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  // Verify Model Integrity
+  ipcMain.handle(
+    IPC_CHANNELS.VERIFY_MODEL_INTEGRITY,
+    async (_event, modelId: string): Promise<IPCResult<ModelIntegrityResult>> => {
+      try {
+        const result = await verifyModelIntegrity(modelId);
+        return { success: true, data: result };
+      } catch (err: any) {
+        logger.error('IPC', `Verify model integrity failed: ${err?.message}`);
+        return { success: false, error: { code: 'VERIFY_INTEGRITY_FAILED', message: err?.message } };
       }
     }
   );
