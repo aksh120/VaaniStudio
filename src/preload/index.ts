@@ -24,11 +24,16 @@ import {
   SpeakerProfile,
   BatchJobConfig,
   BatchQueueState,
+  DeepSystemScanResult,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
   getHardwareProfile: (): Promise<IPCResult<HardwareProfile>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_HARDWARE_PROFILE);
+  },
+
+  runDeepSystemScan: (allowCommandExecution: boolean): Promise<IPCResult<DeepSystemScanResult>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.RUN_DEEP_SYSTEM_SCAN, allowCommandExecution);
   },
 
   getMemoryStats: (): Promise<IPCResult<MemoryStats>> => {

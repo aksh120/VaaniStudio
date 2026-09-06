@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { HardwareProfile, ModelInfo, ModelIntegrityResult } from '../../../shared/types/models.js';
+import {
+  HardwareProfile,
+  ModelInfo,
+  ModelIntegrityResult,
+  DeepSystemScanResult,
+} from '../../../shared/types/models.js';
 
 interface OnboardingWizardProps {
   isOpen: boolean;
@@ -24,12 +29,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [downloadStatus, setDownloadStatus] = useState<string>('');
   const [integrityResult, setIntegrityResult] = useState<ModelIntegrityResult | null>(null);
+  const [allowDeepScan, setAllowDeepScan] = useState<boolean>(false);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [deepScanResult, setDeepScanResult] = useState<DeepSystemScanResult | null>(null);
+  const [deepScanMessage, setDeepScanMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (recommendedModelId) {
+    if (recommendedModelId && !deepScanResult) {
       setSelectedModelId(recommendedModelId);
     }
-  }, [recommendedModelId]);
+  }, [recommendedModelId, deepScanResult]);
 
   if (!isOpen) return null;
 
@@ -75,6 +84,32 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       cleanup();
       setIsDownloading(false);
       setDownloadStatus(`Download failed: ${err?.message}`);
+    }
+  };
+
+  const handleRunDeepScan = async () => {
+    if (!window.vaaniAPI) return;
+    setIsScanning(true);
+    setDeepScanMessage(null);
+    try {
+      const res = await window.vaaniAPI.runDeepSystemScan(allowDeepScan);
+      if (res.success && res.data) {
+        setDeepScanResult(res.data);
+        if (res.data.recommendedModelId) {
+          setSelectedModelId(res.data.recommendedModelId);
+        }
+        setDeepScanMessage(
+          res.data.allowed
+            ? 'Deep hardware inspection completed. Speech model recommendation calibrated.'
+            : 'Baseline hardware metrics analyzed. Speech model recommendation calibrated.'
+        );
+      } else {
+        setDeepScanMessage(res.error?.message || 'Hardware scan could not be completed.');
+      }
+    } catch (err: any) {
+      setDeepScanMessage(`Scan error: ${err?.message || 'Hardware inspection failed'}`);
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -282,6 +317,136 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </div>
               </div>
 
+              {/* Optional Deep System Scan & Model Advisor */}
+              <div
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
+                      Deep System Hardware Diagnostic (Optional)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.5' }}>
+                      Inspect instruction sets (AVX2), dedicated GPU VRAM, and RAM headroom to calibrate the fastest speech model for this workstation.
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRunDeepScan}
+                    disabled={isScanning}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      backgroundColor: isScanning ? '#334155' : 'var(--accent-primary, #3b82f6)',
+                      color: '#ffffff',
+                      border: 'none',
+                      cursor: isScanning ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {isScanning ? 'Inspecting System...' : deepScanResult ? 'Re-scan Hardware' : 'Run Hardware Scan'}
+                  </button>
+                </div>
+
+                {/* Optional Command Execution Consent Toggle */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: '#cbd5e1',
+                    lineHeight: '1.4',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={allowDeepScan}
+                    onChange={(e) => setAllowDeepScan(e.target.checked)}
+                    disabled={isScanning}
+                    style={{ marginTop: '2px', cursor: 'pointer' }}
+                  />
+                  <span>
+                    <strong>Allow command-line system query (Optional):</strong> Permit read-only PowerShell / WMI diagnostic to detect exact GPU VRAM and AVX2 vector capabilities. Operates 100% offline with zero cloud telemetry. If unchecked, standard operating system memory and CPU APIs are used.
+                  </span>
+                </label>
+
+                {deepScanMessage && (
+                  <div
+                    style={{
+                      marginTop: '12px',
+                      fontSize: '11px',
+                      color: deepScanResult ? '#4ade80' : '#f87171',
+                      lineHeight: '1.4',
+                    }}
+                  >
+                    {deepScanMessage}
+                  </div>
+                )}
+
+                {/* Deep Scan Results Details */}
+                {deepScanResult && (
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      paddingTop: '14px',
+                      borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Diagnostic Mode</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                        {deepScanResult.allowed ? 'CLI Command Query' : 'Standard OS API'}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>AVX2 Acceleration</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.cpuDetails.hasAvx2 ? '#4ade80' : '#94a3b8', marginTop: '2px' }}>
+                        {deepScanResult.cpuDetails.hasAvx2 ? 'Supported' : 'Not Detected'}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Dedicated VRAM</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.gpuDetails.vramMB > 0 ? '#60a5fa' : '#94a3b8', marginTop: '2px' }}>
+                        {deepScanResult.gpuDetails.vramMB > 0 ? `${deepScanResult.gpuDetails.vramMB} MB` : 'None (CPU Mode)'}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Free RAM Headroom</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                        {(deepScanResult.ramDetails.availableMB / 1024).toFixed(1)} GB Free
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hardware Recommendation Card */}
               <div
                 style={{
                   backgroundColor: 'rgba(59, 130, 246, 0.08)',
@@ -311,11 +476,19 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </div>
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: '#93c5fd', marginBottom: '2px' }}>
-                    Hardware Recommendation: {recommendedModelId === 'whisper-small-ct2-int8' ? 'Whisper Small (Balanced)' : 'Whisper Tiny (Fast)'}
+                    Hardware Recommendation:{' '}
+                    {deepScanResult
+                      ? `${models.find((m) => m.id === deepScanResult.recommendedModelId)?.name || deepScanResult.recommendedModelId} (${deepScanResult.estimatedSpeedFactor})`
+                      : recommendedModelId === 'whisper-small-ct2-int8'
+                      ? 'Whisper Small (Balanced)'
+                      : 'Whisper Tiny (Fast)'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5' }}>
-                    Based on your available CPU threads and system memory, we recommend setting up{' '}
-                    {recommendedModelId === 'whisper-small-ct2-int8' ? 'Whisper Small' : 'Whisper Tiny'} for balanced speed and code-switching accuracy.
+                    {deepScanResult
+                      ? deepScanResult.recommendationReason
+                      : `Based on your available CPU threads and system memory, we recommend setting up ${
+                          recommendedModelId === 'whisper-small-ct2-int8' ? 'Whisper Small' : 'Whisper Tiny'
+                        } for balanced speed and code-switching accuracy.`}
                   </div>
                 </div>
               </div>
@@ -338,8 +511,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 {models.map((model) => {
+                  const effectiveRecommendedId = deepScanResult ? deepScanResult.recommendedModelId : recommendedModelId;
                   const isSelected = model.id === selectedModelId;
-                  const isRecommended = model.id === recommendedModelId;
+                  const isRecommended = model.id === effectiveRecommendedId;
 
                   return (
                     <div
@@ -374,7 +548,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                                 borderRadius: '4px',
                               }}
                             >
-                              Recommended
+                              {deepScanResult ? `Recommended (${deepScanResult.estimatedSpeedFactor})` : 'Recommended'}
                             </span>
                           )}
                           {model.isDownloaded && (
@@ -396,6 +570,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                         <div style={{ fontSize: '12px', color: '#94a3b8' }}>
                           {model.description}
                         </div>
+                        {isRecommended && deepScanResult && (
+                          <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: '2px' }}>
+                            Hardware Match: {deepScanResult.recommendationReason}
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>

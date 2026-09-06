@@ -43,6 +43,12 @@ Security updates and critical patches are released for the following versions:
 * Project files (`.vsp`) use atomic persistence routines: writes are committed to temporary files, physically flushed to disk platter buffers via `fs.fsyncSync()`, and atomically renamed over destination files to prevent partial write corruption.
 * Autosave journals are restricted to `%APPDATA%/VaaniStudio/autosave/` and pruned upon normal exit or explicit user discard.
 
+### 3.5 Optional Hardware Diagnostics and Command Execution Safeguards
+* Deep hardware diagnostics are strictly opt-in: users must explicitly grant permission via UI toggles before any external command is executed.
+* When command execution is not granted or disabled, the application relies entirely on standard, non-intrusive Node.js operating system APIs (`os.cpus()`, `os.totalmem()`, `os.freemem()`) without launching any child processes.
+* When granted, diagnostic inspection is restricted to read-only queries (`Get-CimInstance Win32_VideoController`, `Win32_Processor`, `Win32_OperatingSystem`) executed via `powershell.exe` with discrete argument arrays (`shell: false`), `-NoProfile`, `-NonInteractive`, and a strict 4.5-second timeout.
+* All detected hardware metrics remain strictly local in workstation volatile memory to compute model recommendation heuristics and are never transmitted over the network.
+
 ---
 
 ## 4. Reporting a Vulnerability

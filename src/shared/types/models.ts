@@ -153,11 +153,38 @@ export interface CrashRecoveryEntry {
   mediaFileName?: string;
 }
 
+export interface DeepSystemScanResult {
+  allowed: boolean;
+  scannedAt: string;
+  osName: string;
+  cpuDetails: {
+    name: string;
+    physicalCores: number;
+    logicalCores: number;
+    maxClockGhz?: number;
+    hasAvx2: boolean;
+  };
+  gpuDetails: {
+    name: string;
+    vramMB: number;
+    isDedicated: boolean;
+    hasCuda: boolean;
+  };
+  ramDetails: {
+    totalMB: number;
+    availableMB: number;
+  };
+  recommendedModelId: string;
+  recommendationReason: string;
+  estimatedSpeedFactor: string;
+}
+
 export interface OnboardingStatus {
   isFirstRun: boolean;
   hasCompletedOnboarding: boolean;
   recommendedModelId: string;
   downloadedModelIds: string[];
+  allowDeepSystemScan?: boolean;
 }
 
 export interface ModelIntegrityResult {
@@ -398,6 +425,7 @@ export const IPC_CHANNELS = {
   GET_BATCH_STATUS: 'vaani:get-batch-status',
   CLEAR_BATCH_QUEUE: 'vaani:clear-batch-queue',
   BATCH_PROGRESS_EVENT: 'vaani:batch-progress-event',
+  RUN_DEEP_SYSTEM_SCAN: 'vaani:run-deep-system-scan',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;

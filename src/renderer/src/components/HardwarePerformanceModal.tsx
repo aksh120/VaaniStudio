@@ -12,6 +12,7 @@ import {
   HardwareProfile,
   PerformanceMode,
   MemoryStats,
+  DeepSystemScanResult,
 } from '../../../shared/types/models.js';
 import {
   PERFORMANCE_PROFILES,
@@ -36,6 +37,10 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
   const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [allowDeepScan, setAllowDeepScan] = useState<boolean>(false);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [deepScanResult, setDeepScanResult] = useState<DeepSystemScanResult | null>(null);
+  const [deepScanMessage, setDeepScanMessage] = useState<string | null>(null);
 
   // Poll memory stats while modal is open
   useEffect(() => {
@@ -81,6 +86,29 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
     }
   };
 
+  const handleRunDeepScan = async () => {
+    if (!window.vaaniAPI) return;
+    setIsScanning(true);
+    setDeepScanMessage(null);
+    try {
+      const res = await window.vaaniAPI.runDeepSystemScan(allowDeepScan);
+      if (res.success && res.data) {
+        setDeepScanResult(res.data);
+        setDeepScanMessage(
+          res.data.allowed
+            ? 'Deep hardware inspection completed.'
+            : 'Baseline hardware metrics gathered.'
+        );
+      } else {
+        setDeepScanMessage(res.error?.message || 'Deep scan failed.');
+      }
+    } catch (err: any) {
+      setDeepScanMessage(`Scan error: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const currentProfileConfig = getPerformanceProfileConfig(activeMode, {
     physicalCores: hardware?.physicalCores || 4,
     logicalCores: hardware?.logicalCores || 8,
@@ -98,7 +126,17 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
         {/* Header */}
         <div className="modal-header">
           <div className="modal-header-title">
-            <span className="modal-icon">⚡</span>
+            <span
+              className="modal-icon"
+              style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--accent-primary, #3b82f6)',
+                letterSpacing: '0.5px',
+              }}
+            >
+              HW
+            </span>
             <div>
               <h3>Hardware & Performance Optimization</h3>
               <p className="modal-subtitle">
@@ -107,7 +145,7 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
             </div>
           </div>
           <button className="icon-button close-button" onClick={onClose} aria-label="Close">
-            ✕
+            X
           </button>
         </div>
 
@@ -137,6 +175,134 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
                   {hardware?.inferenceDevice === 'cpu' && ' (Optimized INT8 Matrix Runtimes)'}
                 </div>
               </div>
+            </div>
+
+            {/* Optional Deep System Hardware Diagnostic */}
+            <div
+              style={{
+                marginTop: '16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                padding: '16px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: '16px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
+                    Deep Hardware Diagnostic & Model Advisor (Optional)
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.4' }}>
+                    Probe instruction sets (AVX2), dedicated GPU VRAM, and RAM headroom to calibrate recommended models.
+                  </div>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={handleRunDeepScan}
+                  disabled={isScanning}
+                  style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {isScanning ? 'Inspecting...' : deepScanResult ? 'Re-scan Hardware' : 'Run Deep Scan'}
+                </button>
+              </div>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                  lineHeight: '1.4',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allowDeepScan}
+                  onChange={(e) => setAllowDeepScan(e.target.checked)}
+                  disabled={isScanning}
+                  style={{ marginTop: '2px', cursor: 'pointer' }}
+                />
+                <span>
+                  <strong>Allow command-line system query (Optional):</strong> Permit read-only PowerShell / WMI diagnostic to detect exact GPU VRAM and AVX2 vector extensions. 100% offline with zero cloud telemetry.
+                </span>
+              </label>
+
+              {deepScanMessage && (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    fontSize: '11px',
+                    color: deepScanResult ? '#4ade80' : '#f87171',
+                  }}
+                >
+                  {deepScanMessage}
+                </div>
+              )}
+
+              {deepScanResult && (
+                <div
+                  style={{
+                    marginTop: '14px',
+                    paddingTop: '12px',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: '10px',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>AVX2 Vector</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.cpuDetails.hasAvx2 ? '#4ade80' : '#94a3b8' }}>
+                        {deepScanResult.cpuDetails.hasAvx2 ? 'Supported' : 'Not Detected'}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Dedicated VRAM</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.gpuDetails.vramMB > 0 ? '#60a5fa' : '#94a3b8' }}>
+                        {deepScanResult.gpuDetails.vramMB > 0 ? `${deepScanResult.gpuDetails.vramMB} MB` : '0 MB (CPU Mode)'}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Free RAM</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc' }}>
+                        {(deepScanResult.ramDetails.availableMB / 1024).toFixed(1)} GB
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#93c5fd', marginBottom: '2px' }}>
+                      Recommended Model: {deepScanResult.recommendedModelId} ({deepScanResult.estimatedSpeedFactor})
+                    </div>
+                    <div style={{ color: '#cbd5e1', lineHeight: '1.4' }}>
+                      {deepScanResult.recommendationReason}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Thread Budget Allocation */}

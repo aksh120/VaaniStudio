@@ -14,6 +14,7 @@ Vaani Studio is a free, desktop application engineered for content creators, vid
 * **Professional Style Studio**: Visual typography panel with font customization, outline stroke, drop shadow, background container boxes, and 7 built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic).
 * **High-Performance Editor Workspace**: Virtualized subtitle list rendering 1000+ segments at 60 FPS, HTML5 Canvas audio waveform timeline with draggable boundaries, 100-state transactional Undo/Redo, and full keyboard shortcut control.
 * **Hardware-Adaptive Inference**: Automatic CPU topology probing (physical/logical cores, memory ceiling, AVX2 support) and dynamic INT8 quantization with graceful GPU fallback.
+* **Intelligent Model Advisor & Deep Hardware Inspection**: Optional user-authorized system diagnostic analyzing AVX2 vector capabilities, dedicated GPU VRAM, and RAM headroom to recommend the fastest, highest-accuracy Whisper model with zero telemetry.
 * **Speaker Diarization & Color Coding**: Turn-taking silence detection and acoustic energy clustering identifying distinct speakers with interactive badges and color styling.
 * **Batch Media Processing Queue**: Sequential batch processing with per-item error isolation, automatic audio extraction, transcription, and subtitle file export.
 * **Headless Command-Line Interface (CLI)**: Standalone command-line tool (`vaani`) for automated terminal workflows, scripted transcription, and subtitle burning without launching the GUI.

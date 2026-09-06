@@ -24,9 +24,11 @@ import {
   ModelIntegrityResult,
   BatchJobConfig,
   BatchQueueState,
+  DeepSystemScanResult,
 } from '../shared/types/models.js';
 import { AcousticDiarizer, DiarizationResult } from './asr/diarizationEngine.js';
 import { batchQueueManager } from './media/batchQueueManager.js';
+import { runDeepSystemScan } from './hardware/deepSystemScanner.js';
 import { detectHardwareProfile } from './hardware.js';
 import { getMemorySnapshot, cleanupApplicationCache } from './hardware/memoryManager.js';
 import { logger } from './logger.js';
@@ -1051,6 +1053,23 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         return {
           success: false,
           error: { code: 'CLEAR_BATCH_FAILED', message: err?.message || 'Failed to clear batch queue.' },
+        };
+      }
+    }
+  );
+
+  // Optional Deep System Hardware Scan & Recommendation
+  ipcMain.handle(
+    IPC_CHANNELS.RUN_DEEP_SYSTEM_SCAN,
+    async (_event, allowCommandExecution?: boolean): Promise<IPCResult<DeepSystemScanResult>> => {
+      try {
+        const result = await runDeepSystemScan(Boolean(allowCommandExecution));
+        return { success: true, data: result };
+      } catch (err: any) {
+        logger.error('IPC', `Deep system scan error: ${err?.message}`);
+        return {
+          success: false,
+          error: { code: 'SCAN_FAILED', message: err?.message || 'Deep system scan failed.' },
         };
       }
     }
