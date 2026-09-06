@@ -1649,3 +1649,83 @@ Rules governing this registry:
   * Zero TypeScript compiler errors.
 * **Verification Method**: Verified `npm run typecheck` (0 errors), `npm test` (39/39 suites, 270/270 tests passed), and `npm run build` (built cleanly).
 * **Notes**: Completed in Phase 15.
+
+---
+
+## Phase 16: Interactive First-Run Onboarding & Interface Guide
+
+### TASK-076
+* **ID**: TASK-076
+* **Phase**: Phase 16 - First-Run Onboarding & Interface Guide
+* **Title**: Comprehensive Multi-Step Interactive Feature Guide Component
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-063, TASK-073
+* **Description**: Rebuild `TutorialDialog.tsx` into a 7-step interactive desktop walkthrough explaining the app's core purpose, offline privacy guarantees, desktop shell regions, timeline editing, subtitle AI, viral karaoke animations, and export workflows.
+* **Implementation Requirements**:
+  * Step-by-step navigation with Next, Previous, and direct-access step pill stepper.
+  * Prominent "Never Show Again" action button setting `tutorialCompleted: true` and persisting to local storage.
+  * High-density feature cards and wireframe layout diagram explaining "what does what".
+  * Strict zero-emoji policy compliance across all copy.
+* **Acceptance Criteria**:
+  * 7 steps present with accurate technical explanations.
+  * Next, Previous, and Never Show Again buttons function correctly.
+* **Verification Method**: Implemented in `src/renderer/src/components/TutorialDialog.tsx`. Validated step transitions and copy in `tests/unit/tutorialGuide.test.ts`.
+* **Notes**: Completed in Phase 16.
+
+---
+
+### TASK-077
+* **ID**: TASK-077
+* **Phase**: Phase 16 - First-Run Onboarding & Interface Guide
+* **Title**: Automatic First-Run Launch Trigger & Desktop Titlebar Guide Button
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-076
+* **Description**: Integrate automatic first-launch modal display in `App.tsx` whenever `tutorialCompleted` is false, and add a persistent Guide button to the desktop Titlebar.
+* **Implementation Requirements**:
+  * Check `tutorialCompleted` on initial application mount using ref guard.
+  * Add a `Guide` button between `Light Mode` and `Help` in the custom titlebar.
+* **Acceptance Criteria**:
+  * Modal displays automatically on clean first-run.
+  * Titlebar Guide button reopens the modal on demand.
+* **Verification Method**: Integrated in `src/renderer/src/App.tsx`. Verified via unit tests in `tests/unit/tutorialGuide.test.ts`.
+* **Notes**: Completed in Phase 16.
+
+---
+
+### TASK-078
+* **ID**: TASK-078
+* **Phase**: Phase 16 - First-Run Onboarding & Interface Guide
+* **Title**: Persistent Guide Reopening Entry Points in Settings and Projects View
+* **Priority**: Medium
+* **Status**: [x]
+* **Dependencies**: TASK-076
+* **Description**: Provide intuitive entry points to reopen the feature guide from the Settings workspace and Projects launchpad.
+* **Implementation Requirements**:
+  * Add "Interactive Application Guide & Tour" card with "Open Feature Tour & Guide" button in `SettingsWorkspace.tsx` General and About tabs.
+  * Add "App Guide" button in `ProjectsView.tsx` action bar and "Explore App Guide" in empty state card.
+* **Acceptance Criteria**:
+  * Users can re-launch the guide from Settings or Projects with a single click.
+* **Verification Method**: Updated `SettingsWorkspace.tsx` and `ProjectsView.tsx`. Verified in `tests/unit/tutorialGuide.test.ts`.
+* **Notes**: Completed in Phase 16.
+
+---
+
+### TASK-079
+* **ID**: TASK-079
+* **Phase**: Phase 16 - First-Run Onboarding & Interface Guide
+* **Title**: Comprehensive Unit Test Suite and Zero-Emoji Compliance Validation
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-076 through TASK-078
+* **Description**: Implement automated unit tests for the tutorial guide flow, testing step structure, what-does-what explanations, reopen triggers, and zero-emoji compliance.
+* **Implementation Requirements**:
+  * Create `tests/unit/tutorialGuide.test.ts` testing step count, key copy terms, and store mutations.
+  * Verify zero emoji across all updated component files.
+* **Acceptance Criteria**:
+  * All tutorial unit tests pass.
+  * 100% pass rate across entire test suite.
+* **Verification Method**: Created `tests/unit/tutorialGuide.test.ts` (8/8 passed). Ran full suite (`npm test`, 40/40 suites, 278/278 tests passed).
+* **Notes**: Completed in Phase 16.
+

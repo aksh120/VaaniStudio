@@ -576,3 +576,38 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
   * Full application redesign complete, tested across dark and light themes, zero regression in automated tests.
 * **Exit Criteria**:
   * All Phase 15 tasks completed with passing tests and verified production build.
+
+---
+
+### Phase 16: Interactive First-Run Onboarding & Interface Guide
+
+* **Phase ID**: PHASE-16
+* **Phase Name**: Interactive First-Run Onboarding & Interface Guide
+* **Status**: Completed
+* **Objective**: Provide users with a comprehensive, multi-step interactive onboarding guide on first application launch explaining the app's core purpose, offline privacy guarantees, desktop layout ("what does what"), timeline editing, viral karaoke styling, and export options, with persistent reopen triggers across Settings, Titlebar, and Projects.
+* **Scope**:
+  * Implement 7-step comprehensive interactive guide dialog (`TutorialDialog.tsx`) with Next, Previous, and Never Show Again actions.
+  * Implement automatic first-run launch trigger in `App.tsx` guarded by ref.
+  * Add persistent Guide launch buttons to the desktop Titlebar, Settings workspace (General and About tabs), and Projects View.
+  * Enforce strict zero-emoji policy across all guide copy.
+  * Build automated test suite for tutorial steps, copy terms, and state management.
+* **Dependencies**: PHASE-15
+* **Tasks**:
+  * [x] TASK-076: Comprehensive Multi-Step Interactive Feature Guide Component
+  * [x] TASK-077: Automatic First-Run Launch Trigger & Desktop Titlebar Guide Button
+  * [x] TASK-078: Persistent Guide Reopening Entry Points in Settings and Projects View
+  * [x] TASK-079: Comprehensive Unit Test Suite and Zero-Emoji Compliance Validation
+* **Expected Deliverables**:
+  * Rich, informative tutorial tour automatically greeting new users.
+  * Persistent 1-click access to the guide from Titlebar, Settings, and Projects view.
+  * 100% test pass rate across 40 test suites (278 unit tests).
+* **Tests**:
+  * `tests/unit/tutorialGuide.test.ts` (8/8 tests passed).
+  * `tests/unit/securityAudit.test.ts` (5/5 tests passed).
+  * Full suite `npm test` (40/40 suites, 278/278 tests passed).
+  * `npm run typecheck` passed with 0 errors.
+* **Definition of Done**:
+  * First-run tutorial renders smoothly on startup; Next, Previous, and Never Show Again buttons function correctly; reopen triggers work from all specified locations; zero emojis present.
+* **Exit Criteria**:
+  * All Phase 16 tasks complete; all tests passing; production build verified.
+
