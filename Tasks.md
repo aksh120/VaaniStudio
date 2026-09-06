@@ -66,9 +66,9 @@ Rules governing this registry:
 * [x] TASK-050: Standardized Evaluation Dataset Compilation
 * [x] TASK-051: Automated Evaluation Suite
 * [x] TASK-052: Hallucination Mitigation and Edge-Case Error Reduction
-* [ ] TASK-053: Project File Schema Definition and Atomic Persistence
-* [ ] TASK-054: Autosave Engine and Crash Recovery Manager
-* [ ] TASK-055: User-Facing Error Translation and Actionable Guidance System
+* [x] TASK-053: Project File Schema Definition and Atomic Persistence
+* [x] TASK-054: Autosave Engine and Crash Recovery Manager
+* [x] TASK-055: User-Facing Error Translation and Actionable Guidance System
 * [ ] TASK-056: Windows Installer and Packaging Configuration
 * [ ] TASK-057: First-Run Onboarding and Model Download Wizard
 * [ ] TASK-058: Security and Dependency Vulnerability Audit
@@ -1183,18 +1183,18 @@ Rules governing this registry:
 * **Phase**: Phase 12 - Reliability, Recovery and Polish
 * **Title**: Project File Schema Definition and Atomic Persistence
 * **Priority**: Critical
-* **Status**: [ ]
+* **Status**: [x]
 * **Dependencies**: TASK-008, TASK-030, TASK-036
 * **Description**: Finalize the `.vsp` (Vaani Studio Project) file format specification and implement atomic file saving to prevent data corruption.
 * **Implementation Requirements**:
   * Formalize JSON schema versioning (`projectVersion: 1`) with migration logic for future schema updates.
   * Store relative and absolute media paths, all subtitle events, word timestamps, active styling, and export history.
-  * Implement atomic writes: write to `.vsp.tmp`, flush to disk, and atomically rename over target `.vsp`.
+  * Implement atomic writes: write to `.vsp.tmp`, flush to disk via `fsyncSync`, and atomically rename over target `.vsp`.
 * **Acceptance Criteria**:
   * Projects save and open with 100% fidelity.
   * Simulating a process kill during a save operation leaves the previous project file uncorrupted.
-* **Verification Method**: Automated test writing and verifying project files; power-cut simulation test verifying file integrity.
-* **Notes**: Project files do not embed heavy media files; they store file paths and hashes.
+* **Verification Method**: Built `src/main/persistence/projectPersistence.ts` with `saveProjectAtomic`, `loadProjectFile`, schema validation, v0-to-v1 migration engine, and relative media path resolution when moving project directories. Verified atomic temporary file cleanup and file integrity in `tests/unit/projectPersistence.test.ts`.
+* **Notes**: Completed in Phase 12.
 
 ---
 
@@ -1203,7 +1203,7 @@ Rules governing this registry:
 * **Phase**: Phase 12 - Reliability, Recovery and Polish
 * **Title**: Autosave Engine and Crash Recovery Manager
 * **Priority**: High
-* **Status**: [ ]
+* **Status**: [x]
 * **Dependencies**: TASK-053
 * **Description**: Implement periodic background autosave and a crash recovery system that detects abnormal shutdowns and restores unsaved work.
 * **Implementation Requirements**:
@@ -1214,8 +1214,8 @@ Rules governing this registry:
 * **Acceptance Criteria**:
   * Unsaved project modifications successfully recovered after an abrupt process termination (`kill -9`).
   * Normal application exit leaves no orphan autosave files.
-* **Verification Method**: Simulate application crash via process kill; launch application; verify recovery dialogue and restored project state.
-* **Notes**: Autosave must execute asynchronously without blocking UI interactions.
+* **Verification Method**: Built `src/main/persistence/autosaveManager.ts` managing journal snapshots, dead PID detection via OS process inspection, non-destructive restoration, and discard routines. Added `CrashRecoveryBanner.tsx` and autosave loop in `App.tsx`. Verified detection of orphaned journals, clean exit pruning, and discard actions in `tests/unit/autosaveManager.test.ts`.
+* **Notes**: Completed in Phase 12.
 
 ---
 
@@ -1224,7 +1224,7 @@ Rules governing this registry:
 * **Phase**: Phase 12 - Reliability, Recovery and Polish
 * **Title**: User-Facing Error Translation and Actionable Guidance System
 * **Priority**: High
-* **Status**: [ ]
+* **Status**: [x]
 * **Dependencies**: TASK-009
 * **Description**: Build an error handling and translation layer that converts low-level system errors (FFmpeg failures, model load errors, missing files) into clear, actionable user messages.
 * **Implementation Requirements**:
@@ -1236,8 +1236,8 @@ Rules governing this registry:
   * Provide "Copy Diagnostic Information" button on critical error modals.
 * **Acceptance Criteria**:
   * Every common failure mode (corrupt media, missing model, out of disk space) displays a clear, helpful resolution modal.
-* **Verification Method**: Trigger intentional errors (unplug media drive, corrupt model file); verify user-facing error dialogues.
-* **Notes**: Keep language professional, polite, and technical; avoid patronizing filler.
+* **Verification Method**: Built `src/shared/errors/errorTranslator.ts` mapping technical exceptions (missing media, ENOSPC, EPERM, corrupt codecs, model download timeouts, ASR worker crashes, invalid schema) into structured error models with causes and action step checklists. Built `ActionableErrorModal.tsx` and diagnostic bundle generator. Verified all translation paths and diagnostic bundles in `tests/unit/errorTranslator.test.ts`.
+* **Notes**: Completed in Phase 12.
 
 ---
 

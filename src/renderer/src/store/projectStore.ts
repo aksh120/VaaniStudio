@@ -7,8 +7,10 @@ import {
   ProjectSettings,
   MediaInfo,
   WaveformData,
+  CrashRecoveryEntry,
 } from '../../../shared/types/models.js';
 import { createEmptyProject } from '../../../shared/defaults.js';
+import { ActionableError } from '../../../shared/errors/errorTranslator.js';
 
 interface ProjectState {
   project: ProjectData;
@@ -19,6 +21,13 @@ interface ProjectState {
   selectedEventId: string | null;
   isLoading: boolean;
   statusMessage: string;
+
+  // Persistence & Reliability State
+  isDirty: boolean;
+  currentProjectFilePath: string | null;
+  lastSavedAt: string | null;
+  activeError: ActionableError | null;
+  crashRecoveries: CrashRecoveryEntry[];
 
   // Actions
   setHardware: (hardware: HardwareProfile) => void;
@@ -33,8 +42,16 @@ interface ProjectState {
   setCurrentTime: (time: number) => void;
   setStatusMessage: (msg: string) => void;
   setIsLoading: (loading: boolean) => void;
-  loadProjectData: (project: ProjectData) => void;
+  loadProjectData: (project: ProjectData, filePath?: string) => void;
   resetProject: () => void;
+
+  // Persistence & Error Actions
+  setIsDirty: (isDirty: boolean) => void;
+  setProjectFilePath: (path: string | null) => void;
+  setLastSavedAt: (timestamp: string | null) => void;
+  setActiveError: (error: ActionableError | null) => void;
+  setCrashRecoveries: (recoveries: CrashRecoveryEntry[]) => void;
+  dismissCrashRecovery: (projectId: string) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -47,12 +64,19 @@ export const useProjectStore = create<ProjectState>((set) => ({
   isLoading: false,
   statusMessage: 'Ready',
 
+  isDirty: false,
+  currentProjectFilePath: null,
+  lastSavedAt: null,
+  activeError: null,
+  crashRecoveries: [],
+
   setHardware: (hardware) => set({ hardware }),
   setAudioWavPath: (audioWavPath) => set({ audioWavPath }),
   setWaveformData: (waveformData) => set({ waveformData }),
 
   setMedia: (media) =>
     set((state) => ({
+      isDirty: true,
       project: {
         ...state.project,
         media,
@@ -62,6 +86,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   updateSettings: (newSettings) =>
     set((state) => ({
+      isDirty: true,
       project: {
         ...state.project,
         settings: { ...state.project.settings, ...newSettings },
@@ -71,6 +96,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   updateStyle: (newStyle) =>
     set((state) => ({
+      isDirty: true,
       project: {
         ...state.project,
         style: { ...state.project.style, ...newStyle },
@@ -80,6 +106,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   setEvents: (events) =>
     set((state) => ({
+      isDirty: true,
       project: {
         ...state.project,
         events,
@@ -89,6 +116,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
 
   addEvent: (event) =>
     set((state) => ({
+      isDirty: true,
       project: {
         ...state.project,
         events: [...state.project.events, event],
@@ -100,6 +128,32 @@ export const useProjectStore = create<ProjectState>((set) => ({
   setCurrentTime: (time) => set({ currentTime: time }),
   setStatusMessage: (statusMessage) => set({ statusMessage }),
   setIsLoading: (isLoading) => set({ isLoading }),
-  loadProjectData: (project) => set({ project, selectedEventId: null }),
-  resetProject: () => set({ project: createEmptyProject(), selectedEventId: null }),
+
+  loadProjectData: (project, filePath) =>
+    set({
+      project,
+      selectedEventId: null,
+      isDirty: false,
+      currentProjectFilePath: filePath || null,
+      lastSavedAt: project.modifiedAt || new Date().toISOString(),
+    }),
+
+  resetProject: () =>
+    set({
+      project: createEmptyProject(),
+      selectedEventId: null,
+      isDirty: false,
+      currentProjectFilePath: null,
+      lastSavedAt: null,
+    }),
+
+  setIsDirty: (isDirty) => set({ isDirty }),
+  setProjectFilePath: (currentProjectFilePath) => set({ currentProjectFilePath }),
+  setLastSavedAt: (lastSavedAt) => set({ lastSavedAt, isDirty: false }),
+  setActiveError: (activeError) => set({ activeError }),
+  setCrashRecoveries: (crashRecoveries) => set({ crashRecoveries }),
+  dismissCrashRecovery: (projectId) =>
+    set((state) => ({
+      crashRecoveries: state.crashRecoveries.filter((r) => r.projectId !== projectId),
+    })),
 }));

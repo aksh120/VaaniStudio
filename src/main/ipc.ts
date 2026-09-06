@@ -38,6 +38,15 @@ import { normalizeSubtitleEvent } from '../shared/intelligence/textNormalizer.js
 import { cleanAndAlignWords } from '../shared/subtitles/wordAlignment.js';
 import { segmentWordsIntoSubtitles } from '../shared/subtitles/segmenter.js';
 import { validateSubtitles } from '../shared/subtitles/validator.js';
+import { saveProjectAtomic, loadProjectFile } from './persistence/projectPersistence.js';
+import {
+  saveAutosaveSnapshot,
+  checkCrashRecovery,
+  discardRecovery,
+  clearAutosaveForProject,
+} from './persistence/autosaveManager.js';
+import { translateError, formatDiagnosticBundle } from '../shared/errors/errorTranslator.js';
+import { CrashRecoveryEntry } from '../shared/types/models.js';
 
 const asrEngine = new FasterWhisperEngine();
 let activeTranscriptionController: AbortController | null = null;
@@ -449,21 +458,22 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           savePath = result.filePath;
         }
 
-        // Atomic write pattern: write to .tmp then rename
-        const tempPath = `${savePath}.tmp`;
-        projectData.modifiedAt = new Date().toISOString();
-        const content = JSON.stringify(projectData, null, 2);
-
-        fs.writeFileSync(tempPath, content, 'utf-8');
-        fs.renameSync(tempPath, savePath);
+        await saveProjectAtomic(savePath, projectData);
+        // Clear autosave journal since file is cleanly persisted
+        await clearAutosaveForProject(projectData.projectId);
 
         logger.info('IPC', `Project saved successfully to ${path.basename(savePath)}`);
         return { success: true, data: savePath };
       } catch (err: any) {
+        const translated = translateError(err, 'Project Save');
         logger.error('IPC', `Failed to save project: ${err?.message}`);
         return {
           success: false,
-          error: { code: 'SAVE_FAILED', message: err?.message || 'Could not save project file.' },
+          error: {
+            code: translated.code,
+            message: translated.summary,
+            actionableGuidance: translated.actionableGuidance.join(' '),
+          },
         };
       }
     }
@@ -486,30 +496,85 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         openPath = result.filePaths[0];
       }
 
-      const content = fs.readFileSync(openPath, 'utf-8');
-      const parsed = JSON.parse(content) as ProjectData;
-
-      if (!parsed.projectVersion || !parsed.events) {
-        return {
-          success: false,
-          error: {
-            code: 'INVALID_PROJECT_FORMAT',
-            message: 'The selected file is not a valid Vaani Studio project.',
-            actionableGuidance: 'Ensure you are opening a genuine .vsp file created with Vaani Studio.',
-          },
-        };
+      const { project, warnings } = await loadProjectFile(openPath);
+      if (warnings.length > 0) {
+        logger.warn('IPC', `Warnings while loading project: ${warnings.join('; ')}`);
       }
 
-      logger.info('IPC', `Loaded project: ${parsed.projectName} (${parsed.events.length} subtitle events)`);
-      return { success: true, data: parsed };
+      logger.info('IPC', `Loaded project: ${project.projectName} (${project.events.length} subtitle events)`);
+      return { success: true, data: project };
     } catch (err: any) {
+      const translated = translateError(err, 'Project Open');
       logger.error('IPC', `Failed to load project: ${err?.message}`);
       return {
         success: false,
-        error: { code: 'LOAD_FAILED', message: err?.message || 'Could not read project file.' },
+        error: {
+          code: translated.code,
+          message: translated.summary,
+          actionableGuidance: translated.actionableGuidance.join(' '),
+        },
       };
     }
   });
+
+  // Check Crash Recovery
+  ipcMain.handle(IPC_CHANNELS.CHECK_CRASH_RECOVERY, async (): Promise<IPCResult<CrashRecoveryEntry[]>> => {
+    try {
+      const recoveries = await checkCrashRecovery();
+      return { success: true, data: recoveries };
+    } catch (err: any) {
+      logger.error('IPC', `Crash recovery check failed: ${err?.message}`);
+      return { success: true, data: [] }; // Fail open with empty array
+    }
+  });
+
+  // Discard Crash Recovery
+  ipcMain.handle(IPC_CHANNELS.DISCARD_CRASH_RECOVERY, async (_event, projectId: string): Promise<IPCResult<boolean>> => {
+    try {
+      await discardRecovery(projectId);
+      return { success: true, data: true };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to discard recovery journal: ${err?.message}`);
+      return { success: false, error: { code: 'DISCARD_RECOVERY_FAILED', message: err?.message } };
+    }
+  });
+
+  // Save Autosave Snapshot
+  ipcMain.handle(
+    IPC_CHANNELS.SAVE_AUTOSAVE_SNAPSHOT,
+    async (_event, projectData: ProjectData, originalFilePath?: string): Promise<IPCResult<string>> => {
+      try {
+        const savedPath = await saveAutosaveSnapshot(projectData, originalFilePath);
+        return { success: true, data: savedPath };
+      } catch (err: any) {
+        logger.warn('IPC', `Autosave snapshot failed: ${err?.message}`);
+        return { success: false, error: { code: 'AUTOSAVE_FAILED', message: err?.message } };
+      }
+    }
+  );
+
+  // Get Diagnostic Report
+  ipcMain.handle(
+    IPC_CHANNELS.GET_DIAGNOSTIC_REPORT,
+    async (_event, errorDetails?: { code: string; message: string }): Promise<IPCResult<string>> => {
+      try {
+        const translated = translateError(errorDetails?.message || 'Diagnostic Snapshot');
+        if (errorDetails?.code) translated.code = errorDetails.code;
+        const memory = getMemorySnapshot();
+        const hardware = detectHardwareProfile();
+        const report = formatDiagnosticBundle(translated, {
+          cpuModel: hardware.cpuModel,
+          physicalCores: hardware.physicalCores,
+          totalMemoryMB: hardware.totalMemoryMB,
+          freeMemoryMB: memory.systemFreeMB,
+          processRssMB: memory.rssMB,
+        });
+        return { success: true, data: report };
+      } catch (err: any) {
+        return { success: false, error: { code: 'DIAGNOSTIC_REPORT_FAILED', message: err?.message } };
+      }
+    }
+  );
 
   // Custom Preset Management Handlers
   const getPresetsDirectory = (): string => {

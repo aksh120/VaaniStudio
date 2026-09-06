@@ -29,6 +29,10 @@ import { StylePresetStudio } from './components/StylePresetStudio.js';
 import { PresetManager } from './editor/presetManager.js';
 import { ExportModal } from './components/ExportModal.js';
 import { HardwarePerformanceModal } from './components/HardwarePerformanceModal.js';
+import { ActionableErrorModal } from './components/ActionableErrorModal.js';
+import { CrashRecoveryBanner } from './components/CrashRecoveryBanner.js';
+import { translateError } from '../../shared/errors/errorTranslator.js';
+import { CrashRecoveryEntry } from '../../shared/types/models.js';
 
 export const App: React.FC = () => {
   const {
@@ -50,6 +54,17 @@ export const App: React.FC = () => {
     statusMessage,
     setStatusMessage,
     loadProjectData,
+    isDirty,
+    currentProjectFilePath,
+    lastSavedAt,
+    activeError,
+    crashRecoveries,
+    setIsDirty,
+    setProjectFilePath,
+    setLastSavedAt,
+    setActiveError,
+    setCrashRecoveries,
+    dismissCrashRecovery,
   } = useProjectStore();
 
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -299,6 +314,61 @@ export const App: React.FC = () => {
     setCurrentTime,
   ]);
 
+  // Phase 12: Startup Crash Recovery Check
+  useEffect(() => {
+    const checkRecovery = async () => {
+      if (!window.vaaniAPI) return;
+      try {
+        const res = await window.vaaniAPI.checkCrashRecovery();
+        if (res.success && res.data && res.data.length > 0) {
+          setCrashRecoveries(res.data);
+        }
+      } catch {
+        // Fail open silently
+      }
+    };
+    checkRecovery();
+  }, [setCrashRecoveries]);
+
+  // Phase 12: 60-second Background Autosave Interval
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (isDirty && (project.events.length > 0 || project.media) && window.vaaniAPI) {
+        try {
+          const res = await window.vaaniAPI.saveAutosaveSnapshot(project, currentProjectFilePath || undefined);
+          if (res.success) {
+            setStatusMessage(`Autosaved snapshot at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+          }
+        } catch {
+          // Autosave fails silently in background
+        }
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [isDirty, project, currentProjectFilePath, setStatusMessage]);
+
+  const handleRestoreCrashRecovery = async (entry: CrashRecoveryEntry) => {
+    if (!window.vaaniAPI) return;
+    setStatusMessage(`Restoring autosaved project "${entry.projectName}"...`);
+    const res = await window.vaaniAPI.loadProject(entry.autosavePath);
+    if (res.success && res.data) {
+      loadProjectData(res.data, entry.originalFilePath);
+      historyRef.current.clear(res.data.events);
+      syncHistoryState();
+      dismissCrashRecovery(entry.projectId);
+      setStatusMessage(`Restored unsaved project from ${new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`);
+    } else {
+      setActiveError(translateError(res.error?.message || 'Failed to restore project', 'Crash Recovery'));
+    }
+  };
+
+  const handleDiscardCrashRecovery = async (entry: CrashRecoveryEntry) => {
+    if (!window.vaaniAPI) return;
+    await window.vaaniAPI.discardCrashRecovery(entry.projectId);
+    dismissCrashRecovery(entry.projectId);
+    setStatusMessage('Discarded crash recovery journal.');
+  };
+
   const currentModel = models.find((m) => m.id === selectedModelId) || models[0];
 
   const handleSelectMedia = async () => {
@@ -452,9 +522,15 @@ export const App: React.FC = () => {
   const handleSaveProject = async () => {
     if (!window.vaaniAPI) return;
     setStatusMessage('Saving project...');
-    const res = await window.vaaniAPI.saveProject(project);
+    const res = await window.vaaniAPI.saveProject(project, currentProjectFilePath || undefined);
     if (res.success && res.data) {
+      setProjectFilePath(res.data);
+      setLastSavedAt(new Date().toISOString());
+      setIsDirty(false);
       setStatusMessage(`Project saved to ${res.data}`);
+    } else if (res.error && res.error.code !== 'SAVE_CANCELLED') {
+      setActiveError(translateError(res.error.message, 'Project Save'));
+      setStatusMessage(`Failed to save project: ${res.error.message}`);
     } else {
       setStatusMessage('Project save cancelled.');
     }
@@ -469,6 +545,9 @@ export const App: React.FC = () => {
       historyRef.current.clear(res.data.events);
       syncHistoryState();
       setStatusMessage(`Opened project: ${res.data.projectName}`);
+    } else if (res.error && res.error.code !== 'LOAD_CANCELLED') {
+      setActiveError(translateError(res.error.message, 'Project Open'));
+      setStatusMessage(`Failed to open project: ${res.error.message}`);
     } else {
       setStatusMessage('Open project cancelled.');
     }
@@ -482,6 +561,21 @@ export const App: React.FC = () => {
           <span className="brand-badge">PRO</span>
           <span className="brand-title">Vaani Studio</span>
           <span className="brand-tagline">Local AI Subtitles</span>
+          {isDirty && (
+            <span
+              style={{
+                fontSize: '11px',
+                color: '#F59E0B',
+                fontWeight: 600,
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                marginLeft: '6px',
+              }}
+            >
+              Unsaved Changes
+            </span>
+          )}
         </div>
 
         <div className="titlebar-actions">
@@ -495,10 +589,17 @@ export const App: React.FC = () => {
             Import Media
           </button>
           <button className="btn btn-secondary" onClick={() => setIsExportModalOpen(true)} title="Export Subtitle Files or Burn-In Video">
-            📤 Export
+            Export
           </button>
         </div>
       </header>
+
+      {/* Crash Recovery Prompt Banner (Phase 12) */}
+      <CrashRecoveryBanner
+        recoveries={crashRecoveries}
+        onRestore={handleRestoreCrashRecovery}
+        onDiscard={handleDiscardCrashRecovery}
+      />
 
       {/* Editor Workspace Toolbar */}
       <div className="editor-main-toolbar">
@@ -509,7 +610,7 @@ export const App: React.FC = () => {
             onClick={handleUndo}
             title="Undo (Ctrl+Z)"
           >
-            ↩ Undo
+            Undo
           </button>
           <button
             className="ctrl-btn ctrl-btn-sm"
@@ -517,7 +618,7 @@ export const App: React.FC = () => {
             onClick={handleRedo}
             title="Redo (Ctrl+Y)"
           >
-            ↪ Redo
+            Redo
           </button>
           <div className="toolbar-divider" />
           <button
@@ -525,7 +626,7 @@ export const App: React.FC = () => {
             onClick={handleInsertSubtitle}
             title="Insert New Subtitle Event"
           >
-            ➕ Insert
+            Insert
           </button>
           <button
             className="ctrl-btn ctrl-btn-sm"
@@ -533,7 +634,7 @@ export const App: React.FC = () => {
             onClick={handleSplitAtPlayhead}
             title="Split active subtitle at playhead (Ctrl+K or S)"
           >
-            ✂ Split
+            Split
           </button>
           <button
             className="ctrl-btn ctrl-btn-sm"
@@ -541,7 +642,7 @@ export const App: React.FC = () => {
             onClick={handleMergeWithNext}
             title="Merge with adjacent subtitle (Ctrl+M)"
           >
-            🔗 Merge
+            Merge
           </button>
           <button
             className="ctrl-btn ctrl-btn-sm"
@@ -549,7 +650,7 @@ export const App: React.FC = () => {
             onClick={handleDuplicateSelected}
             title="Duplicate subtitle"
           >
-            📑 Duplicate
+            Duplicate
           </button>
           <button
             className="ctrl-btn ctrl-btn-sm action-delete"
@@ -557,7 +658,7 @@ export const App: React.FC = () => {
             onClick={handleDeleteSelected}
             title="Delete subtitle (Delete)"
           >
-            🗑 Delete
+            Delete
           </button>
         </div>
 
@@ -698,14 +799,14 @@ export const App: React.FC = () => {
               onClick={() => setSidebarTab('style')}
               style={{ flex: 1 }}
             >
-              🎨 Style Studio
+              Style Studio
             </button>
             <button
               className={`style-nav-tab ${sidebarTab === 'intelligence' ? 'active' : ''}`}
               onClick={() => setSidebarTab('intelligence')}
               style={{ flex: 1 }}
             >
-              ⚙️ Speech & ASR
+              Speech & ASR
             </button>
           </div>
 
@@ -823,6 +924,14 @@ export const App: React.FC = () => {
           </div>
           <span>|</span>
           <span>{statusMessage}</span>
+          {lastSavedAt ? (
+            <>
+              <span>|</span>
+              <span style={{ opacity: 0.75 }}>
+                {isDirty ? 'Unsaved edits' : `Saved at ${new Date(lastSavedAt).toLocaleTimeString()}`}
+              </span>
+            </>
+          ) : null}
         </div>
 
         <div className="statusbar-right">
@@ -843,7 +952,7 @@ export const App: React.FC = () => {
               fontWeight: 600,
             }}
           >
-            <span>⚡ Mode: {project.settings.performanceMode.toUpperCase()}</span>
+            <span>Mode: {project.settings.performanceMode.toUpperCase()}</span>
           </button>
           <span>|</span>
           <span>CPU: {hardware ? `${hardware.physicalCores} Cores / ${hardware.logicalCores} Threads` : 'Probing...'}</span>
@@ -870,6 +979,12 @@ export const App: React.FC = () => {
           updateSettings({ performanceMode: mode });
           setStatusMessage(`Switched performance mode to ${mode.toUpperCase()}.`);
         }}
+      />
+
+      {/* Actionable Error Translation Modal (Phase 12) */}
+      <ActionableErrorModal
+        error={activeError}
+        onClose={() => setActiveError(null)}
       />
     </div>
   );

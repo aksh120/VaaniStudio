@@ -124,6 +124,27 @@ export interface ProjectSettings {
   targetReadingSpeedCPS: number;
 }
 
+export const CURRENT_PROJECT_VERSION = 1;
+
+export interface ProjectExportRecord {
+  id: string;
+  format: 'srt' | 'vtt' | 'ass' | 'mp4';
+  timestamp: string;
+  outputPath: string;
+  resolution?: string;
+  fileSizeBytes?: number;
+}
+
+export interface CrashRecoveryEntry {
+  projectId: string;
+  projectName: string;
+  originalFilePath?: string;
+  autosavePath: string;
+  timestamp: string;
+  eventCount: number;
+  mediaFileName?: string;
+}
+
 export interface ProjectData {
   projectVersion: number; // Current schema version: 1
   projectId: string;
@@ -131,10 +152,13 @@ export interface ProjectData {
   createdAt: string; // ISO 8601
   modifiedAt: string; // ISO 8601
   media: MediaInfo | null;
+  relativeMediaPath?: string;
+  mediaHash?: string;
   settings: ProjectSettings;
   events: SubtitleEvent[];
   style: SubtitleStyle;
   animation: AnimationConfig;
+  exportHistory?: ProjectExportRecord[];
 }
 
 export interface MemoryStats {
@@ -295,6 +319,10 @@ export const IPC_CHANNELS = {
   CANCEL_TRANSCRIPTION: 'vaani:cancel-transcription',
   SAVE_PROJECT: 'vaani:save-project',
   LOAD_PROJECT: 'vaani:load-project',
+  CHECK_CRASH_RECOVERY: 'vaani:check-crash-recovery',
+  DISCARD_CRASH_RECOVERY: 'vaani:discard-crash-recovery',
+  SAVE_AUTOSAVE_SNAPSHOT: 'vaani:save-autosave-snapshot',
+  GET_DIAGNOSTIC_REPORT: 'vaani:get-diagnostic-report',
   GET_CUSTOM_PRESETS: 'vaani:get-custom-presets',
   SAVE_CUSTOM_PRESET: 'vaani:save-custom-preset',
   DELETE_CUSTOM_PRESET: 'vaani:delete-custom-preset',

@@ -18,6 +18,7 @@ import {
   RenderProgressUpdate,
   AnimationConfig,
   MemoryStats,
+  CrashRecoveryEntry,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -100,6 +101,22 @@ export const vaaniAPI = {
 
   loadProject: (filePath?: string): Promise<IPCResult<ProjectData>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.LOAD_PROJECT, filePath);
+  },
+
+  checkCrashRecovery: (): Promise<IPCResult<CrashRecoveryEntry[]>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CHECK_CRASH_RECOVERY);
+  },
+
+  discardCrashRecovery: (projectId: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.DISCARD_CRASH_RECOVERY, projectId);
+  },
+
+  saveAutosaveSnapshot: (projectData: ProjectData, originalFilePath?: string): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SAVE_AUTOSAVE_SNAPSHOT, projectData, originalFilePath);
+  },
+
+  getDiagnosticReport: (errorDetails?: { code: string; message: string }): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_DIAGNOSTIC_REPORT, errorDetails);
   },
 
   getCustomPresets: (): Promise<IPCResult<StylePreset[]>> => {
