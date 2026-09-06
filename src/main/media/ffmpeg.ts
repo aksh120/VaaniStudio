@@ -2,6 +2,7 @@ import { spawn, execSync, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../logger.js';
+import { applyWorkerProcessPriority } from '../hardware/cpuAllocation.js';
 
 export interface FFmpegPaths {
   ffmpegPath: string;
@@ -121,6 +122,9 @@ function runProcess(
         shell: false, // Critical: execute directly without cmd.exe to prevent injection
         stdio: ['ignore', 'pipe', 'pipe'],
       });
+      if (child.pid) {
+        applyWorkerProcessPriority(child.pid);
+      }
     } catch (err: any) {
       logger.error('MEDIA', `Failed to spawn ${processName}: ${err?.message}`);
       return reject(new Error(`Failed to spawn ${processName} (${binaryPath}): ${err?.message}`));

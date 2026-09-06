@@ -21,6 +21,7 @@ import {
 } from '../../shared/types/models.js';
 import { generateAssScript } from '../../shared/subtitles/assScriptGenerator.js';
 import { logger } from '../logger.js';
+import { getOptimalFFmpegThreads } from '../hardware/cpuAllocation.js';
 
 /**
  * Escape file paths for use inside FFmpeg filtergraphs (-vf).
@@ -45,6 +46,7 @@ export interface BurnInArgsParams {
   preset?: VideoExportPreset;
   encoder?: string;
   audioBitrate?: string;
+  threads?: number;
 }
 
 /**
@@ -60,8 +62,10 @@ export function buildBurnInArgs(params: BurnInArgsParams): string[] {
     preset = 'fast',
     encoder = 'libx264',
     audioBitrate = '192k',
+    threads,
   } = params;
 
+  const effectiveThreads = threads ?? getOptimalFFmpegThreads();
   const escapedAss = escapeFfmpegFilterPath(assFilePath);
 
   // Assemble video filters
@@ -106,6 +110,8 @@ export function buildBurnInArgs(params: BurnInArgsParams): string[] {
     'aac',
     '-b:a',
     audioBitrate,
+    '-threads',
+    String(effectiveThreads),
     outputPath,
   ];
 

@@ -19,8 +19,10 @@ import {
   VideoRenderOptions,
   RenderProgressUpdate,
   AnimationConfig,
+  MemoryStats,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
+import { getMemorySnapshot, cleanupApplicationCache } from './hardware/memoryManager.js';
 import { logger } from './logger.js';
 import { probeMediaFile } from './media/probe.js';
 import { extractNormalizedAudio } from './media/audio.js';
@@ -55,6 +57,34 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           code: 'HARDWARE_DETECT_ERROR',
           message: err?.message || 'Failed to detect system hardware profile.',
         },
+      };
+    }
+  });
+
+  // Get Memory Stats
+  ipcMain.handle(IPC_CHANNELS.GET_MEMORY_STATS, async (): Promise<IPCResult<MemoryStats>> => {
+    try {
+      const stats = getMemorySnapshot();
+      return { success: true, data: stats };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to get memory stats: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'MEMORY_STATS_ERROR', message: err?.message || 'Failed to get memory stats.' },
+      };
+    }
+  });
+
+  // Clean Application Cache
+  ipcMain.handle(IPC_CHANNELS.CLEAN_CACHE, async (_event, options?: { clearAllAudio?: boolean }): Promise<IPCResult<{ filesDeleted: number; freedMB: number }>> => {
+    try {
+      const result = cleanupApplicationCache(options);
+      return { success: true, data: { filesDeleted: result.filesDeleted, freedMB: result.freedMB } };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to clean cache: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'CLEAN_CACHE_ERROR', message: err?.message || 'Failed to clean cache.' },
       };
     }
   });

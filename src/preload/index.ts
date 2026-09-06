@@ -17,11 +17,20 @@ import {
   VideoRenderOptions,
   RenderProgressUpdate,
   AnimationConfig,
+  MemoryStats,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
   getHardwareProfile: (): Promise<IPCResult<HardwareProfile>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_HARDWARE_PROFILE);
+  },
+
+  getMemoryStats: (): Promise<IPCResult<MemoryStats>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_MEMORY_STATS);
+  },
+
+  cleanCache: (options?: { clearAllAudio?: boolean }): Promise<IPCResult<{ filesDeleted: number; freedMB: number }>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CLEAN_CACHE, options);
   },
 
   selectMediaFile: (): Promise<IPCResult<string>> => {

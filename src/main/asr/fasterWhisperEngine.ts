@@ -15,6 +15,7 @@ import { resolveInferenceDevice } from './gpuFallback.js';
 import { getModelPath, isModelDownloaded, MODEL_CATALOG } from './modelManager.js';
 import { buildHinglishPrompt } from '../../shared/intelligence/fusionEngine.js';
 import { classifyLanguage } from '../../shared/intelligence/languageClassifier.js';
+import { getOptimalASRThreads, applyWorkerProcessPriority } from '../hardware/cpuAllocation.js';
 
 export class FasterWhisperEngine implements IASREngine {
   public readonly name = 'faster-whisper';
@@ -84,7 +85,7 @@ export class FasterWhisperEngine implements IASREngine {
 
     const device = this.defaultDevice;
     const computeType = this.defaultComputeType;
-    const threads = 4; // Target Intel Core i7-3770 physical core baseline
+    const threads = getOptimalASRThreads(); // Dynamically allocated to physical cores
 
     const effectiveLanguage = options.language === 'hinglish' ? 'auto' : (options.language || 'auto');
     const initialPrompt = options.initialPrompt || (options.language === 'hinglish' ? buildHinglishPrompt('tech') : undefined);
@@ -159,6 +160,9 @@ export class FasterWhisperEngine implements IASREngine {
           windowsHide: true,
           stdio: ['ignore', 'pipe', 'pipe'],
         });
+        if (child.pid) {
+          applyWorkerProcessPriority(child.pid);
+        }
       } catch (err: any) {
         cleanup();
         return reject(new Error(`Failed to spawn Python ASR worker: ${err?.message}`));

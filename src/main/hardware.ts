@@ -1,6 +1,9 @@
 import os from 'node:os';
 import { HardwareProfile, PerformanceMode } from '../shared/types/models.js';
 import { logger } from './logger.js';
+import { getCPUAllocationConfig } from './hardware/cpuAllocation.js';
+import { getMemorySnapshot } from './hardware/memoryManager.js';
+import { resolveInferenceDevice } from './asr/gpuFallback.js';
 
 export function detectHardwareProfile(): HardwareProfile {
   const cpus = os.cpus();
@@ -18,23 +21,29 @@ export function detectHardwareProfile(): HardwareProfile {
     recommendedMode = 'quality';
   }
 
-  // Detect legacy GPU constraint:
-  // On the Core i7-3770 / GT 730 target machine, legacy Kepler/Fermi GPUs (CC < 5.0)
-  // are incompatible with modern CUDA 12 runtimes. CPU-first execution is mandatory.
+  // Detect GPU / CUDA capability
+  const gpuResolution = resolveInferenceDevice();
+  const threadConfig = getCPUAllocationConfig();
+  const memoryStats = getMemorySnapshot();
+
   const profile: HardwareProfile = {
     cpuModel,
     physicalCores,
     logicalCores,
     totalMemoryMB,
-    gpuName: 'NVIDIA GeForce GT 730 (Legacy / Compute Capability < 5.0)',
+    gpuName: gpuResolution.gpuName || 'NVIDIA GeForce GT 730 (Legacy / Compute Capability < 5.0)',
     gpuVramMB: 4096,
-    hasCudaSupport: false,
+    hasCudaSupport: gpuResolution.device === 'cuda',
     recommendedMode,
-    inferenceDevice: 'cpu',
+    inferenceDevice: gpuResolution.device,
+    allocatedThreads: threadConfig,
+    memoryStats,
   };
 
   logger.info('HARDWARE', `Detected CPU: ${cpuModel} (${physicalCores}P/${logicalCores}L cores), RAM: ${totalMemoryMB} MB`);
+  logger.info('HARDWARE', `Allocated threads: ASR=${threadConfig.asrThreads}, FFmpeg=${threadConfig.ffmpegThreads}, UI Reserve=${threadConfig.reservedUIThreads}`);
   logger.info('HARDWARE', `Inference mode: ${profile.inferenceDevice} (${profile.recommendedMode})`);
 
   return profile;
 }
+

@@ -28,6 +28,7 @@ import {
 import { StylePresetStudio } from './components/StylePresetStudio.js';
 import { PresetManager } from './editor/presetManager.js';
 import { ExportModal } from './components/ExportModal.js';
+import { HardwarePerformanceModal } from './components/HardwarePerformanceModal.js';
 
 export const App: React.FC = () => {
   const {
@@ -65,6 +66,7 @@ export const App: React.FC = () => {
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [sidebarTab, setSidebarTab] = useState<'intelligence' | 'style'>('style');
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isHardwareModalOpen, setIsHardwareModalOpen] = useState<boolean>(false);
 
   // Preset Manager instance
   const presetManager = useMemo(() => new PresetManager(), []);
@@ -824,6 +826,26 @@ export const App: React.FC = () => {
         </div>
 
         <div className="statusbar-right">
+          <button
+            className="statusbar-link-btn"
+            onClick={() => setIsHardwareModalOpen(true)}
+            title="Configure Hardware & Performance Profile"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-active)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              padding: '0 4px',
+              fontWeight: 600,
+            }}
+          >
+            <span>⚡ Mode: {project.settings.performanceMode.toUpperCase()}</span>
+          </button>
+          <span>|</span>
           <span>CPU: {hardware ? `${hardware.physicalCores} Cores / ${hardware.logicalCores} Threads` : 'Probing...'}</span>
           <span>|</span>
           <span>Inference: {hardware ? hardware.inferenceDevice.toUpperCase() : 'CPU'}</span>
@@ -836,6 +858,18 @@ export const App: React.FC = () => {
         onClose={() => setIsExportModalOpen(false)}
         project={project}
         onStatusMessage={setStatusMessage}
+      />
+
+      {/* Hardware & Performance Optimization Modal (Phase 10) */}
+      <HardwarePerformanceModal
+        isOpen={isHardwareModalOpen}
+        onClose={() => setIsHardwareModalOpen(false)}
+        hardware={hardware}
+        activeMode={project.settings.performanceMode}
+        onSelectMode={(mode) => {
+          updateSettings({ performanceMode: mode });
+          setStatusMessage(`Switched performance mode to ${mode.toUpperCase()}.`);
+        }}
       />
     </div>
   );

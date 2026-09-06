@@ -137,6 +137,22 @@ export interface ProjectData {
   animation: AnimationConfig;
 }
 
+export interface MemoryStats {
+  rssMB: number;
+  heapUsedMB: number;
+  heapTotalMB: number;
+  externalMB: number;
+  systemFreeMB: number;
+  systemTotalMB: number;
+  timestamp: string;
+}
+
+export interface CPUAllocationConfig {
+  asrThreads: number;
+  ffmpegThreads: number;
+  reservedUIThreads: number;
+}
+
 export interface HardwareProfile {
   cpuModel: string;
   physicalCores: number;
@@ -147,6 +163,8 @@ export interface HardwareProfile {
   hasCudaSupport: boolean;
   recommendedMode: PerformanceMode;
   inferenceDevice: 'cpu' | 'cuda';
+  allocatedThreads?: CPUAllocationConfig;
+  memoryStats?: MemoryStats;
 }
 
 export interface ProgressUpdate {
@@ -287,6 +305,8 @@ export const IPC_CHANNELS = {
   CANCEL_RENDER_VIDEO: 'vaani:cancel-render-video',
   RENDER_PROGRESS_EVENT: 'vaani:render-progress-event',
   SHOW_ITEM_IN_FOLDER: 'vaani:show-item-in-folder',
+  GET_MEMORY_STATS: 'vaani:get-memory-stats',
+  CLEAN_CACHE: 'vaani:clean-cache',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;

@@ -7,6 +7,7 @@ Streams line-delimited JSON messages over stdout.
 """
 
 import argparse
+import gc
 import json
 import os
 import sys
@@ -156,6 +157,13 @@ def run_transcription(args: argparse.Namespace) -> None:
                         "processedSeconds": round(segment.end, 2),
                         "totalSeconds": round(total_duration, 2),
                     })
+
+            # Periodic garbage collection every 25 segments to prevent memory creep on long media
+            if seg_idx % 25 == 0:
+                gc.collect()
+
+        # Final cleanup pass
+        gc.collect()
 
         emit({
             "type": "done",
