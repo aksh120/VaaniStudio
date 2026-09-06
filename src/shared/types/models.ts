@@ -87,6 +87,14 @@ export interface SubtitleStyle {
   position: SubtitlePosition;
 }
 
+export interface StylePreset {
+  id: string;
+  name: string;
+  description: string;
+  isBuiltIn: boolean;
+  style: SubtitleStyle;
+}
+
 export type AnimationType = 'none' | 'fade' | 'pop' | 'slide-up' | 'bounce' | 'karaoke';
 
 export interface AnimationConfig {
@@ -224,6 +232,11 @@ export const IPC_CHANNELS = {
   CANCEL_TRANSCRIPTION: 'vaani:cancel-transcription',
   SAVE_PROJECT: 'vaani:save-project',
   LOAD_PROJECT: 'vaani:load-project',
+  GET_CUSTOM_PRESETS: 'vaani:get-custom-presets',
+  SAVE_CUSTOM_PRESET: 'vaani:save-custom-preset',
+  DELETE_CUSTOM_PRESET: 'vaani:delete-custom-preset',
+  EXPORT_PRESET_FILE: 'vaani:export-preset-file',
+  IMPORT_PRESET_FILE: 'vaani:import-preset-file',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;

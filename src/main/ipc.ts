@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -13,6 +13,7 @@ import {
   TranscriptionOptions,
   SubtitleEvent,
   WordTiming,
+  StylePreset,
 } from '../shared/types/models.js';
 import { detectHardwareProfile } from './hardware.js';
 import { logger } from './logger.js';
@@ -470,6 +471,109 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         success: false,
         error: { code: 'LOAD_FAILED', message: err?.message || 'Could not read project file.' },
       };
+    }
+  });
+
+  // Custom Preset Management Handlers
+  const getPresetsDirectory = (): string => {
+    const dir = path.join(app.getPath('userData'), 'presets');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+  };
+
+  // Get Custom Presets
+  ipcMain.handle(IPC_CHANNELS.GET_CUSTOM_PRESETS, async (): Promise<IPCResult<StylePreset[]>> => {
+    try {
+      const dir = getPresetsDirectory();
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.vstyle.json'));
+      const presets: StylePreset[] = [];
+
+      for (const file of files) {
+        try {
+          const content = fs.readFileSync(path.join(dir, file), 'utf-8');
+          const parsed = JSON.parse(content);
+          if (parsed && parsed.id && parsed.name && parsed.style) {
+            presets.push(parsed);
+          } else if (parsed && parsed.preset && parsed.preset.id) {
+            presets.push(parsed.preset);
+          }
+        } catch {
+          // Skip corrupt file
+        }
+      }
+      return { success: true, data: presets };
+    } catch (err: any) {
+      return { success: false, error: { code: 'PRESETS_READ_FAILED', message: err?.message || 'Failed to read presets' } };
+    }
+  });
+
+  // Save Custom Preset
+  ipcMain.handle(IPC_CHANNELS.SAVE_CUSTOM_PRESET, async (_event, preset: StylePreset): Promise<IPCResult<boolean>> => {
+    try {
+      const dir = getPresetsDirectory();
+      const filename = `${preset.id}.vstyle.json`;
+      fs.writeFileSync(path.join(dir, filename), JSON.stringify(preset, null, 2), 'utf-8');
+      return { success: true, data: true };
+    } catch (err: any) {
+      return { success: false, error: { code: 'PRESET_SAVE_FAILED', message: err?.message || 'Failed to save preset' } };
+    }
+  });
+
+  // Delete Custom Preset
+  ipcMain.handle(IPC_CHANNELS.DELETE_CUSTOM_PRESET, async (_event, presetId: string): Promise<IPCResult<boolean>> => {
+    try {
+      const dir = getPresetsDirectory();
+      const filename = `${presetId}.vstyle.json`;
+      const targetPath = path.join(dir, filename);
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath);
+      }
+      return { success: true, data: true };
+    } catch (err: any) {
+      return { success: false, error: { code: 'PRESET_DELETE_FAILED', message: err?.message || 'Failed to delete preset' } };
+    }
+  });
+
+  // Export Preset to File via Native Windows Save Dialog
+  ipcMain.handle(IPC_CHANNELS.EXPORT_PRESET_FILE, async (_event, presetPayload: any): Promise<IPCResult<string>> => {
+    try {
+      const defaultName = `${(presetPayload.name || 'preset').replace(/[^a-zA-Z0-9_-]/g, '_')}.vstyle.json`;
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Export Subtitle Style Preset',
+        defaultPath: defaultName,
+        filters: [{ name: 'Vaani Style Preset (*.vstyle.json)', extensions: ['vstyle.json', 'json'] }],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: { code: 'EXPORT_CANCELLED', message: 'Export cancelled.' } };
+      }
+
+      fs.writeFileSync(result.filePath, JSON.stringify(presetPayload, null, 2), 'utf-8');
+      return { success: true, data: result.filePath };
+    } catch (err: any) {
+      return { success: false, error: { code: 'EXPORT_FAILED', message: err?.message || 'Failed to export preset.' } };
+    }
+  });
+
+  // Import Preset File via Native Windows Open Dialog
+  ipcMain.handle(IPC_CHANNELS.IMPORT_PRESET_FILE, async (): Promise<IPCResult<string>> => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Import Subtitle Style Preset',
+        properties: ['openFile'],
+        filters: [{ name: 'Vaani Style Preset (*.vstyle.json)', extensions: ['vstyle.json', 'json'] }],
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: { code: 'IMPORT_CANCELLED', message: 'Import cancelled.' } };
+      }
+
+      const content = fs.readFileSync(result.filePaths[0], 'utf-8');
+      return { success: true, data: content };
+    } catch (err: any) {
+      return { success: false, error: { code: 'IMPORT_FAILED', message: err?.message || 'Failed to import preset.' } };
     }
   });
 

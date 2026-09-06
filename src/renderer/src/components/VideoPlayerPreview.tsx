@@ -140,6 +140,34 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
     return alignmentStyles;
   }, [styleConfig.position]);
 
+  // Computed background with opacity
+  const computedBackground = useMemo(() => {
+    if (!styleConfig.hasBackgroundBox) return 'transparent';
+    const bg = styleConfig.backgroundColor || '#000000';
+    const opacity = styleConfig.backgroundOpacity ?? 0.8;
+    if (bg.startsWith('#')) {
+      let hex = bg.substring(1);
+      if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+      const r = parseInt(hex.substring(0, 2), 16) || 0;
+      const g = parseInt(hex.substring(2, 4), 16) || 0;
+      const b = parseInt(hex.substring(4, 6), 16) || 0;
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    return bg;
+  }, [styleConfig.hasBackgroundBox, styleConfig.backgroundColor, styleConfig.backgroundOpacity]);
+
+  // Computed text shadow with offset and blur
+  const computedShadow = useMemo(() => {
+    if (!styleConfig.shadowBlur && !styleConfig.shadowOffsetX && !styleConfig.shadowOffsetY) {
+      return '0 2px 4px rgba(0,0,0,0.8)';
+    }
+    const x = styleConfig.shadowOffsetX || 0;
+    const y = styleConfig.shadowOffsetY || 0;
+    const blur = styleConfig.shadowBlur || 0;
+    const color = styleConfig.shadowColor || '#000000';
+    return `${x}px ${y}px ${blur}px ${color}`;
+  }, [styleConfig.shadowOffsetX, styleConfig.shadowOffsetY, styleConfig.shadowBlur, styleConfig.shadowColor]);
+
   return (
     <div className="video-player-container" ref={containerRef}>
       {/* Viewport Box */}
@@ -168,23 +196,24 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
               <div
                 className="subtitle-box"
                 style={{
-                  backgroundColor: styleConfig.hasBackgroundBox
-                    ? styleConfig.backgroundColor || 'rgba(0, 0, 0, 0.75)'
-                    : 'transparent',
-                  padding: `${styleConfig.boxPaddingY || 6}px ${styleConfig.boxPaddingX || 14}px`,
-                  borderRadius: `${styleConfig.boxBorderRadius || 6}px`,
+                  backgroundColor: computedBackground,
+                  padding: `${styleConfig.boxPaddingY ?? 6}px ${styleConfig.boxPaddingX ?? 14}px`,
+                  borderRadius: `${styleConfig.boxBorderRadius ?? 6}px`,
                   fontFamily: styleConfig.fontFamily || 'Inter, sans-serif',
-                  fontSize: `${styleConfig.fontSize || 24}px`,
+                  fontSize: `${styleConfig.fontSize ? Math.round(styleConfig.fontSize * 0.55) : 24}px`,
                   fontWeight: styleConfig.fontWeight || 600,
+                  fontStyle: styleConfig.fontStyle || 'normal',
+                  textTransform: styleConfig.textTransform || 'none',
+                  letterSpacing: styleConfig.letterSpacing ? `${styleConfig.letterSpacing}px` : undefined,
+                  lineHeight: styleConfig.lineHeight || 1.3,
                   color: styleConfig.primaryColor || '#FFFFFF',
+                  opacity: styleConfig.primaryOpacity ?? 1.0,
                   textAlign: 'center',
-                  lineHeight: 1.3,
-                  textShadow: styleConfig.shadowBlur
-                    ? `0 2px ${styleConfig.shadowBlur}px ${styleConfig.shadowColor || '#000000'}`
-                    : '0 2px 4px rgba(0,0,0,0.8)',
+                  textShadow: computedShadow,
                   WebkitTextStroke: styleConfig.strokeWidth
                     ? `${styleConfig.strokeWidth}px ${styleConfig.strokeColor || '#000000'}`
                     : undefined,
+                  paintOrder: 'stroke fill',
                   maxWidth: '92%',
                   whiteSpace: 'pre-wrap',
                 }}
@@ -201,7 +230,7 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
                         key={w.id || idx}
                         style={{
                           color: isWordActive
-                            ? styleConfig.activeWordColor || '#FACC15'
+                            ? styleConfig.activeWordColor || '#FFD700'
                             : isWordPast
                             ? styleConfig.primaryColor || '#FFFFFF'
                             : styleConfig.primaryColor || '#FFFFFF',

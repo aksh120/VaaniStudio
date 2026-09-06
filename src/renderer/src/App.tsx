@@ -25,6 +25,8 @@ import {
   searchAndReplace,
   SearchReplaceOptions,
 } from './editor/editorOperations.js';
+import { StylePresetStudio } from './components/StylePresetStudio.js';
+import { PresetManager } from './editor/presetManager.js';
 
 export const App: React.FC = () => {
   const {
@@ -60,6 +62,10 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const [sidebarTab, setSidebarTab] = useState<'intelligence' | 'style'>('style');
+
+  // Preset Manager instance
+  const presetManager = useMemo(() => new PresetManager(), []);
 
   // Undo / Redo History Stack
   const historyRef = useRef<HistoryManager<SubtitleEvent[]>>(
@@ -129,8 +135,19 @@ export const App: React.FC = () => {
           setStatusMessage(`Hardware detected: ${res.data.cpuModel}`);
         }
       });
-
       refreshModels();
+
+      if (window.vaaniAPI.getCustomPresets) {
+        window.vaaniAPI.getCustomPresets().then((res) => {
+          if (res.success && res.data) {
+            for (const p of res.data) {
+              if (!presetManager.getPresetById(p.id)) {
+                presetManager.saveCustomPreset(p.name, p.description, p.style);
+              }
+            }
+          }
+        });
+      }
 
       const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
         setStatusMessage(prog.message);
@@ -667,157 +684,126 @@ export const App: React.FC = () => {
 
         {/* Right Inspector & Settings Sidebar */}
         <aside className="sidebar-inspector">
-          {/* ASR Model Management */}
-          <div className="inspector-section">
-            <span className="section-label">ASR Model Management</span>
+          {/* Sidebar Mode Switcher */}
+          <div style={{ display: 'flex', gap: '4px', padding: '10px 10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+            <button
+              className={`style-nav-tab ${sidebarTab === 'style' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('style')}
+              style={{ flex: 1 }}
+            >
+              🎨 Style Studio
+            </button>
+            <button
+              className={`style-nav-tab ${sidebarTab === 'intelligence' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('intelligence')}
+              style={{ flex: 1 }}
+            >
+              ⚙️ Speech & ASR
+            </button>
+          </div>
 
-            <div className="control-group">
-              <label className="control-label">Whisper Model</label>
-              <select
-                className="control-select"
-                value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-              >
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' - Ready' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {sidebarTab === 'style' ? (
+            <StylePresetStudio
+              currentStyle={project.style}
+              onUpdateStyle={(updated) => updateStyle(updated)}
+              presetManager={presetManager}
+            />
+          ) : (
+            <>
+              {/* ASR Model Management */}
+              <div className="inspector-section">
+                <span className="section-label">ASR Model Management</span>
 
-            {currentModel && (
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                <p style={{ margin: '0 0 8px 0' }}>{currentModel.description}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Status: {currentModel.isDownloaded ? 'Downloaded' : 'Not Downloaded'}</span>
-                  {currentModel.isDownloaded ? (
-                    <button
-                      className="btn btn-secondary"
-                      style={{ fontSize: '11px', padding: '2px 8px' }}
-                      onClick={handleDeleteModel}
-                    >
-                      Delete
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-primary"
-                      style={{ fontSize: '11px', padding: '2px 8px' }}
-                      disabled={isDownloading}
-                      onClick={handleDownloadModel}
-                    >
-                      {isDownloading ? `Downloading (${downloadProgress.toFixed(0)}%)...` : `Download (${currentModel.sizeMB} MB)`}
-                    </button>
-                  )}
+                <div className="control-group">
+                  <label className="control-label">Whisper Model</label>
+                  <select
+                    className="control-select"
+                    value={selectedModelId}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                  >
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' - Ready' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {currentModel && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    <p style={{ margin: '0 0 8px 0' }}>{currentModel.description}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Status: {currentModel.isDownloaded ? 'Downloaded' : 'Not Downloaded'}</span>
+                      {currentModel.isDownloaded ? (
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: '11px', padding: '2px 8px' }}
+                          onClick={handleDeleteModel}
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-primary"
+                          style={{ fontSize: '11px', padding: '2px 8px' }}
+                          disabled={isDownloading}
+                          onClick={handleDownloadModel}
+                        >
+                          {isDownloading ? `Downloading (${downloadProgress.toFixed(0)}%)...` : `Download (${currentModel.sizeMB} MB)`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Project & Language Intelligence */}
+              <div className="inspector-section">
+                <span className="section-label">Speech Intelligence</span>
+
+                <div className="control-group">
+                  <label className="control-label">Language Mode</label>
+                  <select
+                    className="control-select"
+                    value={project.settings.languageMode}
+                    onChange={(e) => updateSettings({ languageMode: e.target.value as LanguageMode })}
+                  >
+                    <option value="hinglish">Hinglish (Mixed Hindi & English)</option>
+                    <option value="english">English (Global / Indian Accent)</option>
+                    <option value="hindi">Hindi (Pure Devanagari)</option>
+                    <option value="auto">Auto-Detect Language</option>
+                  </select>
+                </div>
+
+                <div className="control-group">
+                  <label className="control-label">Script Mode</label>
+                  <select
+                    className="control-select"
+                    value={project.settings.scriptMode}
+                    onChange={(e) => handleScriptModeChange(e.target.value as ScriptMode)}
+                  >
+                    <option value="roman">Roman Hinglish (e.g. "Ye feature better hai")</option>
+                    <option value="devanagari">Devanagari (e.g. "ये फीचर बेटर है")</option>
+                    <option value="exact">Exact Spoken (Verbatim)</option>
+                    <option value="cleaned">Cleaned Speech (Filler Removed)</option>
+                  </select>
+                </div>
+
+                <div className="control-group">
+                  <label className="control-label">Performance Mode</label>
+                  <select
+                    className="control-select"
+                    value={project.settings.performanceMode}
+                    onChange={(e) => updateSettings({ performanceMode: e.target.value as PerformanceMode })}
+                  >
+                    <option value="fast">Fast (Quantized Tiny/Base Model)</option>
+                    <option value="balanced">Balanced (Quantized Small Model)</option>
+                    <option value="quality">Maximum Quality (Medium Model)</option>
+                  </select>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Project & Language Intelligence */}
-          <div className="inspector-section">
-            <span className="section-label">Speech Intelligence</span>
-
-            <div className="control-group">
-              <label className="control-label">Language Mode</label>
-              <select
-                className="control-select"
-                value={project.settings.languageMode}
-                onChange={(e) => updateSettings({ languageMode: e.target.value as LanguageMode })}
-              >
-                <option value="hinglish">Hinglish (Mixed Hindi & English)</option>
-                <option value="english">English (Global / Indian Accent)</option>
-                <option value="hindi">Hindi (Pure Devanagari)</option>
-                <option value="auto">Auto-Detect Language</option>
-              </select>
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Script Mode</label>
-              <select
-                className="control-select"
-                value={project.settings.scriptMode}
-                onChange={(e) => handleScriptModeChange(e.target.value as ScriptMode)}
-              >
-                <option value="roman">Roman Hinglish (e.g. "Ye feature better hai")</option>
-                <option value="devanagari">Devanagari (e.g. "ये फीचर बेटर है")</option>
-                <option value="exact">Exact Spoken (Verbatim)</option>
-                <option value="cleaned">Cleaned Speech (Filler Removed)</option>
-              </select>
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Performance Mode</label>
-              <select
-                className="control-select"
-                value={project.settings.performanceMode}
-                onChange={(e) => updateSettings({ performanceMode: e.target.value as PerformanceMode })}
-              >
-                <option value="fast">Fast (Quantized Tiny/Base Model)</option>
-                <option value="balanced">Balanced (Quantized Small Model)</option>
-                <option value="quality">Maximum Quality (Medium Model)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Subtitle Styling Studio */}
-          <div className="inspector-section">
-            <span className="section-label">Subtitle Styling</span>
-
-            <div className="control-group">
-              <label className="control-label">Font Family</label>
-              <input
-                className="control-input"
-                type="text"
-                value={project.style.fontFamily}
-                onChange={(e) => updateStyle({ fontFamily: e.target.value })}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Font Size (px)</label>
-              <input
-                className="control-input"
-                type="number"
-                min="16"
-                max="96"
-                value={project.style.fontSize}
-                onChange={(e) => updateStyle({ fontSize: Number(e.target.value) })}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Primary Color</label>
-              <input
-                className="control-input"
-                type="color"
-                value={project.style.primaryColor}
-                onChange={(e) => updateStyle({ primaryColor: e.target.value })}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Active Word Highlight</label>
-              <input
-                className="control-input"
-                type="color"
-                value={project.style.activeWordColor}
-                onChange={(e) => updateStyle({ activeWordColor: e.target.value })}
-              />
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Stroke Width (px)</label>
-              <input
-                className="control-input"
-                type="number"
-                min="0"
-                max="12"
-                value={project.style.strokeWidth}
-                onChange={(e) => updateStyle({ strokeWidth: Number(e.target.value) })}
-              />
-            </div>
-          </div>
+            </>
+          )}
         </aside>
       </main>
 

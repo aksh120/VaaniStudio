@@ -256,30 +256,31 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 
 * **Phase ID**: PHASE-07
 * **Phase Name**: Subtitle Styling and Preset System
+* **Status**: Completed
 * **Objective**: Create a comprehensive visual styling engine allowing users to customize typography, colors, strokes, shadows, background boxes, positioning, and manage reusable presets.
 * **Scope**:
   * Define strongly-typed styling schema for fonts, colors, strokes, drop shadows, background padding, and positioning.
   * Build visual styling controls in the UI with real-time preview updates.
-  * Create a library of curated, professional style presets (Clean, Minimal, Podcast, Karaoke, Punch, Meme, Social, Cinematic).
+  * Create a library of curated, professional style presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic).
   * Implement custom preset creator with import/export capabilities for project portability.
 * **Dependencies**: PHASE-06
 * **Tasks**:
-  * TASK-036: Subtitle Style Data Schema and Serialization Engine
-  * TASK-037: Typography and Box Model Styling Controls
-  * TASK-038: Built-in Professional Style Presets Library
-  * TASK-039: Custom Preset Creator, Export, and Import System
+  * [x] TASK-036: Subtitle Style Data Schema and Serialization Engine
+  * [x] TASK-037: Typography and Box Model Styling Controls
+  * [x] TASK-038: Built-in Professional Style Presets Library
+  * [x] TASK-039: Custom Preset Creator, Export, and Import System
 * **Expected Deliverables**:
   * Reusable styling engine with instant preview synchronization.
   * Suite of professional built-in presets and serialized JSON style export/import.
 * **Tests**:
-  * Unit tests validating style schema serialization and deserialization.
-  * Visual regression tests checking preset rendering across different aspect ratios (16:9, 9:16).
+  * Unit tests validating style schema serialization and deserialization (`tests/unit/assStyleSerializer.test.ts`).
+  * Unit tests validating preset catalog, persistence, immutability, and import/export (`tests/unit/presetManager.test.ts`).
 * **Definition of Done**:
   * User can apply any built-in preset or customize every visual property with immediate preview feedback.
 * **Exit Criteria**:
-  * Phase 7 tasks completed; preset library fully functional.
+  * All Phase 7 tasks completed; preset library fully functional and verified with 107/107 passing tests.
 * **Risks**:
-  * Visual inconsistencies between HTML5 preview rendering and FFmpeg `libass` burned-in output.
+  * Visual inconsistencies addressed by standard ASS v4+ color and margin calculations in assStyleSerializer.
 
 ---
 

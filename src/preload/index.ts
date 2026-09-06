@@ -11,6 +11,7 @@ import {
   TranscriptionOptions,
   SubtitleEvent,
   ProgressUpdate,
+  StylePreset,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -85,6 +86,26 @@ export const vaaniAPI = {
 
   loadProject: (filePath?: string): Promise<IPCResult<ProjectData>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.LOAD_PROJECT, filePath);
+  },
+
+  getCustomPresets: (): Promise<IPCResult<StylePreset[]>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_CUSTOM_PRESETS);
+  },
+
+  saveCustomPreset: (preset: StylePreset): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SAVE_CUSTOM_PRESET, preset);
+  },
+
+  deleteCustomPreset: (presetId: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.DELETE_CUSTOM_PRESET, presetId);
+  },
+
+  exportPresetFile: (presetPayload: any): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.EXPORT_PRESET_FILE, presetPayload);
+  },
+
+  importPresetFile: (): Promise<IPCResult<string>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PRESET_FILE);
   },
 
   log: (level: string, category: string, message: string): void => {

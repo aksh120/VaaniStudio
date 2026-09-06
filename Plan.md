@@ -396,3 +396,22 @@ Projects are stored as a versioned JSON document with an atomic file-replacement
 * **No AI Disclosure**: Avoid phrases like "AI generated", "built with ChatGPT", or similar synthetic markers. Documentation must reflect professional human engineering.
 * **Clarity and Precision**: Functions and modules must have single, well-defined responsibilities. Comments explain the rationale behind non-obvious code, not the mechanics of obvious syntax.
 * **Traceable Git Hygiene**: Meaningful commit messages, no multi-gigabyte binaries or temporary files committed, and a strict `.gitignore`.
+
+---
+
+## 18. Implementation Phases and Roadmap Status
+
+| Phase | Title | Status | Completed Tasks / Milestones |
+| :--- | :--- | :--- | :--- |
+| **Phase 0** | Research and Architecture | Completed | Hardware baseline (Core i7-3770 / GT 730), framework evaluation, ASR model selection, FFmpeg audit, license cataloging. |
+| **Phase 1** | Development Foundation | Completed | Desktop scaffolding (Electron + Vite + React + TS), design tokens, native IPC bridge, local logging, task runner. |
+| **Phase 2** | Local Media Engine | Completed | FFmpeg & FFprobe wrapper, media ingestion & probing, 16 kHz audio extraction, waveform peak generator. |
+| **Phase 3** | Core Speech Recognition Pipeline | Completed | faster-whisper CTranslate2 worker, Silero VAD, streaming progress, INT8 CPU optimization, model manager. |
+| **Phase 4** | Hinglish & Code-Switching Intelligence | Completed | Multi-script normalization, Devanagari/Roman transliteration, language classifier, lexicon fusion engine. |
+| **Phase 5** | Word Timing & Subtitle Engine | Completed | Monotonic timestamp extraction, syntax-aware segmentation, broadcast validator (CPS/CPL), reactive subtitle store. |
+| **Phase 6** | Desktop Subtitle Editor Workspace | Completed | Virtualized subtitle list (60 FPS), HTML5 Canvas waveform timeline, video preview with media-file:// streaming, transactional editing, undo/redo (100 states), keyboard shortcuts. |
+| **Phase 7** | Subtitle Styling and Preset System | Completed | Subtitle style schema & ASS serialization, visual styling panel, typography & box model controls, built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic), custom preset manager (.vstyle.json). |
+| **Phase 8** | Kinetic Typography & Animation Engine | Planned | Real-time karaoke progress, word-level kinetic emphasis, entrance/exit motion (Fade, Pop, Slide Up, Bounce), preview renderer. |
+| **Phase 9** | Subtitle Export & Video Rendering Pipeline | Planned | SRT, WebVTT, ASS format generators, FFmpeg burned-in video export with NVENC/QuickSync/libx264, batch export. |
+| **Phase 10**| Packaging, Testing & Release | Planned | Benchmark accuracy suite (WER/CER), resource profiling, NSIS Windows installer, signed release build. |
+
