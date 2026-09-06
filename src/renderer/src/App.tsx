@@ -35,6 +35,7 @@ import { OnboardingWizard } from './components/OnboardingWizard.js';
 import { BatchQueueModal } from './components/BatchQueueModal.js';
 import { translateError } from '../../shared/errors/errorTranslator.js';
 import { CrashRecoveryEntry } from '../../shared/types/models.js';
+import logoIcon from './assets/inapp-icon.svg';
 
 export const App: React.FC = () => {
   const {
@@ -615,6 +616,18 @@ export const App: React.FC = () => {
       {/* Top Application Bar */}
       <header className="titlebar">
         <div className="titlebar-brand">
+          <img
+            src={logoIcon}
+            alt="Vaani Studio"
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '5px',
+              flexShrink: 0,
+              display: 'inline-block',
+              verticalAlign: 'middle',
+            }}
+          />
           <span className="brand-badge">PRO</span>
           <span className="brand-title">Vaani Studio</span>
           <span className="brand-tagline">Local AI Subtitles</span>

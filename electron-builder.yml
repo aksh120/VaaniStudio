@@ -9,6 +9,7 @@ directories:
 files:
   - dist/**
   - dist-electron/**
+  - assets/**
   - package.json
 
 win:
@@ -40,6 +41,11 @@ nsis:
   uninstallDisplayName: Vaani Studio
   deleteAppDataOnUninstall: false
   differentialPackage: false
+  installerIcon: assets/icons/icon.ico
+  uninstallerIcon: assets/icons/icon.ico
+  installerHeader: assets/branding/installer-header.bmp
+  installerSidebar: assets/branding/installer-sidebar.bmp
+  uninstallerSidebar: assets/branding/installer-sidebar.bmp
   artifactName: VaaniStudio-Setup-${version}.exe
 
 portable:

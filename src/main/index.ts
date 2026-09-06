@@ -60,12 +60,15 @@ process.on('unhandledRejection', (reason) => {
 
 function createWindow(): void {
   try {
+    const appIconPath = path.join(process.env.APP_ROOT || path.join(__dirname, '../..'), 'assets/icons/icon.png');
+
     mainWindow = new BrowserWindow({
       title: 'Vaani Studio',
       width: 1360,
       height: 860,
       minWidth: 1024,
       minHeight: 700,
+      icon: appIconPath,
       backgroundColor: '#090D16', // Deep slate obsidian background
       show: false,
       autoHideMenuBar: true,
