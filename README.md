@@ -14,10 +14,8 @@ Pre-compiled binary releases for Windows and Linux are available directly on the
 | :--- | :--- | :--- | :--- |
 | **Windows** | Setup Wizard | `VaaniStudio-Setup-*.exe` | Recommended installer with desktop & start menu shortcuts |
 | **Windows** | Portable Executable | `VaaniStudio-Portable-*.exe` | Single self-contained `.exe` requiring zero installation |
-| **Windows** | Portable ZIP | `VaaniStudio-Windows-*.zip` | Portable directory archive |
 | **Linux** | Universal AppImage | `VaaniStudio-*.AppImage` | Standalone executable for Ubuntu, Debian, Fedora, Arch |
 | **Linux** | Debian / Ubuntu | `VaaniStudio-*.deb` | Native deb package for Debian, Ubuntu, and Linux Mint |
-| **Linux** | Tarball | `VaaniStudio-*.tar.gz` | Standalone archive with binary executable |
 
 Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary integrity before execution.
 

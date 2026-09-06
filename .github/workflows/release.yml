@@ -57,7 +57,7 @@ jobs:
       - name: Build production bundles
         run: npm run build
 
-      - name: Package Windows Executables (NSIS, Portable, ZIP)
+      - name: Package Windows Executables (NSIS and Portable)
         run: npx electron-builder --win --x64 --publish never
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +65,8 @@ jobs:
       - name: Compute Windows SHA256 Checksums
         shell: powershell
         run: |
-          Get-ChildItem -Path dist-release -File | Where-Object { $_.Extension -in '.exe', '.zip' } | ForEach-Object {
+          Remove-Item -Path dist-release/*.blockmap, dist-release/*.yml, dist-release/*.yaml, dist-release/*.zip -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path dist-release -Filter *.exe | ForEach-Object {
             (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower() + "  " + $_.Name | Out-File -FilePath dist-release/SHA256SUMS-windows.txt -Append -Encoding ascii
           }
           Get-Content dist-release/SHA256SUMS-windows.txt
@@ -75,8 +76,8 @@ jobs:
         with:
           name: windows-binaries
           path: |
-            dist-release/*.exe
-            dist-release/*.zip
+            dist-release/VaaniStudio-Setup-*.exe
+            dist-release/VaaniStudio-Portable-*.exe
             dist-release/SHA256SUMS-windows.txt
           retention-days: 5
 
@@ -112,7 +113,7 @@ jobs:
       - name: Build production bundles
         run: npm run build
 
-      - name: Package Linux Executables (AppImage, DEB, tar.gz)
+      - name: Package Linux Executables (AppImage and DEB)
         run: npx electron-builder --linux --x64 --publish never
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -120,7 +121,8 @@ jobs:
       - name: Compute Linux SHA256 Checksums
         run: |
           cd dist-release
-          sha256sum *.AppImage *.deb *.tar.gz > SHA256SUMS-linux.txt 2>/dev/null || true
+          rm -f *.yml *.yaml *.tar.gz *.blockmap
+          sha256sum *.AppImage *.deb > SHA256SUMS-linux.txt 2>/dev/null || true
           cat SHA256SUMS-linux.txt
 
       - name: Upload Linux Artifacts
@@ -130,7 +132,6 @@ jobs:
           path: |
             dist-release/*.AppImage
             dist-release/*.deb
-            dist-release/*.tar.gz
             dist-release/SHA256SUMS-linux.txt
           retention-days: 5
 
@@ -160,6 +161,8 @@ jobs:
       - name: Consolidate SHA256 Checksums
         run: |
           cd release-assets
+          # Remove any non-executable files that may have been downloaded
+          rm -f *.yml *.yaml *.blockmap *.zip *.tar.gz
           cat SHA256SUMS-windows.txt SHA256SUMS-linux.txt > SHA256SUMS.txt
           rm -f SHA256SUMS-windows.txt SHA256SUMS-linux.txt
           cat SHA256SUMS.txt
@@ -183,19 +186,17 @@ jobs:
 
           Vaani Studio is a free, local-first AI subtitle generation and video burn-in application built for English, Hindi, and Hinglish.
 
-          ### Download Options
+          ### Download Executables
 
           | Platform | Format | File Name | Description |
           |---|---|---|---|
           | **Windows** | Setup Installer | `VaaniStudio-Setup-*.exe` | Recommended installer with desktop & start menu shortcuts |
           | **Windows** | Portable Executable | `VaaniStudio-Portable-*.exe` | Standalone zero-install executable |
-          | **Windows** | Portable ZIP | `VaaniStudio-Windows-*.zip` | Portable archive folder |
           | **Linux** | Universal AppImage | `VaaniStudio-*.AppImage` | Standalone executable for all modern Linux distros |
           | **Linux** | Debian / Ubuntu | `VaaniStudio-*.deb` | Native deb package for Ubuntu, Debian, Mint |
-          | **Linux** | Tarball | `VaaniStudio-*.tar.gz` | Standalone Linux archive |
 
           ### Key Features
-          * **100% Offline & Private**: Zero cloud audio upload. All transcription runs locally on your device.
+          * **100% Offline & Private**: Zero cloud audio upload. All transcription runs locally on your workstation.
           * **Multi-Format Subtitle Export**: SRT, WebVTT, ASS with animated karaoke styling, TXT, and JSON.
           * **Video Burn-In Engine**: Direct subtitle rendering into MP4/MKV videos with GPU acceleration.
           * **Acoustic Speaker Diarization**: Turn-taking speaker clustering with custom speaker naming and palette colors.
@@ -225,10 +226,8 @@ jobs:
           files: |
             release-assets/VaaniStudio-Setup-*.exe
             release-assets/VaaniStudio-Portable-*.exe
-            release-assets/VaaniStudio-Windows-*.zip
             release-assets/VaaniStudio-*.AppImage
             release-assets/VaaniStudio-*.deb
-            release-assets/VaaniStudio-*.tar.gz
             release-assets/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

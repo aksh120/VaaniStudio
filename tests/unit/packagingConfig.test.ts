@@ -47,14 +47,15 @@ describe('Phase 13: Packaging and Windows Distribution Configuration (TASK-056)'
   it('verifies multi-format distribution targets for Windows and Linux', () => {
     const content = fs.readFileSync(configPath, 'utf8');
 
-    // Windows targets: NSIS, Portable, ZIP
-    expect(content).toContain('target: zip');
+    // Windows targets: NSIS and Portable
+    expect(content).toContain('target: nsis');
+    expect(content).toContain('target: portable');
+    expect(content).toContain('differentialPackage: false');
     expect(content).toContain('artifactName: VaaniStudio-Setup-${version}.exe');
 
-    // Linux targets: AppImage, DEB, tar.gz
+    // Linux targets: AppImage and DEB
     expect(content).toContain('target: AppImage');
     expect(content).toContain('target: deb');
-    expect(content).toContain('target: tar.gz');
     expect(content).toContain('category: AudioVideo');
   });
 
