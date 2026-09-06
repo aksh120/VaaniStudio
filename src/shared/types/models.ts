@@ -85,6 +85,9 @@ export interface SubtitleStyle {
   
   // Placement
   position: SubtitlePosition;
+
+  // Kinetic Animation
+  animation?: AnimationConfig;
 }
 
 export interface StylePreset {
@@ -96,6 +99,7 @@ export interface StylePreset {
 }
 
 export type AnimationType = 'none' | 'fade' | 'pop' | 'slide-up' | 'bounce' | 'karaoke';
+export type KaraokeHighlightMode = 'step' | 'sweep';
 
 export interface AnimationConfig {
   entrance: AnimationType;
@@ -103,6 +107,7 @@ export interface AnimationConfig {
   durationMs: number; // e.g. 150ms
   activeWordEmphasis: boolean;
   activeWordScale: number; // e.g. 1.05
+  karaokeMode: KaraokeHighlightMode;
 }
 
 export type LanguageMode = 'english' | 'hindi' | 'hinglish' | 'auto';

@@ -4,8 +4,11 @@ import {
   StylePreset,
   HorizontalAlignment,
   TextTransform,
+  AnimationConfig,
+  AnimationType,
 } from '../../../shared/types/models.js';
 import { PresetManager } from '../editor/presetManager.js';
+import { DEFAULT_ANIMATION } from '../../../shared/defaults.js';
 
 export interface StylePresetStudioProps {
   currentStyle: SubtitleStyle;
@@ -32,13 +35,15 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
   onUpdateStyle,
   presetManager,
 }) => {
-  const [activeTab, setActiveTab] = useState<'presets' | 'typography' | 'appearance' | 'position'>('presets');
+  const [activeTab, setActiveTab] = useState<'presets' | 'typography' | 'appearance' | 'position' | 'motion'>('presets');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [newPresetDesc, setNewPresetDesc] = useState('');
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
 
   const presets = presetManager.getAllPresets();
+
+  const currentAnimation: AnimationConfig = currentStyle.animation || DEFAULT_ANIMATION;
 
   const handleApplyPreset = (preset: StylePreset) => {
     onUpdateStyle({ ...preset.style });
@@ -50,6 +55,16 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
     onUpdateStyle({
       ...currentStyle,
       [key]: value,
+    });
+  };
+
+  const handleAnimationUpdate = <K extends keyof AnimationConfig>(key: K, value: AnimationConfig[K]) => {
+    onUpdateStyle({
+      ...currentStyle,
+      animation: {
+        ...currentAnimation,
+        [key]: value,
+      },
     });
   };
 
@@ -180,6 +195,12 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
           onClick={() => setActiveTab('position')}
         >
           📐 Placement
+        </button>
+        <button
+          className={`style-nav-tab ${activeTab === 'motion' ? 'active' : ''}`}
+          onClick={() => setActiveTab('motion')}
+        >
+          🎬 Motion
         </button>
       </div>
 
@@ -628,6 +649,188 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
             <span className="control-hint">
               0% is top of video canvas, 100% is bottom baseline.
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Motion & Kinetic Animation (Phase 8: TASK-040, TASK-041, TASK-042) */}
+      {activeTab === 'motion' && (
+        <div className="style-section-content">
+          {/* Quick Motion Presets */}
+          <div className="style-subgroup">
+            <span className="subgroup-title">⚡ Quick Motion Presets</span>
+            <div className="segmented-button-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  handleAnimationUpdate('entrance', 'pop');
+                  handleAnimationUpdate('exit', 'fade');
+                  handleAnimationUpdate('durationMs', 150);
+                  handleAnimationUpdate('karaokeMode', 'step');
+                  handleAnimationUpdate('activeWordEmphasis', true);
+                  handleAnimationUpdate('activeWordScale', 1.10);
+                }}
+              >
+                🔥 Punch Pop
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  handleAnimationUpdate('entrance', 'fade');
+                  handleAnimationUpdate('exit', 'fade');
+                  handleAnimationUpdate('durationMs', 200);
+                  handleAnimationUpdate('karaokeMode', 'sweep');
+                  handleAnimationUpdate('activeWordEmphasis', false);
+                  handleAnimationUpdate('activeWordScale', 1.00);
+                }}
+              >
+                🎵 Smooth Lyric
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  handleAnimationUpdate('entrance', 'slide-up');
+                  handleAnimationUpdate('exit', 'slide-up');
+                  handleAnimationUpdate('durationMs', 180);
+                  handleAnimationUpdate('karaokeMode', 'step');
+                  handleAnimationUpdate('activeWordEmphasis', true);
+                  handleAnimationUpdate('activeWordScale', 1.06);
+                }}
+              >
+                🚀 Dynamic Rise
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  handleAnimationUpdate('entrance', 'fade');
+                  handleAnimationUpdate('exit', 'fade');
+                  handleAnimationUpdate('durationMs', 120);
+                  handleAnimationUpdate('karaokeMode', 'step');
+                  handleAnimationUpdate('activeWordEmphasis', false);
+                  handleAnimationUpdate('activeWordScale', 1.00);
+                }}
+              >
+                🌿 Subtle Fade
+              </button>
+            </div>
+          </div>
+
+          {/* Entrance Transition */}
+          <div className="control-group">
+            <label className="control-label">Entrance Animation</label>
+            <select
+              className="control-select"
+              value={currentAnimation.entrance}
+              onChange={(e) => handleAnimationUpdate('entrance', e.target.value as AnimationType)}
+            >
+              <option value="pop">Scale Pop (Spring Pop In)</option>
+              <option value="fade">Fade In (Smooth Dissolve)</option>
+              <option value="slide-up">Slide Up (Smooth Eased Rise)</option>
+              <option value="bounce">Bounce (Dynamic Kinetic)</option>
+              <option value="none">None (Instant Cut)</option>
+            </select>
+          </div>
+
+          {/* Exit Transition */}
+          <div className="control-group">
+            <label className="control-label">Exit Animation</label>
+            <select
+              className="control-select"
+              value={currentAnimation.exit}
+              onChange={(e) => handleAnimationUpdate('exit', e.target.value as AnimationType)}
+            >
+              <option value="fade">Fade Out (Gentle Dissolve)</option>
+              <option value="pop">Scale Pop Down</option>
+              <option value="slide-up">Slide Up Out</option>
+              <option value="bounce">Bounce Out</option>
+              <option value="none">None (Instant Cut)</option>
+            </select>
+          </div>
+
+          {/* Transition Duration */}
+          <div className="control-group">
+            <div className="slider-label-row">
+              <label className="control-label">Transition Duration</label>
+              <span className="slider-value">{currentAnimation.durationMs}ms</span>
+            </div>
+            <input
+              type="range"
+              className="control-slider"
+              min="50"
+              max="500"
+              step="25"
+              value={currentAnimation.durationMs}
+              onChange={(e) => handleAnimationUpdate('durationMs', Number(e.target.value))}
+            />
+            <span className="control-hint">
+              Controls the speed of entrance and exit animations (50ms - 500ms).
+            </span>
+          </div>
+
+          {/* Word-Level Karaoke Mode */}
+          <div className="control-group">
+            <label className="control-label">Karaoke Highlighting Mode</label>
+            <div className="segmented-button-row">
+              <button
+                type="button"
+                className={`segmented-btn ${currentAnimation.karaokeMode === 'step' ? 'active' : ''}`}
+                onClick={() => handleAnimationUpdate('karaokeMode', 'step')}
+              >
+                Step Jump (\k)
+              </button>
+              <button
+                type="button"
+                className={`segmented-btn ${currentAnimation.karaokeMode === 'sweep' ? 'active' : ''}`}
+                onClick={() => handleAnimationUpdate('karaokeMode', 'sweep')}
+              >
+                Smooth Sweep (\kf)
+              </button>
+            </div>
+            <span className="control-hint">
+              Step snaps active color on word onset. Sweep wipes highlight progressively across each word.
+            </span>
+          </div>
+
+          {/* Active Word Pop Emphasis */}
+          <div className="control-group">
+            <div className="toggle-row">
+              <div>
+                <div className="control-label">Active Word Pop Emphasis</div>
+                <div className="control-sublabel">Slightly scale up currently spoken word</div>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={Boolean(currentAnimation.activeWordEmphasis)}
+                  onChange={(e) => handleAnimationUpdate('activeWordEmphasis', e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            {currentAnimation.activeWordEmphasis && (
+              <>
+                <div className="slider-label-row" style={{ marginTop: '10px' }}>
+                  <label className="control-label">Emphasis Scale</label>
+                  <span className="slider-value">
+                    {Math.round((currentAnimation.activeWordScale || 1.08) * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  className="control-slider"
+                  min="1.00"
+                  max="1.30"
+                  step="0.02"
+                  value={currentAnimation.activeWordScale || 1.08}
+                  onChange={(e) => handleAnimationUpdate('activeWordScale', Number(e.target.value))}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

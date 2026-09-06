@@ -42,6 +42,7 @@ export const DEFAULT_ANIMATION: AnimationConfig = {
   durationMs: 150,
   activeWordEmphasis: true,
   activeWordScale: 1.06,
+  karaokeMode: 'step',
 };
 
 export const DEFAULT_SETTINGS: ProjectSettings = {

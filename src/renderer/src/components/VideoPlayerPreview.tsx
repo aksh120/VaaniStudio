@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { SubtitleEvent, SubtitleStyle } from '../../../shared/types/models.js';
 import { formatTimecode } from '../../../shared/utils/timecode.js';
+import { KineticSubtitleRenderer } from './KineticSubtitleRenderer.js';
 
 export type AspectRatioMode = '16:9' | '9:16' | '1:1';
 
@@ -116,58 +117,6 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
     return { width: '100%', height: 'auto', aspectRatio: '16/9', maxHeight: '100%' };
   }, [aspectRatio]);
 
-  // Subtitle position styles based on config
-  const subtitleContainerPosition: React.CSSProperties = useMemo(() => {
-    const align = styleConfig.position?.alignment || 'center';
-    const vert = styleConfig.position?.verticalPercent ?? 85;
-
-    let justify = 'center';
-    if (align === 'left') justify = 'flex-start';
-    else if (align === 'right') justify = 'flex-end';
-
-    const alignmentStyles: React.CSSProperties = {
-      position: 'absolute',
-      left: '5%',
-      width: '90%',
-      display: 'flex',
-      justifyContent: justify,
-      pointerEvents: 'none',
-      zIndex: 10,
-      top: `${vert}%`,
-      transform: 'translateY(-50%)',
-    };
-
-    return alignmentStyles;
-  }, [styleConfig.position]);
-
-  // Computed background with opacity
-  const computedBackground = useMemo(() => {
-    if (!styleConfig.hasBackgroundBox) return 'transparent';
-    const bg = styleConfig.backgroundColor || '#000000';
-    const opacity = styleConfig.backgroundOpacity ?? 0.8;
-    if (bg.startsWith('#')) {
-      let hex = bg.substring(1);
-      if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
-      const r = parseInt(hex.substring(0, 2), 16) || 0;
-      const g = parseInt(hex.substring(2, 4), 16) || 0;
-      const b = parseInt(hex.substring(4, 6), 16) || 0;
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    return bg;
-  }, [styleConfig.hasBackgroundBox, styleConfig.backgroundColor, styleConfig.backgroundOpacity]);
-
-  // Computed text shadow with offset and blur
-  const computedShadow = useMemo(() => {
-    if (!styleConfig.shadowBlur && !styleConfig.shadowOffsetX && !styleConfig.shadowOffsetY) {
-      return '0 2px 4px rgba(0,0,0,0.8)';
-    }
-    const x = styleConfig.shadowOffsetX || 0;
-    const y = styleConfig.shadowOffsetY || 0;
-    const blur = styleConfig.shadowBlur || 0;
-    const color = styleConfig.shadowColor || '#000000';
-    return `${x}px ${y}px ${blur}px ${color}`;
-  }, [styleConfig.shadowOffsetX, styleConfig.shadowOffsetY, styleConfig.shadowBlur, styleConfig.shadowColor]);
-
   return (
     <div className="video-player-container" ref={containerRef}>
       {/* Viewport Box */}
@@ -190,67 +139,14 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
             </div>
           )}
 
-          {/* Subtitle Overlay */}
-          {activeSubtitle && (
-            <div style={subtitleContainerPosition}>
-              <div
-                className="subtitle-box"
-                style={{
-                  backgroundColor: computedBackground,
-                  padding: `${styleConfig.boxPaddingY ?? 6}px ${styleConfig.boxPaddingX ?? 14}px`,
-                  borderRadius: `${styleConfig.boxBorderRadius ?? 6}px`,
-                  fontFamily: styleConfig.fontFamily || 'Inter, sans-serif',
-                  fontSize: `${styleConfig.fontSize ? Math.round(styleConfig.fontSize * 0.55) : 24}px`,
-                  fontWeight: styleConfig.fontWeight || 600,
-                  fontStyle: styleConfig.fontStyle || 'normal',
-                  textTransform: styleConfig.textTransform || 'none',
-                  letterSpacing: styleConfig.letterSpacing ? `${styleConfig.letterSpacing}px` : undefined,
-                  lineHeight: styleConfig.lineHeight || 1.3,
-                  color: styleConfig.primaryColor || '#FFFFFF',
-                  opacity: styleConfig.primaryOpacity ?? 1.0,
-                  textAlign: 'center',
-                  textShadow: computedShadow,
-                  WebkitTextStroke: styleConfig.strokeWidth
-                    ? `${styleConfig.strokeWidth}px ${styleConfig.strokeColor || '#000000'}`
-                    : undefined,
-                  paintOrder: 'stroke fill',
-                  maxWidth: '92%',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {/* Word-level karaoke rendering or full text */}
-                {activeSubtitle.words && activeSubtitle.words.length > 0 ? (
-                  activeSubtitle.words.map((w, idx) => {
-                    const isWordActive =
-                      currentTime >= w.startTime && currentTime <= w.endTime;
-                    const isWordPast = currentTime > w.endTime;
-
-                    return (
-                      <span
-                        key={w.id || idx}
-                        style={{
-                          color: isWordActive
-                            ? styleConfig.activeWordColor || '#FFD700'
-                            : isWordPast
-                            ? styleConfig.primaryColor || '#FFFFFF'
-                            : styleConfig.primaryColor || '#FFFFFF',
-                          fontWeight: isWordActive ? 800 : styleConfig.fontWeight,
-                          display: 'inline-block',
-                          marginRight: '0.25em',
-                          transform: isWordActive ? 'scale(1.08)' : 'scale(1.0)',
-                          transition: 'color 120ms ease, transform 120ms ease',
-                        }}
-                      >
-                        {w.word}
-                      </span>
-                    );
-                  })
-                ) : (
-                  activeSubtitle.text
-                )}
-              </div>
-            </div>
-          )}
+          {/* Kinetic Subtitle Overlay (Phase 8: TASK-040, TASK-041, TASK-042) */}
+          <KineticSubtitleRenderer
+            event={activeSubtitle || null}
+            currentTime={currentTime}
+            styleConfig={styleConfig}
+            animationConfig={styleConfig.animation}
+            scaleFactor={0.55}
+          />
         </div>
       </div>
 

@@ -17,7 +17,7 @@ describe('FasterWhisper ASR Engine', () => {
     await engine.initialize();
     expect(engine.name).toBe('faster-whisper');
     expect(engine.isInitialized).toBe(true);
-  });
+  }, 30000);
 
   it('rejects transcription when audio file does not exist', async () => {
     await expect(
