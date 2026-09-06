@@ -215,6 +215,19 @@ Standard monolingual ASR models fail in distinct ways:
    * **Cleaned Speech**: Automatically removes filler words ("um", "uh", "matlab", "basically") while preserving semantic structure.
 4. **Punctuation and Capitalization**: Restores sentence boundaries and capitalizes proper nouns and English acronyms accurately.
 
+### Tuned Decoding and Hallucination Mitigation Parameters
+* **Condition On Previous Text**: Set `--no-condition-on-previous-text` (`condition_on_previous_text=False`). Completely decouples audio segments, eliminating autoregressive runaway loops when encountering silent intervals, background music, or repetitive acoustic artifacts.
+* **Repetition Penalty**: Configured at `1.1` to penalize repetitive n-gram token loops during beam search.
+* **Silero VAD Tuning**:
+  * `min_silence_duration_ms`: 500 ms (filters out micro-pauses while splitting on breath groups).
+  * `speech_pad_ms`: 200 ms (protects consonant onsets and word-final fricatives from clipping).
+  * `threshold`: 0.5 (speech probability threshold rejecting background music and room hum).
+* **Post-Decoding Hallucination Filter**:
+  * Runaway single-word loops (repeating >= 3 times) are collapsed.
+  * Multi-word n-gram loops (2-gram through 5-gram repeating consecutively) are collapsed.
+  * Natural linguistic reduplications ("dheere dheere", "jaldi jaldi", "kabhi kabhi", "bye bye") are exempt and preserved.
+  * Runaway punctuation or character floods (e.g. `......`, `??????`, `aaaaaa`) are collapsed.
+
 ---
 
 ## 9. Word Timing and Linguistic Subtitle Engine
@@ -416,7 +429,7 @@ The project is executed across 15 distinct development phases (Phase 0 through P
 | **Phase 8** | PHASE-08 | Kinetic Typography, Highlighting, and Animation Engine | Completed | Real-time karaoke progress, word-level kinetic emphasis, entrance/exit motion (Fade, Pop, Slide Up, Bounce), canvas/WebGL preview renderer, ASS animation tags. (TASK-040 - TASK-042) |
 | **Phase 9** | PHASE-09 | Video Rendering and Subtitle Export Pipeline | Completed | SRT, WebVTT, ASS format generators, FFmpeg burned-in video export with NVENC/QuickSync/libx264, export queue & cancellation. (TASK-043 - TASK-046) |
 | **Phase 10** | PHASE-10 | Hardware Optimization and Performance Profiling | Completed | Hardware profile auto-detection (Fast, Balanced, Quality), memory management & chunked audio for long media (60m+), CPU core allocation. (TASK-047 - TASK-049) |
-| **Phase 11** | PHASE-11 | Speech Accuracy Benchmarking and Quality Assurance | Planned (Next) | Standardized 25+ sample evaluation dataset, automated WER/CER benchmark suite, hallucination mitigation and VAD tuning. (TASK-050 - TASK-052) |
-| **Phase 12** | PHASE-12 | Project Persistence, Autosave, Crash Recovery, and Reliability | Planned | Atomic .vsp project saving, 60s background autosave journal, crash recovery manager, user-facing error translation. (TASK-053 - TASK-055) |
+| **Phase 11** | PHASE-11 | Speech Accuracy Benchmarking and Quality Assurance | Completed | Standardized 26-sample evaluation dataset, automated WER/CER/Keyword/Timestamp benchmark suite, hallucination loop mitigation, VAD tuning, and published accuracy report. (TASK-050 - TASK-052) |
+| **Phase 12** | PHASE-12 | Project Persistence, Autosave, Crash Recovery, and Reliability | Planned (Next) | Atomic .vsp project saving, 60s background autosave journal, crash recovery manager, user-facing error translation. (TASK-053 - TASK-055) |
 | **Phase 13** | PHASE-13 | Windows Packaging, Distribution, and Production Release | Planned | NSIS Windows installer, portable zip bundle, first-run onboarding model download wizard, vulnerability audit, production README & documentation. (TASK-056 - TASK-059) |
 | **Phase 14** | PHASE-14 | Post-MVP Enhancements and Extensibility | Planned | Local speaker diarization with speaker badges, batch media processing queue, headless command-line interface (vaani-cli). (TASK-060 - TASK-062) |

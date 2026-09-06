@@ -16,6 +16,11 @@ import { getModelPath, isModelDownloaded, MODEL_CATALOG } from './modelManager.j
 import { buildHinglishPrompt } from '../../shared/intelligence/fusionEngine.js';
 import { classifyLanguage } from '../../shared/intelligence/languageClassifier.js';
 import { getOptimalASRThreads, applyWorkerProcessPriority } from '../hardware/cpuAllocation.js';
+import {
+  cleanHallucinations,
+  filterHallucinatedSegments,
+  isHallucinatorySegment,
+} from '../../shared/intelligence/hallucinationDetector.js';
 
 export class FasterWhisperEngine implements IASREngine {
   public readonly name = 'faster-whisper';
@@ -116,6 +121,9 @@ export class FasterWhisperEngine implements IASREngine {
       args.push('--vad');
     }
 
+    // Mitigate autoregressive hallucination loops
+    args.push('--no-condition-on-previous-text');
+
     logger.info('ASR', `Spawning worker: ${this.pythonPath} ${args.slice(1).join(' ')}`);
 
     return new Promise<ASRTranscriptionResult>((resolve, reject) => {
@@ -209,15 +217,22 @@ export class FasterWhisperEngine implements IASREngine {
               break;
 
             case 'segment': {
-              const seg: ASRSegment = {
+              const rawSeg: ASRSegment = {
                 id: msg.id,
                 startTime: msg.startTime,
                 endTime: msg.endTime,
                 text: msg.text,
                 words: msg.words || [],
               };
-              accumulatedSegments.push(seg);
-              onSegment?.(seg);
+              if (!isHallucinatorySegment(rawSeg)) {
+                const cleaned = cleanHallucinations(rawSeg.text);
+                const seg: ASRSegment = {
+                  ...rawSeg,
+                  text: cleaned.cleanedText || rawSeg.text,
+                };
+                accumulatedSegments.push(seg);
+                onSegment?.(seg);
+              }
               break;
             }
 
@@ -264,13 +279,14 @@ export class FasterWhisperEngine implements IASREngine {
             message: 'Transcription complete.',
           });
 
-          const fullText = accumulatedSegments.map((s) => s.text).join(' ');
+          const finalSegments = filterHallucinatedSegments(accumulatedSegments);
+          const fullText = finalSegments.map((s) => s.text).join(' ');
           const classificationResult = classifyLanguage(fullText);
 
           resolve({
             language: detectedLanguage,
             durationSeconds: totalDuration,
-            segments: accumulatedSegments,
+            segments: finalSegments,
             classification: classificationResult.classification,
           });
         } else {

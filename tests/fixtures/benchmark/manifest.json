@@ -1,0 +1,266 @@
+{
+  "version": "1.0",
+  "description": "Standardized evaluation benchmark dataset for Vaani Studio multilingual speech recognition accuracy testing.",
+  "samples": [
+    {
+      "id": "bench-en-01",
+      "category": "clean_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 5.2,
+      "referenceText": "Welcome to Vaani Studio, an open source offline subtitle editor for creators.",
+      "expectedKeywords": ["Vaani Studio", "open source", "offline", "subtitle editor"],
+      "notes": "Clear studio microphone, neutral pace."
+    },
+    {
+      "id": "bench-en-02",
+      "category": "clean_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 6.8,
+      "referenceText": "Today we are discussing local speech recognition models running directly on your computer without cloud servers.",
+      "expectedKeywords": ["speech recognition", "models", "cloud servers"],
+      "notes": "Educational lecture pacing, technical terminology."
+    },
+    {
+      "id": "bench-en-03",
+      "category": "clean_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 4.5,
+      "referenceText": "Make sure to subscribe to the channel and leave your questions in the comment section below.",
+      "expectedKeywords": ["subscribe", "channel", "questions", "comment section"],
+      "notes": "YouTube creator sign-off phrase."
+    },
+    {
+      "id": "bench-en-04",
+      "category": "clean_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 7.1,
+      "referenceText": "The video rendering pipeline utilizes FFmpeg to burn high quality subtitles directly into the video stream.",
+      "expectedKeywords": ["rendering pipeline", "FFmpeg", "subtitles", "video stream"],
+      "notes": "Software engineering tutorial dialog."
+    },
+    {
+      "id": "bench-en-05",
+      "category": "clean_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 5.0,
+      "referenceText": "All processing happens locally on your machine, ensuring complete privacy and security of your media.",
+      "expectedKeywords": ["locally", "complete privacy", "security", "media"],
+      "notes": "Privacy and security product description."
+    },
+    {
+      "id": "bench-ie-01",
+      "category": "indian_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 5.8,
+      "referenceText": "Kindly revert back with the updated database architecture before the evening sync call.",
+      "expectedKeywords": ["revert back", "database architecture", "sync call"],
+      "notes": "Indian corporate English phrasing with technical terms."
+    },
+    {
+      "id": "bench-ie-02",
+      "category": "indian_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 6.2,
+      "referenceText": "The project budget is approximately fifteen lakh rupees, which includes infrastructure and server costs.",
+      "expectedKeywords": ["project budget", "fifteen lakh", "infrastructure", "server"],
+      "notes": "Indian numbering system (lakh) spoken in English."
+    },
+    {
+      "id": "bench-ie-03",
+      "category": "indian_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 4.9,
+      "referenceText": "Please prepone the sprint review meeting by two hours because of the client presentation.",
+      "expectedKeywords": ["prepone", "sprint review", "client presentation"],
+      "notes": "Indian English specific vocabulary ('prepone')."
+    },
+    {
+      "id": "bench-ie-04",
+      "category": "indian_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 5.5,
+      "referenceText": "We have to do one thing, let us test the application on both Windows and Linux systems first.",
+      "expectedKeywords": ["Windows", "Linux systems", "test the application"],
+      "notes": "Conversational Indian English discourse marker ('do one thing')."
+    },
+    {
+      "id": "bench-ie-05",
+      "category": "indian_english",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 6.0,
+      "referenceText": "The total valuation of the startup reached two crore dollars after the recent funding round.",
+      "expectedKeywords": ["valuation", "startup", "two crore", "funding round"],
+      "notes": "Indian numbering system (crore) with standard English syntax."
+    },
+    {
+      "id": "bench-hi-01",
+      "category": "hindi_devanagari",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 5.4,
+      "referenceText": "नमस्ते दोस्तों, आज के इस नए वीडियो में आप सभी का बहुत-बहुत स्वागत है।",
+      "expectedKeywords": ["नमस्ते", "वीडियो", "स्वागत"],
+      "notes": "Standard Devanagari Hindi greeting."
+    },
+    {
+      "id": "bench-hi-02",
+      "category": "hindi_devanagari",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 6.5,
+      "referenceText": "भारत का अंतरिक्ष कार्यक्रम लगातार नई ऊंचाइयों को छू रहा है और वैज्ञानिकों ने महत्वपूर्ण सफलता हासिल की है।",
+      "expectedKeywords": ["अंतरिक्ष", "कार्यक्रम", "वैज्ञानिकों", "सफलता"],
+      "notes": "Formal Devanagari Hindi news broadcast."
+    },
+    {
+      "id": "bench-hi-03",
+      "category": "hindi_devanagari",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 4.8,
+      "referenceText": "कृपया इस विषय पर अपने विचार नीचे टिप्पणी में जरूर साझा करें।",
+      "expectedKeywords": ["विचार", "टिप्पणी", "साझा"],
+      "notes": "Devanagari community discussion prompt."
+    },
+    {
+      "id": "bench-hi-04",
+      "category": "hindi_devanagari",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 5.9,
+      "referenceText": "मौसम विभाग के अनुसार आने वाले तीन दिनों में भारी बारिश की संभावना है।",
+      "expectedKeywords": ["मौसम", "विभाग", "बारिश", "संभावना"],
+      "notes": "Weather announcement in formal Hindi."
+    },
+    {
+      "id": "bench-hi-05",
+      "category": "hindi_devanagari",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 6.1,
+      "referenceText": "शिक्षा और स्वास्थ्य हर नागरिक का मूलभूत अधिकार है, जिसे सुनिश्चित करना आवश्यक है।",
+      "expectedKeywords": ["शिक्षा", "स्वास्थ्य", "नागरिक", "मूलभूत अधिकार"],
+      "notes": "Civic educational statement in Hindi."
+    },
+    {
+      "id": "bench-hng-01",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 5.6,
+      "referenceText": "Aaj hum ek naya React project setup karenge aur TailwindCSS configure karenge.",
+      "expectedKeywords": ["React project", "setup", "TailwindCSS", "configure"],
+      "notes": "Software developer conversational Hinglish with English framework names."
+    },
+    {
+      "id": "bench-hng-02",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 6.3,
+      "referenceText": "Video ko like karo, channel ko subscribe karo aur bell icon press karna mat bhulna.",
+      "expectedKeywords": ["Video", "like", "channel", "subscribe", "bell icon"],
+      "notes": "Ubiquitous YouTube Indian creator Hinglish call-to-action."
+    },
+    {
+      "id": "bench-hng-03",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 6.7,
+      "referenceText": "Meeting mein discuss hua tha ki production deployment Friday ko nahi karenge.",
+      "expectedKeywords": ["Meeting", "discuss", "production deployment", "Friday"],
+      "notes": "Workplace technical conversational Hinglish."
+    },
+    {
+      "id": "bench-hng-04",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 5.2,
+      "referenceText": "Aapko bas settings menu mein jaakar hardware acceleration toggle on karna hai.",
+      "expectedKeywords": ["settings menu", "hardware acceleration", "toggle"],
+      "notes": "User interface instructions in conversational Hinglish."
+    },
+    {
+      "id": "bench-hng-05",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 7.0,
+      "referenceText": "Yeh feature kaafi useful hai, isse transcription speed almost double ho jaati hai bina accuracy compromise kiye.",
+      "expectedKeywords": ["feature", "useful", "transcription speed", "double", "accuracy compromise"],
+      "notes": "Product review Hinglish with high density of English loanwords."
+    },
+    {
+      "id": "bench-hng-06",
+      "category": "hinglish_codeswitch",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 5.4,
+      "referenceText": "Maine already test kar liya hai, database queries bilkul smoothly execute ho rahi hain.",
+      "expectedKeywords": ["already", "test", "database queries", "smoothly execute"],
+      "notes": "Technical status update in code-switched Hinglish."
+    },
+    {
+      "id": "bench-noise-01",
+      "category": "fast_noisy",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 4.8,
+      "referenceText": "Quick update on the progress, all test cases are passing and we are ready for deployment.",
+      "expectedKeywords": ["Quick update", "progress", "test cases", "deployment"],
+      "notes": "Rapid conversational English with background room reverberation."
+    },
+    {
+      "id": "bench-noise-02",
+      "category": "fast_noisy",
+      "language": "hinglish",
+      "script": "mixed",
+      "durationSeconds": 5.1,
+      "referenceText": "Jaldi se laptop open karo aur latest git pull lekar build run kar lo.",
+      "expectedKeywords": ["laptop", "latest", "git pull", "build run"],
+      "notes": "Fast colloquial Hinglish with natural repeated adverb ('jaldi se')."
+    },
+    {
+      "id": "bench-noise-03",
+      "category": "fast_noisy",
+      "language": "hi",
+      "script": "devanagari",
+      "durationSeconds": 5.3,
+      "referenceText": "सड़क पर भारी ट्रैफिक होने के कारण बस स्टैंड पहुँचने में थोड़ा समय लग गया।",
+      "expectedKeywords": ["ट्रैफिक", "बस स्टैंड", "समय"],
+      "notes": "Spoken Hindi with ambient traffic sound."
+    },
+    {
+      "id": "bench-edge-01",
+      "category": "silence_music",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 3.0,
+      "referenceText": "",
+      "expectedKeywords": [],
+      "notes": "Pure silence audio interval to test hallucination suppression (should produce empty transcription)."
+    },
+    {
+      "id": "bench-edge-02",
+      "category": "silence_music",
+      "language": "en",
+      "script": "latin",
+      "durationSeconds": 4.0,
+      "referenceText": "",
+      "expectedKeywords": [],
+      "notes": "Pure background instrumental music without vocals (should produce empty transcription without hallucinated lyrics)."
+    }
+  ]
+}

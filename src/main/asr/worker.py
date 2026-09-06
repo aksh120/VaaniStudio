@@ -89,8 +89,9 @@ def run_transcription(args: argparse.Namespace) -> None:
         vad_parameters = None
         if args.vad:
             vad_parameters = {
-                "min_silence_duration_ms": 500,
-                "speech_pad_ms": 200,
+                "min_silence_duration_ms": args.vad_min_silence_ms,
+                "speech_pad_ms": args.vad_speech_pad_ms,
+                "threshold": args.vad_threshold,
             }
 
         emit({
@@ -98,7 +99,7 @@ def run_transcription(args: argparse.Namespace) -> None:
             "message": "Model loaded. Beginning speech transcription...",
         })
 
-        # Run transcription with word timestamps enabled
+        # Run transcription with word timestamps enabled and hallucination suppression
         segments, info = model.transcribe(
             args.audio,
             language=lang,
@@ -108,6 +109,8 @@ def run_transcription(args: argparse.Namespace) -> None:
             vad_filter=args.vad,
             vad_parameters=vad_parameters,
             initial_prompt=args.initial_prompt,
+            condition_on_previous_text=args.condition_on_previous_text,
+            repetition_penalty=args.repetition_penalty,
         )
 
         total_duration = getattr(info, "duration", 0.0) or 0.0
@@ -202,6 +205,12 @@ def main() -> None:
     tx_parser.add_argument("--initial-prompt", default=None, help="Initial prompt context to prime decoder")
     tx_parser.add_argument("--vad", action="store_true", default=True, help="Enable Silero VAD filtering")
     tx_parser.add_argument("--no-vad", dest="vad", action="store_false", help="Disable VAD filtering")
+    tx_parser.add_argument("--condition-on-previous-text", dest="condition_on_previous_text", action="store_true", default=False, help="Condition decoder on previous text")
+    tx_parser.add_argument("--no-condition-on-previous-text", dest="condition_on_previous_text", action="store_false", help="Prevent hallucination cascades by disabling conditioning on previous text")
+    tx_parser.add_argument("--repetition-penalty", type=float, default=1.1, help="Repetition penalty to prevent word loops")
+    tx_parser.add_argument("--vad-min-silence-ms", type=int, default=500, help="VAD minimum silence duration in milliseconds")
+    tx_parser.add_argument("--vad-speech-pad-ms", type=int, default=200, help="VAD speech padding in milliseconds")
+    tx_parser.add_argument("--vad-threshold", type=float, default=0.5, help="VAD speech probability threshold")
 
     parsed = parser.parse_args()
 
