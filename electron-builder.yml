@@ -42,7 +42,10 @@ nsis:
 portable:
   artifactName: VaaniStudio-Portable-${version}.exe
 
+publish: null
+
 linux:
+  maintainer: "Vaani Studio Contributors <contributors@vaanistudio.org>"
   target:
     - target: AppImage
       arch:
@@ -57,4 +60,5 @@ linux:
   synopsis: Free local-first AI subtitle studio
   description: Local-first AI subtitle generator and video burn-in studio with faster-whisper speech recognition and custom typography styling.
   artifactName: VaaniStudio-${version}.${ext}
+
 

@@ -30,7 +30,10 @@
     "react",
     "windows"
   ],
-  "author": "Vaani Studio Contributors",
+  "author": {
+    "name": "Vaani Studio Contributors",
+    "email": "contributors@vaanistudio.org"
+  },
   "license": "MIT",
   "dependencies": {
     "lucide-react": "^1.16.0",

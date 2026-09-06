@@ -2,6 +2,16 @@ import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
 export default defineConfig({
+  plugins: [
+    {
+      name: 'remove-shebang',
+      transform(code) {
+        if (code.startsWith('#!')) {
+          return code.replace(/^#!.*\r?\n/, '');
+        }
+      },
+    },
+  ],
   test: {
     globals: true,
     environment: 'node',
