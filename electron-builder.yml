@@ -12,6 +12,9 @@ files:
   - assets/**
   - package.json
 
+asarUnpack:
+  - "dist-electron/main/worker.py"
+
 win:
   icon: assets/icons/icon.ico
   legalTrademarks: Vaani Studio

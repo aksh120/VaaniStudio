@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import { ModelInfo, ModelIntegrityResult } from '../../shared/types/models.js';
+import { ModelInfo, ModelIntegrityResult, ModelsStorageSummary } from '../../shared/types/models.js';
 import { logger } from '../logger.js';
 import { resolvePythonPath } from './pythonResolver.js';
+import { resolveWorkerScriptPath } from './workerResolver.js';
 
 export interface ModelCatalogEntry {
   id: string;
@@ -59,9 +59,42 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
 ];
 
 /**
+ * Checks whether a directory exists and has write permissions.
+ */
+function isDirectoryWritable(dirPath: string): boolean {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const testFile = path.join(dirPath, `.write_test_${Date.now()}`);
+    fs.writeFileSync(testFile, 'test');
+    fs.rmSync(testFile, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolves the local models storage directory.
+ * When running an installed setup (not portable), prefers the setup directory
+ * (<SetupFolder>/models) if writable. Otherwise falls back to %LOCALAPPDATA%/VaaniStudio/models.
  */
 export function getModelsDir(): string {
+  const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
+
+  // If installed via setup (not portable), prefer setup folder's models directory if writable
+  if (!isPortable && process.execPath) {
+    const setupDir = path.dirname(process.execPath);
+    // Ignore development electron runner directory
+    if (!setupDir.toLowerCase().includes('node_modules')) {
+      const candidateSetupModels = path.join(setupDir, 'models');
+      if (isDirectoryWritable(candidateSetupModels)) {
+        return candidateSetupModels;
+      }
+    }
+  }
+
   const localAppData = process.env.LOCALAPPDATA || (
     process.platform === 'darwin'
       ? path.join(os.homedir(), 'Library', 'Application Support')
@@ -75,24 +108,45 @@ export function getModelsDir(): string {
 }
 
 /**
- * Returns the expected local path for a model ID.
+ * Validates whether essential model weight files exist at a target directory.
+ */
+function isModelValidAtDir(modelDir: string): boolean {
+  if (!fs.existsSync(modelDir)) return false;
+  const hasModel = fs.existsSync(path.join(modelDir, 'model.bin')) ||
+                   fs.existsSync(path.join(modelDir, 'model.safetensors'));
+  const hasConfig = fs.existsSync(path.join(modelDir, 'config.json'));
+  return hasModel && hasConfig;
+}
+
+/**
+ * Returns the local path for a model ID.
+ * First checks the active modelsDir. If not present there, checks the fallback
+ * LOCALAPPDATA location so existing downloads are always recognized seamlessly.
  */
 export function getModelPath(modelId: string): string {
-  return path.join(getModelsDir(), modelId);
+  const primaryPath = path.join(getModelsDir(), modelId);
+  if (isModelValidAtDir(primaryPath)) {
+    return primaryPath;
+  }
+
+  const localAppData = process.env.LOCALAPPDATA || (
+    process.platform === 'darwin'
+      ? path.join(os.homedir(), 'Library', 'Application Support')
+      : path.join(os.homedir(), '.local', 'share')
+  );
+  const fallbackPath = path.join(localAppData, 'VaaniStudio', 'models', modelId);
+  if (fallbackPath !== primaryPath && isModelValidAtDir(fallbackPath)) {
+    return fallbackPath;
+  }
+
+  return primaryPath;
 }
 
 /**
  * Checks if a model's weights exist locally on disk and are valid.
  */
 export function isModelDownloaded(modelId: string): boolean {
-  const modelDir = getModelPath(modelId);
-  if (!fs.existsSync(modelDir)) {
-    return false;
-  }
-  const hasModel = fs.existsSync(path.join(modelDir, 'model.bin')) ||
-                   fs.existsSync(path.join(modelDir, 'model.safetensors'));
-  const hasConfig = fs.existsSync(path.join(modelDir, 'config.json'));
-  return hasModel && hasConfig;
+  return isModelValidAtDir(getModelPath(modelId));
 }
 
 /**
@@ -119,15 +173,30 @@ export function listModels(): ModelInfo[] {
  * Resolves the path to worker.py.
  */
 function getWorkerScriptPath(): string {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidatePaths = [
-    path.join(currentDir, 'worker.py'),
-    path.join(process.cwd(), 'src', 'main', 'asr', 'worker.py'),
-  ];
-  for (const p of candidatePaths) {
-    if (fs.existsSync(p)) return p;
-  }
-  return candidatePaths[0];
+  return resolveWorkerScriptPath();
+}
+
+/**
+ * Formats structured download progress for UI consumption.
+ */
+export function formatDownloadProgress(
+  entryName: string,
+  downloadedBytes: number,
+  totalBytes: number,
+  speedMBs?: number,
+  fallbackSizeMB?: number
+): { percent: number; message: string } {
+  const dlMB = (downloadedBytes / (1024 * 1024)).toFixed(1);
+  const totalMB = totalBytes > 0
+    ? (totalBytes / (1024 * 1024)).toFixed(1)
+    : String(fallbackSizeMB || 0);
+  const speed = speedMBs && speedMBs > 0 ? ` (${speedMBs.toFixed(1)} MB/s)` : '';
+  const rawPct = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 5;
+  const pct = Math.min(99, Math.max(5, Math.round(rawPct)));
+  return {
+    percent: pct,
+    message: `Downloading ${entryName}: ${dlMB} / ${totalMB} MB${speed}`,
+  };
 }
 
 /**
@@ -225,7 +294,16 @@ export async function downloadModel(
       try {
         const msg = JSON.parse(trimmed);
         if (msg.type === 'download_start') {
-          onProgress?.(10, `Downloading ${entry.name}...`);
+          onProgress?.(5, `Connecting to Hugging Face for ${entry.name}...`);
+        } else if (msg.type === 'download_progress') {
+          const { percent, message } = formatDownloadProgress(
+            entry.name,
+            msg.downloaded_bytes,
+            msg.total_bytes,
+            msg.speed_mbs,
+            entry.sizeMB
+          );
+          onProgress?.(percent, message);
         } else if (msg.type === 'download_done') {
           onProgress?.(100, `Download complete: ${entry.name}`);
         } else if (msg.type === 'error') {
@@ -278,21 +356,93 @@ export async function downloadModel(
 }
 
 /**
- * Deletes a downloaded model from local storage.
+ * Deletes a downloaded model from local storage and cleans associated Hugging Face hub cache.
  */
 export function deleteModel(modelId: string): boolean {
-  const modelDir = getModelPath(modelId);
-  if (fs.existsSync(modelDir)) {
+  const entry = MODEL_CATALOG.find((m) => m.id === modelId);
+  let deletedSomething = false;
+
+  // 1. Delete active model directory
+  const primaryDir = path.join(getModelsDir(), modelId);
+  if (fs.existsSync(primaryDir)) {
     try {
-      fs.rmSync(modelDir, { recursive: true, force: true });
-      logger.info('MODELS', `Deleted local model: ${modelId}`);
-      return true;
+      fs.rmSync(primaryDir, { recursive: true, force: true });
+      deletedSomething = true;
+      logger.info('MODELS', `Deleted primary model directory: ${primaryDir}`);
     } catch (err: any) {
-      logger.error('MODELS', `Failed to delete model ${modelId}: ${err?.message}`);
-      return false;
+      logger.error('MODELS', `Failed to delete primary model dir ${primaryDir}: ${err?.message}`);
     }
   }
-  return false;
+
+  // 2. Delete fallback model directory if present in LOCALAPPDATA
+  const localAppData = process.env.LOCALAPPDATA || '';
+  if (localAppData) {
+    const fallbackDir = path.join(localAppData, 'VaaniStudio', 'models', modelId);
+    if (fallbackDir !== primaryDir && fs.existsSync(fallbackDir)) {
+      try {
+        fs.rmSync(fallbackDir, { recursive: true, force: true });
+        deletedSomething = true;
+        logger.info('MODELS', `Deleted fallback model directory: ${fallbackDir}`);
+      } catch {
+        // Ignore fallback deletion error
+      }
+    }
+  }
+
+  // 3. Purge corresponding Hugging Face hub cache directory (~/.cache/huggingface/hub/models--org--repo)
+  if (entry?.repoId) {
+    try {
+      const hfOrgRepo = entry.repoId.replace('/', '--');
+      const hfCacheDir = path.join(os.homedir(), '.cache', 'huggingface', 'hub', `models--${hfOrgRepo}`);
+      if (fs.existsSync(hfCacheDir)) {
+        fs.rmSync(hfCacheDir, { recursive: true, force: true });
+        deletedSomething = true;
+        logger.info('MODELS', `Purged Hugging Face cache for ${entry.repoId} at ${hfCacheDir}`);
+      }
+    } catch (err: any) {
+      logger.warn('MODELS', `Could not purge HF cache for ${entry.repoId}: ${err?.message}`);
+    }
+  }
+
+  return deletedSomething;
+}
+
+/**
+ * Returns comprehensive storage summary for models.
+ */
+export function getModelsStorageSummary(): ModelsStorageSummary {
+  const activeDir = getModelsDir();
+  const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
+  let totalBytes = 0;
+  let downloadedCount = 0;
+
+  for (const entry of MODEL_CATALOG) {
+    if (isModelDownloaded(entry.id)) {
+      downloadedCount++;
+      const p = getModelPath(entry.id);
+      try {
+        if (fs.existsSync(p)) {
+          const files = fs.readdirSync(p);
+          for (const f of files) {
+            try {
+              totalBytes += fs.statSync(path.join(p, f)).size;
+            } catch {
+              // Ignore stat failure
+            }
+          }
+        }
+      } catch {
+        // Ignore read failure
+      }
+    }
+  }
+
+  return {
+    storagePath: activeDir,
+    isSetupFolder: !isPortable && Boolean(process.execPath && activeDir.includes(path.dirname(process.execPath))),
+    totalModelsSizeMB: Math.round(totalBytes / (1024 * 1024)),
+    downloadedCount,
+  };
 }
 
 /**

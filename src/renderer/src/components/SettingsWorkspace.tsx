@@ -7,6 +7,7 @@ import {
   PerformanceMode,
   MemoryStats,
   DeepSystemScanResult,
+  ModelsStorageSummary,
 } from '../../../shared/types/models.js';
 
 interface SettingsWorkspaceProps {
@@ -39,16 +40,37 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   const [cleaningMessage, setCleaningMessage] = useState<string | null>(null);
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const [downloadPercent, setDownloadPercent] = useState<number>(0);
+  const [downloadMessage, setDownloadMessage] = useState<string>('');
   const [deepScanResult, setDeepScanResult] = useState<DeepSystemScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [shortcutFilter, setShortcutFilter] = useState('');
+  const [storageSummary, setStorageSummary] = useState<ModelsStorageSummary | null>(null);
+  const [modelToDelete, setModelToDelete] = useState<string | null>(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
-  // Fetch memory stats
+  const fetchStorageSummary = async () => {
+    if (window.vaaniAPI?.getModelsStorageSummary) {
+      try {
+        const res = await window.vaaniAPI.getModelsStorageSummary();
+        if (res.success && res.data) {
+          setStorageSummary(res.data);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Fetch memory stats & storage summary
   useEffect(() => {
     if (window.vaaniAPI?.getMemoryStats) {
       window.vaaniAPI.getMemoryStats().then((res) => {
         if (res.success && res.data) setMemoryStats(res.data);
       });
+    }
+    if (activeTab === 'models') {
+      fetchStorageSummary();
     }
   }, [activeTab]);
 
@@ -72,22 +94,34 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     if (!window.vaaniAPI) return;
     setDownloadingModelId(modelId);
     setDownloadPercent(5);
+    setDownloadMessage('Connecting to Hugging Face...');
 
     const cleanup = window.vaaniAPI.onProgress((prog) => {
       setDownloadPercent(prog.percent);
+      if (prog.message) {
+        setDownloadMessage(prog.message);
+      }
     });
 
     try {
       const res = await window.vaaniAPI.downloadModel(modelId);
       cleanup();
       setDownloadingModelId(null);
+      setDownloadPercent(0);
+      setDownloadMessage('');
       if (res.success) {
-        setStatusMessage(`Model downloaded successfully.`);
+        setStatusMessage('Model downloaded successfully.');
         onRefreshModels();
+        fetchStorageSummary();
+      } else {
+        setStatusMessage(res.error?.message || 'Download failed.');
       }
-    } catch {
+    } catch (err: any) {
       cleanup();
       setDownloadingModelId(null);
+      setDownloadPercent(0);
+      setDownloadMessage('');
+      setStatusMessage(err?.message || 'Download error.');
     }
   };
 
@@ -96,11 +130,35 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     try {
       const res = await window.vaaniAPI.deleteModel(modelId);
       if (res.success) {
-        setStatusMessage(`Deleted local model weights.`);
+        setStatusMessage('Deleted model files and Hugging Face cache.');
+        setModelToDelete(null);
         onRefreshModels();
+        fetchStorageSummary();
+      } else {
+        setStatusMessage(res.error?.message || 'Failed to delete model.');
       }
-    } catch {
-      // ignore
+    } catch (err: any) {
+      setStatusMessage(err?.message || 'Delete error.');
+    }
+  };
+
+  const handleDeleteAllModels = async () => {
+    if (!window.vaaniAPI) return;
+    setIsDeletingAll(true);
+    try {
+      let count = 0;
+      for (const m of models) {
+        if (m.isDownloaded) {
+          await window.vaaniAPI.deleteModel(m.id);
+          count++;
+        }
+      }
+      setStatusMessage(`Storage cleaned: ${count} local model(s) removed.`);
+      setShowDeleteAllConfirm(false);
+      onRefreshModels();
+      fetchStorageSummary();
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
@@ -292,16 +350,156 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
         {/* 3. Models */}
         {activeTab === 'models' && (
           <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Whisper Speech Recognition Models
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Models run 100% locally on your computer via CTranslate2 INT8 quantization. Download once and use offline indefinitely.
-            </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Speech Recognition Models & Storage
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                  Models run locally on your device via CTranslate2 INT8 quantization. You have full control over stored weights and disk space.
+                </p>
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  onRefreshModels();
+                  fetchStorageSummary();
+                }}
+                title="Refresh model states and storage usage"
+              >
+                Refresh
+              </button>
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Storage overview card */}
+            <div
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
+                marginBottom: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                      Model Storage Directory
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        backgroundColor: storageSummary?.isSetupFolder ? 'rgba(74, 222, 128, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                        color: storageSummary?.isSetupFolder ? '#4ade80' : '#38bdf8',
+                        border: `1px solid ${storageSummary?.isSetupFolder ? 'rgba(74, 222, 128, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`,
+                      }}
+                    >
+                      {storageSummary?.isSetupFolder ? 'Setup App Folder' : 'Local AppData'}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'Consolas, monospace',
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                      wordBreak: 'break-all',
+                      userSelect: 'text',
+                    }}
+                  >
+                    {storageSummary?.storagePath || 'Locating storage path...'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {storageSummary?.storagePath && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        if (window.vaaniAPI?.showItemInFolder && storageSummary.storagePath) {
+                          window.vaaniAPI.showItemInFolder(storageSummary.storagePath);
+                        }
+                      }}
+                      title="Open storage folder in Windows File Explorer"
+                    >
+                      Open Folder
+                    </button>
+                  )}
+
+                  {storageSummary && storageSummary.downloadedCount > 0 && (
+                    <>
+                      {showDeleteAllConfirm ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={isDeletingAll}
+                            onClick={handleDeleteAllModels}
+                          >
+                            {isDeletingAll ? 'Deleting All...' : 'Confirm Delete All'}
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            disabled={isDeletingAll}
+                            onClick={() => setShowDeleteAllConfirm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--color-danger, #ef4444)' }}
+                          onClick={() => setShowDeleteAllConfirm(true)}
+                          title="Delete all downloaded models to free disk space"
+                        >
+                          Delete All Models
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '24px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  fontSize: '12px',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Disk Usage: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {storageSummary?.totalModelsSizeMB ?? 0} MB
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Downloaded Models: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {storageSummary?.downloadedCount ?? 0} / {models.length}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Cache Policy: </span>
+                  <span>Deep clean purges model weights and Hugging Face cache</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Model list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {models.map((m) => {
                 const isDownloading = downloadingModelId === m.id;
+                const isConfirmingDelete = modelToDelete === m.id;
 
                 return (
                   <div
@@ -309,61 +507,144 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     style={{
                       padding: '14px',
                       backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
+                      border: isDownloading ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-sm)',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '16px',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      transition: 'border-color 0.2s ease',
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
-                          {m.name}
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          ({m.sizeMB} MB)
-                        </span>
-                        {m.isDownloaded && (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 600,
-                              color: 'var(--color-success)',
-                              backgroundColor: 'var(--color-success-subtle)',
-                              padding: '2px 6px',
-                              borderRadius: '2px',
-                            }}
-                          >
-                            Ready
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '16px',
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                            {m.name}
                           </span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            ({m.sizeMB} MB)
+                          </span>
+                          {m.isDownloaded && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                color: 'var(--color-success)',
+                                backgroundColor: 'var(--color-success-subtle)',
+                                padding: '2px 6px',
+                                borderRadius: '2px',
+                              }}
+                            >
+                              Ready
+                            </span>
+                          )}
+                          {isDownloading && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                color: 'var(--accent-active)',
+                                backgroundColor: 'var(--accent-subtle)',
+                                padding: '2px 6px',
+                                borderRadius: '2px',
+                              }}
+                            >
+                              Downloading ({downloadPercent.toFixed(0)}%)
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                          {m.description}
+                        </p>
+                      </div>
+
+                      <div>
+                        {m.isDownloaded ? (
+                          isConfirmingDelete ? (
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleDeleteModel(m.id)}
+                                title="Permanently delete model files and Hugging Face cache"
+                              >
+                                Confirm Delete
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setModelToDelete(null)}
+                                title="Cancel deletion"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setModelToDelete(m.id)}
+                              title="Delete model files to free disk space"
+                            >
+                              Delete Model
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            disabled={isDownloading}
+                            onClick={() => handleDownloadModel(m.id)}
+                          >
+                            {isDownloading ? `Downloading (${downloadPercent.toFixed(0)}%)...` : `Download (${m.sizeMB} MB)`}
+                          </button>
                         )}
                       </div>
-                      <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                        {m.description}
-                      </p>
                     </div>
 
-                    <div>
-                      {m.isDownloaded ? (
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleDeleteModel(m.id)}
-                          title="Delete local model weights to free disk space"
+                    {isDownloading && (
+                      <div style={{ width: '100%', paddingTop: '4px' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '11px',
+                            color: 'var(--text-secondary)',
+                            marginBottom: '6px',
+                          }}
                         >
-                          Delete Weights
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          disabled={isDownloading}
-                          onClick={() => handleDownloadModel(m.id)}
+                          <span style={{ fontFamily: 'monospace' }}>
+                            {downloadMessage || 'Contacting Hugging Face Hub...'}
+                          </span>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {downloadPercent.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '6px',
+                            backgroundColor: 'var(--bg-app)',
+                            borderRadius: '3px',
+                            overflow: 'hidden',
+                          }}
                         >
-                          {isDownloading ? `Downloading (${downloadPercent.toFixed(0)}%)...` : `Download (${m.sizeMB} MB)`}
-                        </button>
-                      )}
-                    </div>
+                          <div
+                            style={{
+                              width: `${Math.max(4, Math.min(100, downloadPercent))}%`,
+                              height: '100%',
+                              backgroundColor: 'var(--accent-active)',
+                              borderRadius: '3px',
+                              transition: 'width 0.25s ease',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

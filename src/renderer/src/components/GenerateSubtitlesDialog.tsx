@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore.js';
 import { LanguageMode, ScriptMode, PerformanceMode, ModelInfo } from '../../../shared/types/models.js';
 
@@ -40,8 +41,8 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
         <div className="modal-header">
           <h3 className="modal-title">Generate Subtitles</h3>
           {!isTranscribing && (
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>
-              ✕
+            <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
+              <X size={16} />
             </button>
           )}
         </div>

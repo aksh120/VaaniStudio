@@ -48,9 +48,9 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       activeTab: 'projects',
       theme: 'dark',
-      inspectorVisible: true,
+      inspectorVisible: false,
       inspectorTab: 'properties',
-      inspectorWidth: 320,
+      inspectorWidth: 280,
       isGenerateModalOpen: false,
       isTutorialOpen: false,
       isHelpOpen: false,

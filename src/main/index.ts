@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell, protocol, net } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { registerIPCHandlers } from './ipc.js';
 import { logger } from './logger.js';
@@ -114,16 +115,35 @@ app.whenReady().then(() => {
   // Handle streaming local media files with byte-range support for smooth seeking
   protocol.handle('media-file', (request) => {
     try {
-      const rawUrl = request.url;
-      let cleanPath = decodeURIComponent(rawUrl.replace(/^media-file:\/\//, ''));
-      if (cleanPath.startsWith('video/')) {
-        cleanPath = cleanPath.slice(6);
+      const url = new URL(request.url);
+      let targetPath = url.searchParams.get('path');
+
+      if (!targetPath) {
+        // Fallback for pathname-based URLs (media-file://video/C:/... or media-file:///C:/...)
+        let raw = decodeURIComponent(url.pathname);
+        if (raw.startsWith('/video/')) {
+          raw = raw.slice(7);
+        }
+        if (process.platform === 'win32') {
+          raw = raw.replace(/^\/+([a-zA-Z]:)/, '$1');
+        }
+        targetPath = raw;
       }
-      if (process.platform === 'win32' && cleanPath.startsWith('/') && /^[a-zA-Z]:/.test(cleanPath.slice(1))) {
-        cleanPath = cleanPath.slice(1);
+
+      if (!targetPath) {
+        logger.error('MEDIA', `No path specified in media-file request: ${request.url}`);
+        return new Response('Path missing', { status: 400 });
       }
-      const fileUrl = pathToFileURL(cleanPath).toString();
+
+      // Check if file exists on disk
+      if (!fs.existsSync(targetPath)) {
+        logger.error('MEDIA', `Media file not found: ${targetPath}`);
+        return new Response('File not found', { status: 404 });
+      }
+
+      const fileUrl = pathToFileURL(targetPath).toString();
       return net.fetch(fileUrl, {
+        headers: request.headers,
         bypassCustomProtocolHandlers: true,
       });
     } catch (err: any) {

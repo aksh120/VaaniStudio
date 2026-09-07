@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useProjectStore } from '../store/projectStore.js';
 import { PresetManager } from '../editor/presetManager.js';
 import { KineticSubtitleRenderer } from './KineticSubtitleRenderer.js';
+import { X } from 'lucide-react';
 import {
   SubtitleStyle,
   StylePreset,
@@ -566,8 +567,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <div className="modal-dialog" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Save Custom Preset</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSaveModalOpen(false)}>
-                ✕
+              <button className="btn btn-ghost btn-sm" onClick={() => setSaveModalOpen(false)} title="Close">
+                <X size={16} />
               </button>
             </div>
             <form onSubmit={handleSaveCustom}>

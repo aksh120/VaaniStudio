@@ -1,6 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import {
@@ -21,6 +19,7 @@ import {
   filterHallucinatedSegments,
   isHallucinatorySegment,
 } from '../../shared/intelligence/hallucinationDetector.js';
+import { resolveWorkerScriptPath } from './workerResolver.js';
 
 export class FasterWhisperEngine implements IASREngine {
   public readonly name = 'faster-whisper';
@@ -32,21 +31,7 @@ export class FasterWhisperEngine implements IASREngine {
   private defaultComputeType: 'int8' | 'float16' | 'float32' = 'int8';
 
   constructor() {
-    // Locate worker.py relative to current module or source tree
-    const currentDir = path.dirname(fileURLToPath(import.meta.url));
-    const candidatePaths = [
-      path.join(currentDir, 'worker.py'),
-      path.join(process.cwd(), 'src', 'main', 'asr', 'worker.py'),
-    ];
-
-    let found = candidatePaths[0];
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        found = p;
-        break;
-      }
-    }
-    this.workerScriptPath = found;
+    this.workerScriptPath = resolveWorkerScriptPath();
   }
 
   public async initialize(options?: EngineInitOptions): Promise<void> {
@@ -95,6 +80,7 @@ export class FasterWhisperEngine implements IASREngine {
     const effectiveLanguage = options.language === 'hinglish' ? 'auto' : (options.language || 'auto');
     const initialPrompt = options.initialPrompt || (options.language === 'hinglish' ? buildHinglishPrompt('tech') : undefined);
 
+    this.workerScriptPath = resolveWorkerScriptPath();
     const args = [
       this.workerScriptPath,
       'transcribe',

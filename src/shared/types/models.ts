@@ -385,6 +385,13 @@ export interface RenderProgressUpdate {
 /**
  * IPC Channel definitions and Contract Types
  */
+export interface ModelsStorageSummary {
+  storagePath: string;
+  isSetupFolder: boolean;
+  totalModelsSizeMB: number;
+  downloadedCount: number;
+}
+
 export const IPC_CHANNELS = {
   GET_HARDWARE_PROFILE: 'vaani:get-hardware-profile',
   PROBE_MEDIA: 'vaani:probe-media',
@@ -394,6 +401,7 @@ export const IPC_CHANNELS = {
   GENERATE_WAVEFORM: 'vaani:generate-waveform',
   EXTRACT_FRAME: 'vaani:extract-frame',
   GET_MODELS: 'vaani:get-models',
+  GET_MODELS_STORAGE_SUMMARY: 'vaani:get-models-storage-summary',
   DOWNLOAD_MODEL: 'vaani:download-model',
   DELETE_MODEL: 'vaani:delete-model',
   START_TRANSCRIPTION: 'vaani:start-transcription',

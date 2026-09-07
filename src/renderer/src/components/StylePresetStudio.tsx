@@ -9,6 +9,7 @@ import {
 } from '../../../shared/types/models.js';
 import { PresetManager } from '../editor/presetManager.js';
 import { DEFAULT_ANIMATION } from '../../../shared/defaults.js';
+import { Download, Upload, Trash2, X } from 'lucide-react';
 
 export interface StylePresetStudioProps {
   currentStyle: SubtitleStyle;
@@ -176,31 +177,31 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
           className={`style-nav-tab ${activeTab === 'presets' ? 'active' : ''}`}
           onClick={() => setActiveTab('presets')}
         >
-          🎨 Presets
+          Presets
         </button>
         <button
           className={`style-nav-tab ${activeTab === 'typography' ? 'active' : ''}`}
           onClick={() => setActiveTab('typography')}
         >
-          🔤 Typography
+          Typography
         </button>
         <button
           className={`style-nav-tab ${activeTab === 'appearance' ? 'active' : ''}`}
           onClick={() => setActiveTab('appearance')}
         >
-          ✨ Appearance
+          Appearance
         </button>
         <button
           className={`style-nav-tab ${activeTab === 'position' ? 'active' : ''}`}
           onClick={() => setActiveTab('position')}
         >
-          📐 Placement
+          Placement
         </button>
         <button
           className={`style-nav-tab ${activeTab === 'motion' ? 'active' : ''}`}
           onClick={() => setActiveTab('motion')}
         >
-          🎬 Motion
+          Motion
         </button>
       </div>
 
@@ -223,8 +224,10 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
               className="btn btn-secondary btn-sm"
               onClick={handleImport}
               title="Import .vstyle.json preset"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
             >
-              📥 Import
+              <Upload size={12} />
+              <span>Import</span>
             </button>
           </div>
 
@@ -252,7 +255,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                         }}
                         title="Export this preset to .vstyle.json"
                       >
-                        📤
+                        <Download size={12} />
                       </button>
                       {!p.isBuiltIn && (
                         <button
@@ -260,7 +263,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                           onClick={(e) => handleDeleteCustom(p.id, e)}
                           title="Delete custom preset"
                         >
-                          ✕
+                          <Trash2 size={12} />
                         </button>
                       )}
                     </div>
@@ -658,7 +661,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
         <div className="style-section-content">
           {/* Quick Motion Presets */}
           <div className="style-subgroup">
-            <span className="subgroup-title">⚡ Quick Motion Presets</span>
+            <span className="subgroup-title">Quick Motion Presets</span>
             <div className="segmented-button-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
               <button
                 type="button"
@@ -672,7 +675,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                   handleAnimationUpdate('activeWordScale', 1.10);
                 }}
               >
-                🔥 Punch Pop
+                Punch Pop
               </button>
               <button
                 type="button"
@@ -686,7 +689,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                   handleAnimationUpdate('activeWordScale', 1.00);
                 }}
               >
-                🎵 Smooth Lyric
+                Smooth Lyric
               </button>
               <button
                 type="button"
@@ -700,7 +703,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                   handleAnimationUpdate('activeWordScale', 1.06);
                 }}
               >
-                🚀 Dynamic Rise
+                Dynamic Rise
               </button>
               <button
                 type="button"
@@ -714,7 +717,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
                   handleAnimationUpdate('activeWordScale', 1.00);
                 }}
               >
-                🌿 Subtle Fade
+                Subtle Fade
               </button>
             </div>
           </div>
@@ -842,7 +845,7 @@ export const StylePresetStudio: React.FC<StylePresetStudioProps> = ({
             <div className="modal-header">
               <h3>Save Custom Preset</h3>
               <button className="modal-close-btn" onClick={() => setSaveModalOpen(false)}>
-                ✕
+                <X size={14} />
               </button>
             </div>
             <form onSubmit={handleSaveCustom}>

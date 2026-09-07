@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { SubtitleEvent, WaveformData } from '../../../shared/types/models.js';
 import { formatTimecode, snapToInterval } from '../../../shared/utils/timecode.js';
+import { Scissors, ZoomIn, ZoomOut } from 'lucide-react';
 
 export interface WaveformTimelineProps {
   duration: number;
@@ -208,7 +209,8 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               onClick={onSplitAtPlayhead}
               title="Split active subtitle at playhead (Ctrl+K or S)"
             >
-              ✂ Split at Playhead
+              <Scissors size={11} />
+              <span>Split at Playhead</span>
             </button>
           )}
         </div>
@@ -230,7 +232,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               onClick={() => setPixelsPerSecond((z) => Math.max(20, z - 15))}
               title="Zoom Out"
             >
-              🔍 -
+              <ZoomOut size={11} />
             </button>
             <span className="zoom-level-text">{pixelsPerSecond} px/s</span>
             <button
@@ -238,7 +240,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               onClick={() => setPixelsPerSecond((z) => Math.min(200, z + 15))}
               title="Zoom In"
             >
-              🔍 +
+              <ZoomIn size={11} />
             </button>
           </div>
         </div>

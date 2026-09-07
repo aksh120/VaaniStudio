@@ -96,7 +96,7 @@ export const App: React.FC = () => {
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('16:9');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('original');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
 
   // First-run automatic tutorial trigger
@@ -671,14 +671,44 @@ export const App: React.FC = () => {
     ];
     sampleProj.settings.languageMode = 'hinglish';
     sampleProj.settings.scriptMode = 'roman';
+    sampleProj.media = {
+      filePath: '',
+      fileName: 'Showcase Demo Audio (Virtual 12s)',
+      durationSeconds: 12.0,
+      fileSizeBytes: 2304000,
+      audioCodec: 'wav',
+    };
+
+    // Synthesize realistic speech waveform peaks matching sample event timings
+    const sampleBuckets = 120;
+    const peaks: number[] = new Array(sampleBuckets).fill(0.04);
+    const bursts = [
+      { start: 5, end: 32 },
+      { start: 35, end: 68 },
+      { start: 72, end: 105 },
+    ];
+    for (const b of bursts) {
+      for (let i = b.start; i <= b.end; i++) {
+        const wave = Math.sin((i - b.start) * 0.8) * 0.35 + 0.5;
+        const jitter = ((i * 17) % 10) / 40;
+        peaks[i] = Math.min(1.0, Math.max(0.15, wave + jitter));
+      }
+    }
 
     loadProjectData(sampleProj);
     setAudioWavPath(null);
-    setWaveformData(null);
+    setWaveformData({
+      peaks,
+      durationSeconds: 12.0,
+      sampleRate: 16000,
+      bucketsPerSecond: 10,
+    });
     setProjectFilePath(null);
     setIsDirty(false);
     historyRef.current.clear(sampleEvents);
     syncHistoryState();
+    setCurrentTime(0.5);
+    selectEvent('sample-evt-1');
     setStatusMessage('Loaded sample demo project.');
     setActiveTab('editor');
   };

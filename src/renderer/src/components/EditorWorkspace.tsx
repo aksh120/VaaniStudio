@@ -94,7 +94,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '6px 12px',
+            padding: '4px 10px',
             backgroundColor: 'var(--bg-surface)',
             borderBottom: '1px solid var(--border-subtle)',
             flexShrink: 0,

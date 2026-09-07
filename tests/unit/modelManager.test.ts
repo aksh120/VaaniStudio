@@ -5,6 +5,7 @@ import {
   getModelsDir,
   getModelPath,
   isModelDownloaded,
+  formatDownloadProgress,
 } from '../../src/main/asr/modelManager.js';
 import fs from 'node:fs';
 
@@ -46,5 +47,28 @@ describe('Model Manager Subsystem', () => {
   it('detects un-downloaded model correctly', () => {
     const isDownloaded = isModelDownloaded('non-existent-model-id');
     expect(isDownloaded).toBe(false);
+  });
+
+  it('formats download progress with megabytes, percentage, and transfer speed', () => {
+    const progress = formatDownloadProgress(
+      'Whisper Medium (INT8)',
+      500 * 1024 * 1024,
+      1500 * 1024 * 1024,
+      12.5,
+      780
+    );
+
+    expect(progress.percent).toBe(33);
+    expect(progress.message).toContain('Whisper Medium (INT8)');
+    expect(progress.message).toContain('500.0 / 1500.0 MB');
+    expect(progress.message).toContain('(12.5 MB/s)');
+  });
+
+  it('clamps download progress percentage between 5% and 99% until fully complete', () => {
+    const minProgress = formatDownloadProgress('Whisper Small (INT8)', 0, 1000 * 1024 * 1024);
+    expect(minProgress.percent).toBe(5);
+
+    const maxProgress = formatDownloadProgress('Whisper Small (INT8)', 1000 * 1024 * 1024, 1000 * 1024 * 1024);
+    expect(maxProgress.percent).toBe(99);
   });
 });
