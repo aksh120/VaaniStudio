@@ -36,7 +36,7 @@ import { probeMediaFile } from './media/probe.js';
 import { extractNormalizedAudio } from './media/audio.js';
 import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
-import { listModels, downloadModel, deleteModel, verifyModelIntegrity } from './asr/modelManager.js';
+import { listModels, downloadModel, deleteModel, verifyModelIntegrity, getModelsStorageSummary } from './asr/modelManager.js';
 import { checkOnboardingStatus, completeOnboarding } from './onboarding/onboardingManager.js';
 import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
 import { exportToSrt, exportToVtt, exportToAss } from '../shared/subtitles/subtitleExporters.js';
@@ -278,6 +278,15 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
         success: false,
         error: { code: 'DOWNLOAD_MODEL_ERROR', message: err?.message || 'Failed to download model.' },
       };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_MODELS_STORAGE_SUMMARY, async (): Promise<IPCResult<any>> => {
+    try {
+      const summary = getModelsStorageSummary();
+      return { success: true, data: summary };
+    } catch (err: any) {
+      return { success: false, error: { code: 'STORAGE_SUMMARY_ERROR', message: err?.message || 'Failed to get storage summary.' } };
     }
   });
 
@@ -893,7 +902,11 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     async (_event, filePath: string): Promise<IPCResult<boolean>> => {
       try {
         if (filePath && fs.existsSync(filePath)) {
-          shell.showItemInFolder(filePath);
+          if (fs.statSync(filePath).isDirectory()) {
+            shell.openPath(filePath);
+          } else {
+            shell.showItemInFolder(filePath);
+          }
           return { success: true, data: true };
         } else if (filePath && fs.existsSync(path.dirname(filePath))) {
           shell.openPath(path.dirname(filePath));

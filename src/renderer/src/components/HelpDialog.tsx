@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 
 interface HelpDialogProps {
   isOpen: boolean;
@@ -41,8 +42,8 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
       <div className="modal-dialog" style={{ maxWidth: '580px', maxHeight: '80vh' }}>
         <div className="modal-header">
           <h3 className="modal-title">Help & Documentation</h3>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
-            ✕
+          <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
+            <X size={16} />
           </button>
         </div>
 

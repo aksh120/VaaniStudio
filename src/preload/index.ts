@@ -25,6 +25,7 @@ import {
   BatchJobConfig,
   BatchQueueState,
   DeepSystemScanResult,
+  ModelsStorageSummary,
 } from '../shared/types/models.js';
 
 export const vaaniAPI = {
@@ -76,6 +77,10 @@ export const vaaniAPI = {
 
   getModels: (): Promise<IPCResult<ModelInfo[]>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_MODELS);
+  },
+
+  getModelsStorageSummary: (): Promise<IPCResult<ModelsStorageSummary>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_MODELS_STORAGE_SUMMARY);
   },
 
   downloadModel: (modelId: string): Promise<IPCResult<string>> => {

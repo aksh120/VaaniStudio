@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { SubtitleEvent, SpeakerProfile } from '../../../shared/types/models.js';
 import { formatTimecode, parseTimecode } from '../../../shared/utils/timecode.js';
 import { SearchReplaceOptions } from '../editor/editorOperations.js';
+import { Scissors, Link2, Copy, Trash2, ArrowRight, Search } from 'lucide-react';
 
 export interface SubtitleListViewProps {
   events: SubtitleEvent[];
@@ -19,7 +20,7 @@ export interface SubtitleListViewProps {
   speakers?: SpeakerProfile[];
 }
 
-const ROW_HEIGHT = 76; // px per virtual row
+const ROW_HEIGHT = 48; // px per virtual row (compact high-density)
 const BUFFER_COUNT = 6;
 
 export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
@@ -145,7 +146,8 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
             onClick={() => setShowSearch(!showSearch)}
             title="Search and Replace (Ctrl+F)"
           >
-            🔍 Find & Replace
+            <Search size={12} />
+            <span>Find & Replace</span>
           </button>
         </div>
       </div>
@@ -322,7 +324,7 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                       }}
                       title="Start time (click to edit)"
                     />
-                    <span className="tc-sep">→</span>
+                    <ArrowRight size={10} className="tc-sep" />
                     <input
                       className="tc-input"
                       defaultValue={formatTimecode(evt.endTime, 'compact')}
@@ -404,7 +406,7 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                       }}
                       title="Split at playhead"
                     >
-                      ✂
+                      <Scissors size={12} />
                     </button>
                     {nextEvent && (
                       <button
@@ -415,7 +417,7 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                         }}
                         title="Merge with next subtitle"
                       >
-                        🔗
+                        <Link2 size={12} />
                       </button>
                     )}
                     <button
@@ -426,7 +428,7 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                       }}
                       title="Duplicate subtitle"
                     >
-                      📑
+                      <Copy size={12} />
                     </button>
                     <button
                       className="row-action-btn action-delete"
@@ -436,7 +438,7 @@ export const SubtitleListView: React.FC<SubtitleListViewProps> = ({
                       }}
                       title="Delete subtitle"
                     >
-                      🗑
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>

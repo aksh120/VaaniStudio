@@ -69,8 +69,8 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
 
     return {
       position: 'absolute',
-      left: '5%',
-      width: '90%',
+      left: '7%',
+      width: '86%',
       display: 'flex',
       justifyContent: justify,
       pointerEvents: 'none',
@@ -124,8 +124,8 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
         className="kinetic-subtitle-box"
         style={{
           backgroundColor: computedBackground,
-          padding: `${styleConfig.boxPaddingY ?? 6}px ${styleConfig.boxPaddingX ?? 14}px`,
-          borderRadius: `${styleConfig.boxBorderRadius ?? 6}px`,
+          padding: `${Math.max(3, Math.round((styleConfig.boxPaddingY ?? 6) * scaleFactor * 1.5))}px ${Math.max(6, Math.round((styleConfig.boxPaddingX ?? 14) * scaleFactor * 1.5))}px`,
+          borderRadius: `${Math.max(2, Math.round((styleConfig.boxBorderRadius ?? 6) * scaleFactor * 1.5))}px`,
           fontFamily: styleConfig.fontFamily || 'Inter, sans-serif',
           fontSize: `${fontSizePx}px`,
           fontWeight: styleConfig.fontWeight || 600,
@@ -141,11 +141,13 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
           textAlign: 'center',
           textShadow: computedShadow,
           WebkitTextStroke: styleConfig.strokeWidth
-            ? `${styleConfig.strokeWidth}px ${styleConfig.strokeColor || '#000000'}`
+            ? `${Math.max(1, Math.round(styleConfig.strokeWidth * scaleFactor * 1.2))}px ${styleConfig.strokeColor || '#000000'}`
             : undefined,
           paintOrder: 'stroke fill',
-          maxWidth: '92%',
-          whiteSpace: 'pre-wrap',
+          maxWidth: '100%',
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
+          whiteSpace: 'normal',
           transition:
             transition.phase === 'display'
               ? 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)'

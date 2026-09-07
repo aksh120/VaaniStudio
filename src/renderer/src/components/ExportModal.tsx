@@ -14,6 +14,7 @@ import {
   VideoExportPreset,
   RenderProgressUpdate,
 } from '../../../shared/types/models.js';
+import { Download, FileText, Video, Check, AlertTriangle, FolderOpen, X } from 'lucide-react';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -185,7 +186,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Modal Header */}
         <div className="modal-header">
           <div className="modal-title-row">
-            <span className="modal-icon">📤</span>
+            <Download size={18} className="modal-icon" />
             <div>
               <h3 className="modal-title">Export Subtitles & Video</h3>
               <p className="modal-subtitle">
@@ -199,7 +200,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             disabled={isRendering}
             title="Close"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
@@ -208,14 +209,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <button
             className={`export-tab-btn ${activeTab === 'subtitles' ? 'active' : ''}`}
             onClick={() => setActiveTab('subtitles')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            📄 Subtitle Files
+            <FileText size={13} />
+            <span>Subtitle Files</span>
           </button>
           <button
             className={`export-tab-btn ${activeTab === 'video' ? 'active' : ''}`}
             onClick={() => setActiveTab('video')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            🎬 Burn-In Video
+            <Video size={13} />
+            <span>Burn-In Video</span>
           </button>
         </div>
 
@@ -309,15 +314,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
               {/* Project Stats Banner */}
               <div className="export-stats-banner">
-                <span>📝 {eventCount} subtitle events</span>
-                <span>⏱️ {Math.round(durationSec)}s total timeline duration</span>
+                <span>{eventCount} subtitle events</span>
+                <span>{Math.round(durationSec)}s total timeline duration</span>
               </div>
 
               {/* Success Banner */}
               {subExportSuccess && (
                 <div className="export-success-banner">
-                  <div>
-                    <span className="success-icon">✓</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Check size={14} className="success-icon" />
                     <span>Exported to: {subExportSuccess}</span>
                   </div>
                   <button
@@ -336,8 +341,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           {activeTab === 'video' && (
             <div className="export-section">
               {!hasMedia ? (
-                <div className="export-warning-banner">
-                  ⚠️ No video media is currently loaded in the project. Please import a video file first.
+                <div className="export-warning-banner" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertTriangle size={15} />
+                  <span>No video media is currently loaded in the project. Please import a video file first.</span>
                 </div>
               ) : (
                 <>
@@ -371,8 +377,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       ))}
                     </div>
                     {resolution === '4k' && (
-                      <span className="control-hint warning-hint">
-                        ⚠️ 4K burn-in on CPU hardware requires substantial encoding time. 1080p is recommended for fast turnaround.
+                      <span className="control-hint warning-hint" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertTriangle size={13} />
+                        <span>4K burn-in on CPU hardware requires substantial encoding time. 1080p is recommended for fast turnaround.</span>
                       </span>
                     )}
                   </div>
@@ -435,7 +442,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                           {renderProgress.status === 'rendering'
                             ? 'Rendering Video with Subtitles...'
                             : renderProgress.status === 'completed'
-                            ? '✓ Render Complete!'
+                            ? 'Render Complete!'
                             : renderProgress.status === 'cancelled'
                             ? 'Render Cancelled'
                             : 'Render Failed'}
@@ -458,12 +465,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
                       {renderProgress.status === 'rendering' && (
                         <div className="render-metrics-row">
-                          <span>⏱️ Elapsed: {renderProgress.elapsedSeconds}s</span>
+                          <span>Elapsed: {renderProgress.elapsedSeconds}s</span>
                           {renderProgress.etaSeconds !== undefined && (
-                            <span>⏳ ETA: ~{renderProgress.etaSeconds}s</span>
+                            <span>ETA: ~{renderProgress.etaSeconds}s</span>
                           )}
-                          {renderProgress.speed && <span>⚡ Speed: {renderProgress.speed}</span>}
-                          {renderProgress.fps && <span>🎬 {Math.round(renderProgress.fps)} fps</span>}
+                          {renderProgress.speed && <span>Speed: {renderProgress.speed}</span>}
+                          {renderProgress.fps && <span>{Math.round(renderProgress.fps)} fps</span>}
                         </div>
                       )}
 
@@ -473,8 +480,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                             type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => handleOpenFolder(renderProgress.outputPath!)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
-                            📁 Open Video Folder
+                            <FolderOpen size={13} />
+                            <span>Open Video Folder</span>
                           </button>
                         </div>
                       )}
@@ -483,8 +492,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
                   {/* Render Error Banner */}
                   {renderError && (
-                    <div className="export-warning-banner danger">
-                      ❌ {renderError}
+                    <div className="export-warning-banner danger" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertTriangle size={14} />
+                      <span>{renderError}</span>
                     </div>
                   )}
                 </>

@@ -26,10 +26,79 @@ def emit(payload: dict) -> None:
     sys.stdout.flush()
 
 
+class DownloadProgressTqdm:
+    """
+    Progress tracker that intercepts Hugging Face snapshot_download chunk events
+    and streams structured JSON updates over stdout for the desktop application.
+    """
+    _last_emit_time = 0.0
+    _last_emit_bytes = 0
+    _start_time = 0.0
+
+    def __init__(self, *args, **kwargs):
+        from tqdm.auto import tqdm
+        # Direct terminal progress writes to null to keep stdout purely JSON-delimited
+        kwargs["file"] = open(os.devnull, "w")
+        self._tqdm = tqdm(*args, **kwargs)
+        if not DownloadProgressTqdm._start_time:
+            DownloadProgressTqdm._start_time = time.time()
+            DownloadProgressTqdm._last_emit_time = DownloadProgressTqdm._start_time
+
+    def __getattr__(self, item):
+        return getattr(self._tqdm, item)
+
+    def __enter__(self):
+        self._tqdm.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self._tqdm.__exit__(exc_type, exc_val, exc_tb)
+
+    def update(self, n=1):
+        self._tqdm.update(n)
+        desc = getattr(self._tqdm, "desc", "") or ""
+        unit = getattr(self._tqdm, "unit", "") or ""
+        # The Reconstructing bar tracks total consolidated bytes written to disk
+        is_byte_bar = ("Reconstruct" in desc) or (unit == "B" and "Downloading" not in desc)
+        if is_byte_bar:
+            now = time.time()
+            total = self._tqdm.total or 0
+            current_n = self._tqdm.n
+            is_complete = bool(total and current_n >= total)
+
+            if (now - DownloadProgressTqdm._last_emit_time >= 0.20) or is_complete:
+                dt = now - DownloadProgressTqdm._last_emit_time
+                db = current_n - DownloadProgressTqdm._last_emit_bytes
+                speed = (db / dt) / (1024 * 1024) if dt > 0 and db > 0 else 0.0
+                if speed <= 0 and (now - DownloadProgressTqdm._start_time) > 0:
+                    speed = (current_n / (now - DownloadProgressTqdm._start_time)) / (1024 * 1024)
+
+                pct = round((current_n / total * 100.0), 1) if total > 0 else 0.0
+                pct = min(99.0, max(5.0, pct))
+
+                emit({
+                    "type": "download_progress",
+                    "downloaded_bytes": int(current_n),
+                    "total_bytes": int(total),
+                    "percent": pct,
+                    "speed_mbs": round(speed, 2),
+                })
+                DownloadProgressTqdm._last_emit_time = now
+                DownloadProgressTqdm._last_emit_bytes = current_n
+
+    def refresh(self, *args, **kwargs):
+        return self._tqdm.refresh(*args, **kwargs)
+
+    def close(self):
+        return self._tqdm.close()
+
+
 def run_download(args: argparse.Namespace) -> None:
-    """Downloads model weights to the target directory."""
+    """Downloads model weights to the target directory with streaming progress."""
     try:
+        import re
         import faster_whisper
+        import huggingface_hub
 
         emit({
             "type": "download_start",
@@ -38,9 +107,34 @@ def run_download(args: argparse.Namespace) -> None:
         })
 
         os.makedirs(args.output, exist_ok=True)
-        downloaded_dir = faster_whisper.download_model(
-            args.model,
-            output_dir=args.output,
+
+        model_name_or_id = args.model
+        if re.match(r".*/.*", model_name_or_id):
+            repo_id = model_name_or_id
+        else:
+            models_map = getattr(faster_whisper.utils, "_MODELS", {})
+            repo_id = models_map.get(model_name_or_id)
+            if repo_id is None:
+                repo_id = f"Systran/faster-whisper-{model_name_or_id}"
+
+        allow_patterns = [
+            "config.json",
+            "preprocessor_config.json",
+            "model.bin",
+            "tokenizer.json",
+            "vocabulary.*",
+        ]
+
+        # Reset timing state for download session
+        DownloadProgressTqdm._start_time = time.time()
+        DownloadProgressTqdm._last_emit_time = DownloadProgressTqdm._start_time
+        DownloadProgressTqdm._last_emit_bytes = 0
+
+        downloaded_dir = huggingface_hub.snapshot_download(
+            repo_id,
+            local_dir=args.output,
+            allow_patterns=allow_patterns,
+            tqdm_class=DownloadProgressTqdm,
         )
 
         emit({
