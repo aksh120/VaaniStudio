@@ -62,6 +62,45 @@ let activeTranscriptionController: AbortController | null = null;
 let activeDownloadController: AbortController | null = null;
 
 export function registerIPCHandlers(mainWindow: BrowserWindow): void {
+  // Window Caption Controls
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, async (): Promise<IPCResult<boolean>> => {
+    mainWindow.minimize();
+    return { success: true, data: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, async (): Promise<IPCResult<boolean>> => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+    return { success: true, data: mainWindow.isMaximized() };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, async (): Promise<IPCResult<boolean>> => {
+    mainWindow.close();
+    return { success: true, data: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL_URL, async (_event, url: string): Promise<IPCResult<boolean>> => {
+    try {
+      if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+        await shell.openExternal(url);
+        return { success: true, data: true };
+      }
+      return {
+        success: false,
+        error: { code: 'INVALID_URL', message: 'Only http and https URLs are permitted.' },
+      };
+    } catch (err: any) {
+      logger.error('IPC', `Failed to open external URL ${url}: ${err?.message}`);
+      return {
+        success: false,
+        error: { code: 'OPEN_FAILED', message: err?.message || 'Failed to open external URL.' },
+      };
+    }
+  });
+
   // Get Hardware Profile
   ipcMain.handle(IPC_CHANNELS.GET_HARDWARE_PROFILE, async (): Promise<IPCResult<HardwareProfile>> => {
     try {

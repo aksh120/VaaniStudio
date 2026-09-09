@@ -611,3 +611,47 @@ All tasks listed in this document correspond to permanent entries in `Tasks.md`.
 * **Exit Criteria**:
   * All Phase 16 tasks complete; all tests passing; production build verified.
 
+---
+
+### Phase 17: Complete Desktop UI Architecture Redesign
+
+* **Phase ID**: PHASE-17
+* **Phase Name**: Complete Desktop UI Architecture Redesign (Professional Creative Suite Layout)
+* **Status**: Completed
+* **Objective**: Overhaul the entire application interface to establish a professional Windows creative suite layout, featuring a 3-column workspace (Left Subtitle Browser, Center Maximized Media Stage with Playback Controls and Multi-Track Timeline, Right Contextual 4-Tab Inspector), simplified non-technical workflows, calm status bar, and responsive desktop aesthetics.
+* **Scope**:
+  * Re-architect layout from vertically stacked panes to a 3-column grid (Left Subtitle Browser ~280px, Center Media Stage ~900-950px, Right Contextual Inspector ~320-360px).
+  * Build Left Subtitle Browser panel with search, filter, counter, and high-density virtualized rows.
+  * Maximize video preview viewport, eliminate wasted black letterbox space, and bind subtitle overlay strictly to video image with dynamic 1080p font scaling.
+  * Re-architect timeline into 3 distinct tracks (Video Ruler, Audio Waveform Canvas, Subtitle Blocks with proportional duration widths and drag handles) with vertical resizing.
+  * Build Contextual 4-tab Inspector (Subtitle, Style, Video, Audio) with progressive disclosure separating Quick Style from Advanced Style accordions.
+  * Streamline Generate Subtitles dialog into 4 simple non-technical steps with advanced options tucked into an accordion.
+  * Refine Titlebar, Primary Navigation, and calm Status Bar removing permanent technical jargon.
+  * Maintain zero emoji policy and zero em dashes across all code, UI, tooltips, and documentation.
+* **Dependencies**: PHASE-16
+* **Tasks**:
+  * [x] TASK-080: Professional Design System Tokens & Base Layout Architecture (3-Column Editor Grid)
+  * [x] TASK-081: Compact Desktop Titlebar, Primary Navigation, and Calm Status Bar
+  * [x] TASK-082: Left Subtitle Browser Panel with High-Density Virtualization, Search, and Filtering
+  * [x] TASK-083: Center Stage: Large Responsive Media Viewer with Embedded Playback Controls
+  * [x] TASK-084: Center Stage: Integrated Multi-Track Timeline with Vertical Resizing & Visual Duration Blocks
+  * [x] TASK-085: Contextual 4-Tab Right Inspector (Subtitle, Style, Video, Audio) with Progressive Disclosure
+  * [x] TASK-086: Compact Visual Style Preset Browser & Separated Quick/Advanced Typography Controls
+  * [x] TASK-087: Streamlined 4-Step "Generate Subtitles" Dialog without Technical Jargon
+  * [x] TASK-088: Calm Performance & Hardware Diagnostics Settings with Capability Detection
+  * [x] TASK-089: Comprehensive End-to-End Responsive Verification, Multi-Resolution Tests, and Release Packaging
+* **Expected Deliverables**:
+  * Full 3-column professional desktop creative software workspace.
+  * Vastly enlarged responsive video preview with 1-to-1 export parity.
+  * Intuitive multi-track timeline with resizable height.
+  * Clean, non-intrusive status bar and streamlined modal dialogs.
+* **Tests**:
+  * Unit tests in `tests/unit/uiRedesign.test.ts`.
+  * Typecheck `npm run typecheck` (0 errors).
+  * Unit test suite `npm test` (100% pass rate).
+* **Definition of Done**:
+  * All 10 tasks completed; media preview is substantially larger; 3-column workspace is fully functional and responsive; zero emojis; all tests pass.
+* **Exit Criteria**:
+  * Phase 17 verified, tested, and packaged into production Windows binaries.
+
+

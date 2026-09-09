@@ -28,6 +28,22 @@ export interface AssScriptOptions {
   includeKaraoke?: boolean;
   animationConfig?: AnimationConfig;
   styleName?: string;
+  burnIn?: boolean;
+}
+
+/**
+ * Convert Hex or CSS color to ASS override color tag \c&HBBGGRR& (and optional \1a&HAA&)
+ */
+function colorToAssOverrideTag(color: string, opacity: number = 1.0): string {
+  const full = colorToAss(color, opacity);
+  const hex = full.replace('&H', '');
+  const alphaHex = hex.slice(0, 2);
+  const bgrHex = hex.slice(2);
+  let tag = `\\c&H${bgrHex}&`;
+  if (alphaHex !== '00') {
+    tag += `\\1a&H${alphaHex}&`;
+  }
+  return tag;
 }
 
 /**
@@ -58,28 +74,33 @@ export function generateAssScript(
   ].join('\n');
 
   // 2. V4+ Styles Section
-  // Build both 'Default' (normal text) and 'Karaoke' (where SecondaryColour is base and PrimaryColour is highlight)
   const fontName = (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim();
   const fontSize = Math.round(style.fontSize || 48);
 
   const baseColorAss = colorToAss(style.primaryColor, style.primaryOpacity ?? 1.0);
   const activeColorAss = colorToAss(style.activeWordColor || '#FFD700', 1.0);
-  const outlineColorAss = colorToAss(style.strokeColor || '#000000', 1.0);
+  const strokeColorAss = colorToAss(style.strokeColor || '#000000', 1.0);
 
   let backColorAss: string;
+  let outlineColorAss: string;
   let borderStyle = 1; // 1 = outline + drop shadow, 3 = opaque background box
   let outlineWidth = Math.round(style.strokeWidth ?? 0);
   let shadowDepth = Math.round(
     Math.max(style.shadowOffsetX ?? 0, style.shadowOffsetY ?? 0, style.shadowBlur ? style.shadowBlur / 3 : 0)
   );
 
-  if (style.hasBackgroundBox) {
+  const hasBackgroundBox = Boolean(style.hasBackgroundBox && (style.backgroundOpacity ?? 0.8) > 0.05);
+
+  if (hasBackgroundBox) {
     borderStyle = 3;
-    backColorAss = colorToAss(style.backgroundColor || '#000000', style.backgroundOpacity ?? 0.8);
+    // In ASS BorderStyle=3, OutlineColour is the background box fill color!
+    outlineColorAss = colorToAss(style.backgroundColor || '#000000', style.backgroundOpacity ?? 0.8);
     outlineWidth = Math.round(Math.max(style.boxPaddingX ?? 10, style.boxPaddingY ?? 6) / 2);
+    backColorAss = colorToAss(style.shadowColor || '#000000', 0.8);
     shadowDepth = 0;
   } else {
     borderStyle = 1;
+    outlineColorAss = strokeColorAss;
     backColorAss = colorToAss(style.shadowColor || '#000000', 0.8);
   }
 
@@ -123,24 +144,120 @@ export function generateAssScript(
   const sortedEvents = [...events].sort((a, b) => a.startTime - b.startTime);
 
   for (const ev of sortedEvents) {
-    const startAss = formatAssTimestamp(ev.startTime);
-    const endAss = formatAssTimestamp(ev.endTime);
-
     const hasWords = Boolean(ev.words && ev.words.length > 0);
     const isKaraoke = includeKaraoke && hasWords;
-    const styleUsed = isKaraoke ? 'Karaoke' : 'Default';
 
-    // Transition tags
-    const transitionTags = compileAssTransitionTags(animConfig);
+    // For video burn-in (or step karaoke mode when requested), slice dialogue lines
+    // so only the currently spoken word is highlighted in activeWordColor,
+    // matching KineticSubtitleRenderer precisely.
+    if (options.burnIn && isKaraoke && animConfig?.karaokeMode !== 'sweep') {
+      const words = ev.words!;
+      const activeColorTag = colorToAssOverrideTag(style.activeWordColor || '#FACC15', 1.0);
+      const baseColorTag = colorToAssOverrideTag(style.primaryColor || '#FFFFFF', style.primaryOpacity ?? 1.0);
+      const scaleTag = animConfig?.activeWordEmphasis
+        ? `\\fscx${Math.round((animConfig.activeWordScale || 1.08) * 100)}\\fscy${Math.round((animConfig.activeWordScale || 1.08) * 100)}`
+        : '';
+      const baseScaleTag = animConfig?.activeWordEmphasis ? '\\fscx100\\fscy100' : '';
 
-    let textPayload: string;
-    if (isKaraoke) {
-      textPayload = compileAssKaraokeText(ev, animConfig?.karaokeMode ?? 'step');
+      const formatLineWords = (activeIdx: number): string => {
+        return words
+          .map((w, idx) => {
+            const punctuation = w.punctuationFollows || '';
+            let wordText = `${w.word}${punctuation}`;
+            if (style.textTransform === 'uppercase') {
+              wordText = wordText.toUpperCase();
+            } else if (style.textTransform === 'lowercase') {
+              wordText = wordText.toLowerCase();
+            }
+
+            if (idx === activeIdx) {
+              return `{${activeColorTag}${scaleTag}}${wordText}`;
+            } else {
+              return `{${baseColorTag}${baseScaleTag}}${wordText}`;
+            }
+          })
+          .join(' ');
+      };
+
+      interface Slice {
+        start: number;
+        end: number;
+        activeIdx: number;
+      }
+      const slices: Slice[] = [];
+
+      // Pre-gap before first word
+      if (words[0].startTime > ev.startTime + 0.01) {
+        slices.push({ start: ev.startTime, end: words[0].startTime, activeIdx: -1 });
+      }
+
+      // Each word interval
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        if (w.endTime > w.startTime) {
+          slices.push({ start: w.startTime, end: w.endTime, activeIdx: i });
+        }
+
+        if (i < words.length - 1) {
+          const nextW = words[i + 1];
+          if (nextW.startTime > w.endTime + 0.02) {
+            slices.push({ start: w.endTime, end: nextW.startTime, activeIdx: -1 });
+          }
+        }
+      }
+
+      // Post-gap after last word
+      const lastWord = words[words.length - 1];
+      if (ev.endTime > lastWord.endTime + 0.01) {
+        slices.push({ start: lastWord.endTime, end: ev.endTime, activeIdx: -1 });
+      }
+
+      if (slices.length === 0) {
+        slices.push({ start: ev.startTime, end: ev.endTime, activeIdx: -1 });
+      }
+
+      for (let sIdx = 0; sIdx < slices.length; sIdx++) {
+        const slice = slices[sIdx];
+        const segStart = formatAssTimestamp(slice.start);
+        const segEnd = formatAssTimestamp(slice.end);
+
+        let phase: 'both' | 'entrance-only' | 'exit-only' | 'none';
+        if (slices.length === 1) {
+          phase = 'both';
+        } else if (sIdx === 0) {
+          phase = 'entrance-only';
+        } else if (sIdx === slices.length - 1) {
+          phase = 'exit-only';
+        } else {
+          phase = 'none';
+        }
+
+        const transTags = compileAssTransitionTags(animConfig, phase);
+        const lineText = formatLineWords(slice.activeIdx);
+        eventsLines.push(`Dialogue: 0,${segStart},${segEnd},Default,,0,0,0,,${transTags}${lineText}`);
+      }
     } else {
-      textPayload = (ev.text || '').replace(/\r?\n/g, '\\N');
-    }
+      // Traditional karaoke or plain text
+      const startAss = formatAssTimestamp(ev.startTime);
+      const endAss = formatAssTimestamp(ev.endTime);
+      const styleUsed = isKaraoke ? 'Karaoke' : 'Default';
+      const transitionTags = compileAssTransitionTags(animConfig, 'both');
 
-    eventsLines.push(`Dialogue: 0,${startAss},${endAss},${styleUsed},,0,0,0,,${transitionTags}${textPayload}`);
+      let textPayload: string;
+      if (isKaraoke) {
+        textPayload = compileAssKaraokeText(ev, animConfig?.karaokeMode ?? 'step');
+      } else {
+        let plain = ev.text || '';
+        if (style.textTransform === 'uppercase') {
+          plain = plain.toUpperCase();
+        } else if (style.textTransform === 'lowercase') {
+          plain = plain.toLowerCase();
+        }
+        textPayload = plain.replace(/\r?\n/g, '\\N');
+      }
+
+      eventsLines.push(`Dialogue: 0,${startAss},${endAss},${styleUsed},,0,0,0,,${transitionTags}${textPayload}`);
+    }
   }
 
   return `${scriptInfo}\n\n${stylesSection}\n\n${eventsLines.join('\n')}\n`;

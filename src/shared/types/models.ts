@@ -434,6 +434,10 @@ export const IPC_CHANNELS = {
   CLEAR_BATCH_QUEUE: 'vaani:clear-batch-queue',
   BATCH_PROGRESS_EVENT: 'vaani:batch-progress-event',
   RUN_DEEP_SYSTEM_SCAN: 'vaani:run-deep-system-scan',
+  WINDOW_MINIMIZE: 'vaani:window-minimize',
+  WINDOW_MAXIMIZE: 'vaani:window-maximize',
+  WINDOW_CLOSE: 'vaani:window-close',
+  OPEN_EXTERNAL_URL: 'vaani:open-external-url',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;

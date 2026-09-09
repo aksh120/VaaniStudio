@@ -242,6 +242,22 @@ export const vaaniAPI = {
   log: (level: string, category: string, message: string): void => {
     ipcRenderer.send(IPC_CHANNELS.LOG_MESSAGE, { level, category, message });
   },
+
+  minimizeWindow: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE);
+  },
+
+  maximizeWindow: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MAXIMIZE);
+  },
+
+  closeWindow: (): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE);
+  },
+
+  openExternalUrl: (url: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_URL, url);
+  },
 };
 
 // Expose safe API to the renderer process

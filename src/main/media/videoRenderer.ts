@@ -71,6 +71,10 @@ export function buildBurnInArgs(params: BurnInArgsParams): string[] {
   // Assemble video filters
   const filters: string[] = [];
 
+  // Normalize color metadata to BT.709 SDR before burning subtitles
+  // This prevents HLG/HDR tags from causing dark/crushed playback in Windows Media Player
+  filters.push('setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709');
+
   // Resolution scaling if requested
   switch (resolution) {
     case '720p':
@@ -106,6 +110,14 @@ export function buildBurnInArgs(params: BurnInArgsParams): string[] {
     String(crf),
     '-pix_fmt',
     'yuv420p',
+    '-color_primaries',
+    'bt709',
+    '-color_trc',
+    'bt709',
+    '-colorspace',
+    'bt709',
+    '-color_range',
+    'tv',
     '-c:a',
     'aac',
     '-b:a',
@@ -160,6 +172,7 @@ export async function executeBurnInRender(
       title: path.basename(renderOptions.outputPath, path.extname(renderOptions.outputPath)),
       includeKaraoke: renderOptions.includeKaraoke !== false,
       animationConfig: animationConfig || style.animation,
+      burnIn: true,
     });
 
     fs.writeFileSync(tempAssPath, assScript, 'utf-8');

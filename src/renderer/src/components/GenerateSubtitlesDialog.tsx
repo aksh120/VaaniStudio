@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore.js';
 import { LanguageMode, ScriptMode, PerformanceMode, ModelInfo } from '../../../shared/types/models.js';
 
@@ -39,7 +39,10 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
       <div className="modal-dialog" style={{ maxWidth: '520px' }}>
         {/* Header */}
         <div className="modal-header">
-          <h3 className="modal-title">Generate Subtitles</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={16} style={{ color: 'var(--accent-active)' }} />
+            <h3 className="modal-title">Generate Subtitles</h3>
+          </div>
           {!isTranscribing && (
             <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
               <X size={16} />
@@ -49,7 +52,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
 
         {/* Body */}
         <div className="modal-body">
-          {/* Media Info Strip */}
+          {/* Media Info Banner */}
           <div
             style={{
               padding: '10px 12px',
@@ -60,7 +63,9 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               fontSize: '12px',
             }}
           >
-            <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Input Media:</div>
+            <div style={{ color: 'var(--text-muted)', marginBottom: '2px', fontSize: '11px' }}>
+              Input Media File:
+            </div>
             <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>
               {project.media ? project.media.fileName : 'No media loaded'}
             </div>
@@ -72,14 +77,14 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
           </div>
 
           {isTranscribing ? (
-            /* Active Progress Screen */
-            <div style={{ padding: '20px 8px', textAlign: 'center' }}>
+            /* Active Transcription Progress */
+            <div style={{ padding: '24px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
                 {transcriptionProgress < 30
-                  ? 'Detecting speech & segmenting audio...'
+                  ? 'Detecting speech and segmenting audio...'
                   : transcriptionProgress < 85
-                  ? 'Transcribing speech with Whisper...'
-                  : 'Aligning timestamps & finalizing subtitles...'}
+                  ? 'Transcribing speech with local AI engine...'
+                  : 'Aligning timestamps and finalizing subtitles...'}
               </div>
 
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
@@ -111,58 +116,69 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               </button>
             </div>
           ) : (
-            /* Standard Generation Form */
+            /* 4-Step Simplified Generation Form */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Step 1: Language */}
               <div className="control-group">
-                <label className="input-label">Spoken Language</label>
+                <label className="input-label">Step 1: Spoken Language</label>
                 <select
                   className="select-box"
                   value={project.settings.languageMode}
                   onChange={(e) => updateSettings({ languageMode: e.target.value as LanguageMode })}
                 >
                   <option value="auto">Auto-Detect Language (Recommended)</option>
-                  <option value="hinglish">Hinglish (Mixed Hindi & English)</option>
-                  <option value="english">English (Global / Indian Accent)</option>
+                  <option value="hinglish">Hinglish (Mixed Hindi and English)</option>
+                  <option value="english">English (Global or Indian Accent)</option>
                   <option value="hindi">Hindi (Pure Hindi)</option>
                 </select>
               </div>
 
+              {/* Step 2: Output Script */}
               <div className="control-group">
-                <label className="input-label">Subtitle Script & Formatting</label>
+                <label className="input-label">Step 2: Subtitle Output Style</label>
                 <select
                   className="select-box"
                   value={project.settings.scriptMode}
                   onChange={(e) => updateSettings({ scriptMode: e.target.value as ScriptMode })}
                 >
-                  <option value="roman">Roman Hinglish (e.g. "Ye workflow fast hai")</option>
-                  <option value="devanagari">Devanagari Script (e.g. "ये वर्कफ़्लो फ़ास्ट है")</option>
+                  <option value="roman">Roman Hinglish (e.g. "Ye video viral hoga")</option>
+                  <option value="devanagari">Devanagari Script (e.g. "ये वीडियो वायरल होगा")</option>
                   <option value="exact">Exact Spoken (Verbatim speech)</option>
-                  <option value="cleaned">Cleaned Speech (Remove "umm", "uh", filler)</option>
+                  <option value="cleaned">Cleaned Speech (Remove "umm", "uh", filler words)</option>
                 </select>
               </div>
 
+              {/* Step 3: Quality Profile */}
               <div className="control-group">
-                <label className="input-label">Quality Profile</label>
+                <label className="input-label">Step 3: Quality Profile</label>
                 <select
                   className="select-box"
                   value={project.settings.performanceMode}
                   onChange={(e) => updateSettings({ performanceMode: e.target.value as PerformanceMode })}
                 >
-                  <option value="balanced">Balanced (Recommended - Small Model)</option>
-                  <option value="fast">Fast (Lower latency - Tiny/Base Model)</option>
-                  <option value="quality">Maximum Quality (Medium Model)</option>
+                  <option value="balanced">Balanced (Fast speed, high accuracy)</option>
+                  <option value="fast">Fast (Lowest latency for quick previews)</option>
+                  <option value="quality">Maximum Quality (Deepest transcription accuracy)</option>
                 </select>
               </div>
 
-              {/* Collapsible Advanced Section */}
-              <div style={{ marginTop: '4px' }}>
+              {/* Advanced Options Accordion */}
+              <div style={{ marginTop: '2px' }}>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  style={{ padding: '4px 0', color: 'var(--accent-active)', fontSize: '11px' }}
+                  style={{
+                    padding: '4px 0',
+                    color: 'var(--accent-active)',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
                   onClick={() => setShowAdvanced(!showAdvanced)}
                 >
-                  {showAdvanced ? '▲ Hide Advanced Options' : '▼ Show Advanced Options'}
+                  {showAdvanced ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>{showAdvanced ? 'Hide Advanced Settings' : 'Show Advanced Settings'}</span>
                 </button>
 
                 {showAdvanced && (
@@ -179,7 +195,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                     }}
                   >
                     <div className="control-group" style={{ marginBottom: 0 }}>
-                      <label className="input-label">Specific Whisper Model</label>
+                      <label className="input-label">Specific Model Engine</label>
                       <select
                         className="select-box"
                         value={selectedModelId}
@@ -187,7 +203,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                       >
                         {models.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' - Ready' : ' - Needs Download'}
+                            {m.name} ({m.sizeMB} MB){m.isDownloaded ? ' (Ready)' : ' (Needs Download)'}
                           </option>
                         ))}
                       </select>
@@ -195,7 +211,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
 
                     {!isModelReady && (
                       <div style={{ fontSize: '11px', color: 'var(--color-warning)' }}>
-                        Note: This model weights are not downloaded yet. Please download from Settings &gt; Models first.
+                        Notice: This model weights are not downloaded yet. Please download from Settings &gt; Models.
                       </div>
                     )}
                   </div>
@@ -217,8 +233,10 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               onClick={() => {
                 onStartTranscription();
               }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              Generate Subtitles
+              <Sparkles size={13} />
+              <span>Generate Subtitles</span>
             </button>
           </div>
         )}

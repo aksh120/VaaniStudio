@@ -1,6 +1,6 @@
 appId: com.vaanistudio.desktop
 productName: Vaani Studio
-copyright: Copyright 2026 Vaani Studio Contributors
+copyright: Copyright 2026 Akshat Apoorv
 
 directories:
   output: dist-release
@@ -49,6 +49,7 @@ nsis:
   installerHeader: assets/branding/installer-header.bmp
   installerSidebar: assets/branding/installer-sidebar.bmp
   uninstallerSidebar: assets/branding/installer-sidebar.bmp
+  include: assets/branding/installer.nsh
   artifactName: VaaniStudio-Setup-${version}.exe
 
 portable:
@@ -57,7 +58,7 @@ portable:
 publish: null
 
 linux:
-  maintainer: "Vaani Studio Contributors <contributors@vaanistudio.org>"
+  maintainer: "Akshat Apoorv <records.akshat@gmail.com>"
   target:
     - target: AppImage
       arch:

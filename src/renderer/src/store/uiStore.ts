@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware';
 export type WorkspaceTab = 'projects' | 'editor' | 'subtitles' | 'style' | 'export' | 'settings';
 export type ThemeMode = 'dark' | 'light';
 
+export type InspectorTab = 'style' | 'translate' | 'review' | 'subtitle' | 'video' | 'audio';
+
 export interface RecentProjectEntry {
   id: string;
   name: string;
@@ -17,9 +19,13 @@ export interface RecentProjectEntry {
 interface UIState {
   activeTab: WorkspaceTab;
   theme: ThemeMode;
+  leftPanelVisible: boolean;
+  leftPanelWidth: number;
   inspectorVisible: boolean;
-  inspectorTab: 'properties' | 'timing' | 'style';
+  inspectorTab: InspectorTab;
   inspectorWidth: number;
+  timelineHeight: number;
+  focusMode: boolean;
   isGenerateModalOpen: boolean;
   isTutorialOpen: boolean;
   isHelpOpen: boolean;
@@ -30,10 +36,15 @@ interface UIState {
   setActiveTab: (tab: WorkspaceTab) => void;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
+  setLeftPanelVisible: (visible: boolean) => void;
+  toggleLeftPanel: () => void;
+  setLeftPanelWidth: (width: number) => void;
   setInspectorVisible: (visible: boolean) => void;
   toggleInspector: () => void;
-  setInspectorTab: (tab: 'properties' | 'timing' | 'style') => void;
+  setInspectorTab: (tab: InspectorTab) => void;
   setInspectorWidth: (width: number) => void;
+  setTimelineHeight: (height: number) => void;
+  toggleFocusMode: () => void;
   setIsGenerateModalOpen: (open: boolean) => void;
   setIsTutorialOpen: (open: boolean) => void;
   setIsHelpOpen: (open: boolean) => void;
@@ -48,9 +59,13 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       activeTab: 'projects',
       theme: 'dark',
-      inspectorVisible: false,
-      inspectorTab: 'properties',
-      inspectorWidth: 280,
+      leftPanelVisible: true,
+      leftPanelWidth: 280,
+      inspectorVisible: true,
+      inspectorTab: 'style',
+      inspectorWidth: 320,
+      timelineHeight: 160,
+      focusMode: false,
       isGenerateModalOpen: false,
       isTutorialOpen: false,
       isHelpOpen: false,
@@ -68,10 +83,22 @@ export const useUIStore = create<UIState>()(
           document.documentElement.setAttribute('data-theme', next);
           return { theme: next };
         }),
+      setLeftPanelVisible: (leftPanelVisible) => set({ leftPanelVisible }),
+      toggleLeftPanel: () => set((state) => ({ leftPanelVisible: !state.leftPanelVisible })),
+      setLeftPanelWidth: (leftPanelWidth) => set({ leftPanelWidth: Math.max(220, Math.min(450, leftPanelWidth)) }),
       setInspectorVisible: (inspectorVisible) => set({ inspectorVisible }),
       toggleInspector: () => set((state) => ({ inspectorVisible: !state.inspectorVisible })),
       setInspectorTab: (inspectorTab) => set({ inspectorTab }),
-      setInspectorWidth: (inspectorWidth) => set({ inspectorWidth }),
+      setInspectorWidth: (inspectorWidth) => set({ inspectorWidth: Math.max(260, Math.min(480, inspectorWidth)) }),
+      setTimelineHeight: (timelineHeight) => set({ timelineHeight: Math.max(90, Math.min(350, timelineHeight)) }),
+      toggleFocusMode: () =>
+        set((state) => {
+          const next = !state.focusMode;
+          if (next) {
+            return { focusMode: true, leftPanelVisible: false, inspectorVisible: false };
+          }
+          return { focusMode: false, leftPanelVisible: true, inspectorVisible: true };
+        }),
       setIsGenerateModalOpen: (isGenerateModalOpen) => set({ isGenerateModalOpen }),
       setIsTutorialOpen: (isTutorialOpen) => set({ isTutorialOpen }),
       setIsHelpOpen: (isHelpOpen) => set({ isHelpOpen }),
@@ -102,8 +129,12 @@ export const useUIStore = create<UIState>()(
       name: 'vaani-ui-settings',
       partialize: (state) => ({
         theme: state.theme,
+        leftPanelVisible: state.leftPanelVisible,
+        leftPanelWidth: state.leftPanelWidth,
         inspectorVisible: state.inspectorVisible,
         inspectorWidth: state.inspectorWidth,
+        inspectorTab: state.inspectorTab,
+        timelineHeight: state.timelineHeight,
         tutorialCompleted: state.tutorialCompleted,
         recentProjects: state.recentProjects,
         activeTab: state.activeTab,

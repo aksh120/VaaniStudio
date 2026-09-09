@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { SubtitleEvent, WaveformData } from '../../../shared/types/models.js';
-import { formatTimecode, snapToInterval } from '../../../shared/utils/timecode.js';
-import { Scissors, ZoomIn, ZoomOut } from 'lucide-react';
+import { snapToInterval } from '../../../shared/utils/timecode.js';
+import { Scissors, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, Plus, GitMerge, Trash2 } from 'lucide-react';
 
 export interface WaveformTimelineProps {
   duration: number;
@@ -13,7 +13,25 @@ export interface WaveformTimelineProps {
   onSelectEvent: (id: string | null) => void;
   onUpdateEventTiming: (id: string, startTime: number, endTime: number) => void;
   onSplitAtPlayhead?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onInsertSubtitle?: () => void;
+  onMergeWithNext?: () => void;
+  onDeleteSelected?: () => void;
 }
+
+const formatPlayheadBadge = (time: number): string => {
+  if (isNaN(time) || time < 0) time = 0;
+  const minutes = Math.floor(time / 60);
+  const seconds = Math.floor(time % 60);
+  const hundredths = Math.floor((time % 1) * 100);
+  const mm = minutes.toString().padStart(2, '0');
+  const ss = seconds.toString().padStart(2, '0');
+  const xx = hundredths.toString().padStart(2, '0');
+  return `${mm}:${ss}.${xx}S`;
+};
 
 export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
   duration,
@@ -25,6 +43,13 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
   onSelectEvent,
   onUpdateEventTiming,
   onSplitAtPlayhead,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onInsertSubtitle,
+  onMergeWithNext,
+  onDeleteSelected,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -43,9 +68,14 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
     initialEnd: number;
   } | null>(null);
 
+  const effectiveDuration = useMemo(() => {
+    const maxEventEnd = events.reduce((acc, cur) => Math.max(acc, cur.endTime), 0);
+    return Math.max(duration || 0, maxEventEnd, 1.0);
+  }, [duration, events]);
+
   const totalWidth = useMemo(() => {
-    return Math.max(800, duration * pixelsPerSecond);
-  }, [duration, pixelsPerSecond]);
+    return Math.max(800, effectiveDuration * pixelsPerSecond);
+  }, [effectiveDuration, pixelsPerSecond]);
 
   // Auto-scroll timeline to follow playhead if enabled
   useEffect(() => {
@@ -110,7 +140,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left + containerRef.current.scrollLeft;
-    const seekTime = Math.max(0, Math.min(duration, clickX / pixelsPerSecond));
+    const seekTime = Math.max(0, Math.min(effectiveDuration, clickX / pixelsPerSecond));
     onSeek(seekTime);
     setIsScrubbingPlayhead(true);
   };
@@ -122,7 +152,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
       if (isScrubbingPlayhead) {
         const rect = containerRef.current.getBoundingClientRect();
         const clickX = e.clientX - rect.left + containerRef.current.scrollLeft;
-        const seekTime = Math.max(0, Math.min(duration, clickX / pixelsPerSecond));
+        const seekTime = Math.max(0, Math.min(effectiveDuration, clickX / pixelsPerSecond));
         onSeek(seekTime);
         return;
       }
@@ -143,12 +173,12 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
           );
         } else if (draggingHandle.type === 'right') {
           newEnd = snapToInterval(
-            Math.min(duration, Math.max(newStart + 0.2, draggingHandle.initialEnd + deltaTime))
+            Math.min(effectiveDuration, Math.max(newStart + 0.2, draggingHandle.initialEnd + deltaTime))
           );
         } else if (draggingHandle.type === 'body') {
           const durationSpan = newEnd - newStart;
           newStart = snapToInterval(
-            Math.max(0, Math.min(duration - durationSpan, draggingHandle.initialStart + deltaTime))
+            Math.max(0, Math.min(effectiveDuration - durationSpan, draggingHandle.initialStart + deltaTime))
           );
           newEnd = snapToInterval(newStart + durationSpan);
         }
@@ -156,7 +186,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
         onUpdateEventTiming(draggingHandle.eventId, newStart, newEnd);
       }
     },
-    [isScrubbingPlayhead, draggingHandle, duration, pixelsPerSecond, onSeek, events, onUpdateEventTiming]
+    [isScrubbingPlayhead, draggingHandle, effectiveDuration, pixelsPerSecond, onSeek, events, onUpdateEventTiming]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -183,26 +213,62 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
     if (pixelsPerSecond < 35) interval = 5;
     else if (pixelsPerSecond > 100) interval = 0.5;
 
-    const totalSeconds = Math.ceil(duration || 30);
+    const totalSeconds = Math.ceil(effectiveDuration || 30);
     for (let t = 0; t <= totalSeconds; t += interval) {
       const x = t * pixelsPerSecond;
       const isMajor = t % (interval * 5) === 0 || t === 0;
+      const m = Math.floor(t / 60).toString().padStart(2, '0');
+      const s = Math.floor(t % 60).toString().padStart(2, '0');
       ticks.push({
         time: t,
         x,
         isMajor,
-        label: isMajor ? formatTimecode(t, 'compact') : '',
+        label: isMajor ? `${m}:${s}` : '',
       });
     }
     return ticks;
-  }, [duration, pixelsPerSecond]);
+  }, [effectiveDuration, pixelsPerSecond]);
 
   return (
     <div className="waveform-timeline-root">
       {/* Timeline Controls Toolbar */}
       <div className="timeline-toolbar">
         <div className="toolbar-left">
-          <span className="toolbar-label">Timeline ({duration.toFixed(1)}s)</span>
+          <span className="toolbar-label">
+            Timeline ({(duration > 0 ? duration : effectiveDuration).toFixed(1)}s)
+          </span>
+          {onUndo && (
+            <button
+              className="ctrl-btn ctrl-btn-sm"
+              disabled={!canUndo}
+              onClick={onUndo}
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 size={11} />
+              <span>Undo</span>
+            </button>
+          )}
+          {onRedo && (
+            <button
+              className="ctrl-btn ctrl-btn-sm"
+              disabled={!canRedo}
+              onClick={onRedo}
+              title="Redo (Ctrl+Y)"
+            >
+              <Redo2 size={11} />
+              <span>Redo</span>
+            </button>
+          )}
+          {onInsertSubtitle && (
+            <button
+              className="ctrl-btn ctrl-btn-sm"
+              onClick={onInsertSubtitle}
+              title="Insert Subtitle at Playhead"
+            >
+              <Plus size={11} />
+              <span>Add</span>
+            </button>
+          )}
           {onSplitAtPlayhead && (
             <button
               className="ctrl-btn ctrl-btn-sm"
@@ -210,7 +276,28 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               title="Split active subtitle at playhead (Ctrl+K or S)"
             >
               <Scissors size={11} />
-              <span>Split at Playhead</span>
+              <span>Split</span>
+            </button>
+          )}
+          {onMergeWithNext && (
+            <button
+              className="ctrl-btn ctrl-btn-sm"
+              disabled={!selectedEventId}
+              onClick={onMergeWithNext}
+              title="Merge with Next Subtitle (Ctrl+M)"
+            >
+              <GitMerge size={11} />
+              <span>Merge</span>
+            </button>
+          )}
+          {onDeleteSelected && (
+            <button
+              className="ctrl-btn ctrl-btn-sm"
+              disabled={!selectedEventId}
+              onClick={onDeleteSelected}
+              title="Delete Subtitle (Del)"
+            >
+              <Trash2 size={11} />
             </button>
           )}
         </div>
@@ -225,33 +312,60 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
             <span>Follow Playhead</span>
           </label>
 
-          {/* Zoom Controls */}
-          <div className="zoom-controls">
-            <button
-              className="ctrl-btn ctrl-btn-sm"
-              onClick={() => setPixelsPerSecond((z) => Math.max(20, z - 15))}
-              title="Zoom Out"
-            >
-              <ZoomOut size={11} />
-            </button>
-            <span className="zoom-level-text">{pixelsPerSecond} px/s</span>
-            <button
-              className="ctrl-btn ctrl-btn-sm"
-              onClick={() => setPixelsPerSecond((z) => Math.min(200, z + 15))}
-              title="Zoom In"
-            >
-              <ZoomIn size={11} />
-            </button>
+            {/* Zoom Controls */}
+            <div className="zoom-controls">
+              <button
+                className="ctrl-btn ctrl-btn-sm"
+                onClick={() => {
+                  if (!containerRef.current || effectiveDuration <= 0) return;
+                  const availWidth = containerRef.current.clientWidth - 40;
+                  const fitPps = Math.max(20, Math.min(200, Math.round(availWidth / effectiveDuration)));
+                  setPixelsPerSecond(fitPps);
+                }}
+                title="Fit entire timeline in view"
+              >
+                <Maximize2 size={11} />
+                <span style={{ fontSize: '10px' }}>Fit</span>
+              </button>
+              <button
+                className="ctrl-btn ctrl-btn-sm"
+                onClick={() => setPixelsPerSecond((z) => Math.max(20, z - 15))}
+                title="Zoom Out"
+              >
+                <ZoomOut size={11} />
+              </button>
+              <span className="zoom-level-text">{pixelsPerSecond} px/s</span>
+              <button
+                className="ctrl-btn ctrl-btn-sm"
+                onClick={() => setPixelsPerSecond((z) => Math.min(200, z + 15))}
+                title="Zoom In"
+              >
+                <ZoomIn size={11} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Scrollable Timeline Area */}
-      <div
-        className="timeline-scroll-container"
-        ref={containerRef}
-        onMouseDown={handleTimelineMouseDown}
-      >
+        {/* Multi-Track Layout: Left Track Headers + Right Scrollable Tracks */}
+        <div className="timeline-tracks-wrapper">
+          <div className="timeline-track-headers-column">
+            <div className="timeline-track-header-item" style={{ height: '24px' }}>
+              Time
+            </div>
+            <div className="timeline-track-header-item" style={{ height: '56px' }}>
+              Audio
+            </div>
+            <div className="timeline-track-header-item" style={{ height: '38px' }}>
+              Subs
+            </div>
+          </div>
+
+          {/* Scrollable Timeline Area */}
+          <div
+            className="timeline-scroll-container"
+            ref={containerRef}
+            onMouseDown={handleTimelineMouseDown}
+          >
         <div
           className="timeline-content-track"
           style={{ width: `${totalWidth}px`, position: 'relative' }}
@@ -361,10 +475,21 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               left: `${currentTime * pixelsPerSecond}px`,
             }}
           >
-            <div className="playhead-badge">{currentTime.toFixed(2)}s</div>
+            <div
+              className="playhead-badge"
+              style={{ pointerEvents: 'auto', cursor: 'ew-resize' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setIsScrubbingPlayhead(true);
+              }}
+              title="Drag playhead"
+            >
+              {formatPlayheadBadge(currentTime)}
+            </div>
             <div className="playhead-line" />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -143,12 +143,18 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
       return;
     }
 
+    if (video.readyState < 1) return;
+
     const diff = Math.abs(video.currentTime - currentTime);
-    // While actively playing, only seek if user explicitly dragged/clicked (>0.35s away)
-    // When paused, seek if drift is > 0.08s
-    const threshold = isPlaying ? 0.35 : 0.08;
+    // While actively playing, seek if user explicitly dragged/clicked (>0.15s away)
+    // When paused, seek if drift is > 0.005s (allowing 1f stepping of ~0.033s to seek accurately)
+    const threshold = isPlaying ? 0.15 : 0.005;
     if (diff > threshold) {
-      video.currentTime = currentTime;
+      try {
+        video.currentTime = currentTime;
+      } catch (err) {
+        console.warn('Video seek error:', err);
+      }
     }
   }, [currentTime, isPlaying]);
 
@@ -197,8 +203,8 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
       ratio = 16 / 9;
     }
 
-    const paddingX = 16;
-    const paddingY = 16;
+    const paddingX = 4;
+    const paddingY = 4;
     const availW = Math.max(80, viewportSize.width - paddingX);
     const availH = Math.max(80, viewportSize.height - paddingY);
 

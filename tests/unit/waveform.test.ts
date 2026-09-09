@@ -9,13 +9,13 @@ const TEST_WAV_PATH = path.join(TEST_DIR, 'sine_16k_3s.wav');
 
 describe('Audio Waveform Peak Generator', () => {
   beforeAll(async () => {
+    if (!fs.existsSync(TEST_DIR)) {
+      fs.mkdirSync(TEST_DIR, { recursive: true });
+    }
+
     if (!isFFmpegAvailable()) {
       console.warn('FFmpeg not available on current environment; skipping waveform fixture generation.');
       return;
-    }
-
-    if (!fs.existsSync(TEST_DIR)) {
-      fs.mkdirSync(TEST_DIR, { recursive: true });
     }
 
     // Generate 3 seconds of standardized 16 kHz 16-bit mono PCM WAV

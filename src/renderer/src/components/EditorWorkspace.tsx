@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useProjectStore } from '../store/projectStore.js';
 import { useUIStore } from '../store/uiStore.js';
 import { VideoPlayerPreview, AspectRatioMode } from './VideoPlayerPreview.js';
 import { WaveformTimeline } from './WaveformTimeline.js';
-import { SubtitleListView } from './SubtitleListView.js';
+import { SubtitleBrowserPanel } from './SubtitleBrowserPanel.js';
+import { ContextualInspector } from './ContextualInspector.js';
 import { ScriptMode } from '../../../shared/types/models.js';
 import { SearchReplaceOptions } from '../editor/editorOperations.js';
 
-interface EditorWorkspaceProps {
+
+export interface EditorWorkspaceProps {
   isPlaying: boolean;
   onTogglePlayPause: () => void;
   aspectRatio: AspectRatioMode;
@@ -51,11 +53,10 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   onDeleteSelected,
   onUpdateText,
   onUpdateTiming,
-  onSearchReplace,
   onUpdateSpeaker,
   onDiarizeSpeakers,
   isDiarizing,
-  onOpenGenerateModal,
+  onOpenGenerateModal: _onOpenGenerateModal,
   onScriptModeChange,
 }) => {
   const {
@@ -66,11 +67,28 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     selectEvent,
     setCurrentTime,
     audioWavPath,
+    updateStyle,
   } = useProjectStore();
 
-  const { inspectorVisible, toggleInspector } = useUIStore();
+  const {
+    leftPanelVisible,
+    leftPanelWidth,
+    setLeftPanelWidth,
+    toggleLeftPanel,
+    inspectorVisible,
+    inspectorWidth,
+    setInspectorWidth,
+    toggleInspector,
+    timelineHeight,
+    setTimelineHeight,
+    focusMode,
+  } = useUIStore();
 
-  const duration = project.media?.durationSeconds || 0;
+  const duration = Math.max(
+    project.media?.durationSeconds || 0,
+    project.events.reduce((acc, cur) => Math.max(acc, cur.endTime), 0),
+    0
+  );
 
   const activeSubtitle = React.useMemo(() => {
     return (
@@ -84,125 +102,116 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     return project.events.find((e) => e.id === selectedEventId) || null;
   }, [project.events, selectedEventId]);
 
+  // Left Panel Interactive Resizing
+  const isDraggingLeftRef = useRef(false);
+  const handleLeftResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingLeftRef.current = true;
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingLeftRef.current) return;
+        const newWidth = Math.max(200, Math.min(460, moveEvent.clientX));
+        setLeftPanelWidth(newWidth);
+      };
+      const onMouseUp = () => {
+        isDraggingLeftRef.current = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+    [setLeftPanelWidth]
+  );
+
+  // Right Inspector Interactive Resizing
+  const isDraggingRightRef = useRef(false);
+  const handleRightResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingRightRef.current = true;
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingRightRef.current) return;
+        const newWidth = Math.max(260, Math.min(500, window.innerWidth - moveEvent.clientX));
+        setInspectorWidth(newWidth);
+      };
+      const onMouseUp = () => {
+        isDraggingRightRef.current = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+    [setInspectorWidth]
+  );
+
+  // Timeline Vertical Splitter Resizing
+  const isDraggingTimelineRef = useRef(false);
+  const handleTimelineResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDraggingTimelineRef.current = true;
+      const startY = e.clientY;
+      const startHeight = timelineHeight;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingTimelineRef.current) return;
+        const delta = startY - moveEvent.clientY;
+        const newHeight = Math.max(120, Math.min(420, startHeight + delta));
+        setTimelineHeight(newHeight);
+      };
+      const onMouseUp = () => {
+        isDraggingTimelineRef.current = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+    [timelineHeight, setTimelineHeight]
+  );
+
   return (
-    <div className="editor-workspace-layout">
-      {/* Center Stage: Video Viewport + Waveform Timeline + Subtitle Track */}
+    <div className="editor-workspace-3col">
+      {/* 1. Left Subtitle Browser Panel */}
+      {!focusMode && leftPanelVisible && (
+        <>
+          <aside
+            className="editor-left-panel"
+            style={{ width: `${leftPanelWidth}px` }}
+          >
+            <SubtitleBrowserPanel
+              events={project.events}
+              selectedEventId={selectedEventId}
+              currentTime={currentTime}
+              onSelectEvent={selectEvent}
+              onInsertSubtitle={onInsertSubtitle}
+              onToggleCollapse={toggleLeftPanel}
+              speakers={project.speakers}
+            />
+          </aside>
+          <div
+            className="panel-resizer-x"
+            onMouseDown={handleLeftResizeMouseDown}
+            title="Drag to resize subtitle panel"
+          />
+        </>
+      )}
+
+      {/* 2. Center Stage: Media Preview + Timeline (Matching Image 0 Target UI) */}
       <div className="editor-center-stage">
-        {/* Editor Quick Action Toolbar */}
+        {/* Video Player Preview Pane: Maximized, Centered, Responsive */}
         <div
+          className="editor-video-pane"
           style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '4px 10px',
-            backgroundColor: 'var(--bg-surface)',
-            borderBottom: '1px solid var(--border-subtle)',
-            flexShrink: 0,
-            gap: '8px',
+            flexDirection: 'column',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!canUndo}
-              onClick={onUndo}
-              title="Undo (Ctrl+Z)"
-            >
-              Undo
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!canRedo}
-              onClick={onRedo}
-              title="Redo (Ctrl+Y)"
-            >
-              Redo
-            </button>
-            <div
-              style={{
-                width: '1px',
-                height: '16px',
-                backgroundColor: 'var(--border-medium)',
-                margin: '0 4px',
-              }}
-            />
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={onInsertSubtitle}
-              title="Insert Subtitle at Playhead"
-            >
-              + Add Subtitle
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!selectedEventId && !activeSubtitle}
-              onClick={onSplitAtPlayhead}
-              title="Split Subtitle at Playhead (Ctrl+K)"
-            >
-              Split
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!selectedEventId}
-              onClick={onMergeWithNext}
-              title="Merge with Next Subtitle (Ctrl+M)"
-            >
-              Merge
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!selectedEventId}
-              onClick={onDuplicateSelected}
-              title="Duplicate Subtitle"
-            >
-              Duplicate
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              disabled={!selectedEventId}
-              onClick={onDeleteSelected}
-              title="Delete Subtitle (Del)"
-              style={{
-                color: selectedEventId ? 'var(--color-danger)' : undefined,
-              }}
-            >
-              Delete
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {project.events.length > 0 && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {project.events.length} Subtitles
-              </span>
-            )}
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={onOpenGenerateModal}
-              disabled={!project.media}
-              title={
-                project.media
-                  ? 'Generate subtitles from audio track'
-                  : 'Import a video or audio file first'
-              }
-            >
-              Generate Subtitles
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={toggleInspector}
-              title={inspectorVisible ? 'Hide Inspector' : 'Show Inspector'}
-              style={{
-                color: inspectorVisible ? 'var(--accent-active)' : 'var(--text-secondary)',
-              }}
-            >
-              Inspector
-            </button>
-          </div>
-        </div>
-
-        {/* Video Player Preview Pane */}
-        <div className="editor-video-pane">
           <VideoPlayerPreview
             mediaPath={project.media?.filePath || null}
             duration={duration}
@@ -218,17 +227,33 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             onPlaybackRateChange={onPlaybackRateChange}
             onStepFrame={(dir) => {
               const step = dir * (1 / 30);
-              setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+              const maxDur = duration > 0 ? duration : 3600;
+              setCurrentTime(Math.max(0, Math.min(maxDur, currentTime + step)));
             }}
             onStepSecond={(dir) => {
               const step = dir * 1.0;
-              setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+              const maxDur = duration > 0 ? duration : 3600;
+              setCurrentTime(Math.max(0, Math.min(maxDur, currentTime + step)));
             }}
           />
         </div>
 
-        {/* Waveform Timeline */}
-        <div className="editor-timeline-pane">
+        {/* Horizontal Splitter Handle for Timeline Resizing */}
+        <div
+          className="center-stage-splitter"
+          onMouseDown={handleTimelineResizeMouseDown}
+          title="Drag to resize timeline height"
+        />
+
+        {/* Integrated Multi-Track Waveform Timeline */}
+        <div
+          className="editor-timeline-pane"
+          style={{
+            height: `${timelineHeight}px`,
+            flexShrink: 0,
+            overflow: 'hidden',
+          }}
+        >
           <WaveformTimeline
             duration={duration}
             currentTime={currentTime}
@@ -239,253 +264,53 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             onSelectEvent={selectEvent}
             onUpdateEventTiming={onUpdateTiming}
             onSplitAtPlayhead={onSplitAtPlayhead}
-          />
-        </div>
-
-        {/* Subtitle List Pane */}
-        <div className="editor-subtitle-pane">
-          <SubtitleListView
-            events={project.events}
-            selectedEventId={selectedEventId}
-            currentTime={currentTime}
-            onSelectEvent={selectEvent}
-            onUpdateText={onUpdateText}
-            onUpdateTiming={onUpdateTiming}
-            onSplit={onSplitAtPlayhead}
-            onMerge={onMergeWithNext}
-            onDuplicate={onDuplicateSelected}
-            onDelete={onDeleteSelected}
-            onSearchReplace={onSearchReplace}
-            onUpdateSpeaker={onUpdateSpeaker}
-            speakers={project.speakers}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            onInsertSubtitle={onInsertSubtitle}
+            onMergeWithNext={onMergeWithNext}
+            onDeleteSelected={onDeleteSelected}
           />
         </div>
       </div>
 
-      {/* Contextual Right Inspector */}
-      {inspectorVisible && (
-        <aside className="editor-inspector-pane">
-          <div className="inspector-header">
-            <span className="inspector-title">
-              {selectedEvent ? 'Subtitle Inspector' : 'Project Properties'}
-            </span>
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '2px 6px', fontSize: '11px' }}
-              onClick={toggleInspector}
-              title="Close Inspector"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="inspector-body">
-            {selectedEvent ? (
-              /* Subtitle Event Inspector */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div className="control-group">
-                  <label className="input-label">Subtitle Text</label>
-                  <textarea
-                    className="textarea-control"
-                    rows={4}
-                    value={selectedEvent.text}
-                    onChange={(e) => onUpdateText(selectedEvent.id, e.target.value)}
-                    placeholder="Enter subtitle text..."
-                    style={{ resize: 'vertical' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div className="control-group">
-                    <label className="input-label">Start Time (s)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      className="input-text"
-                      value={selectedEvent.startTime.toFixed(2)}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        onUpdateTiming(selectedEvent.id, val, selectedEvent.endTime);
-                      }}
-                    />
-                  </div>
-                  <div className="control-group">
-                    <label className="input-label">End Time (s)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      className="input-text"
-                      value={selectedEvent.endTime.toFixed(2)}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        onUpdateTiming(selectedEvent.id, selectedEvent.startTime, val);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="control-group">
-                  <label className="input-label">Duration</label>
-                  <div
-                    style={{
-                      padding: '6px 10px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-medium)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'var(--font-mono)',
-                    }}
-                  >
-                    {(selectedEvent.endTime - selectedEvent.startTime).toFixed(2)}s
-                  </div>
-                </div>
-
-                <div className="control-group">
-                  <label className="input-label">Speaker Label</label>
-                  <input
-                    type="text"
-                    className="input-text"
-                    placeholder="e.g. Speaker 1, Host, Guest"
-                    value={selectedEvent.speakerLabel || ''}
-                    onChange={(e) => onUpdateSpeaker(selectedEvent.id, e.target.value)}
-                  />
-                </div>
-
-                {/* Word Timing Breakdown if available */}
-                {selectedEvent.words && selectedEvent.words.length > 0 && (
-                  <div className="control-group">
-                    <label className="input-label">Word-Level Timings ({selectedEvent.words.length} words)</label>
-                    <div
-                      style={{
-                        maxHeight: '180px',
-                        overflowY: 'auto',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor: 'var(--bg-surface-elevated)',
-                        padding: '6px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                      }}
-                    >
-                      {selectedEvent.words.map((w, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            fontSize: '11px',
-                            padding: '3px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: 'var(--bg-surface)',
-                          }}
-                        >
-                          <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{w.word}</span>
-                          <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
-                            {w.startTime.toFixed(2)}s - {w.endTime.toFixed(2)}s
-                            {w.confidence ? ` (${Math.round(w.confidence * 100)}%)` : ''}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Project & Media Inspector */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div className="control-group">
-                  <label className="input-label">Media File</label>
-                  <div
-                    style={{
-                      padding: '8px 10px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-medium)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '12px',
-                      color: project.media ? 'var(--text-primary)' : 'var(--text-muted)',
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {project.media ? project.media.fileName : 'No media loaded'}
-                  </div>
-                </div>
-
-                {project.media && (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div className="control-group">
-                        <label className="input-label">Duration</label>
-                        <div
-                          style={{
-                            padding: '6px 10px',
-                            backgroundColor: 'var(--bg-input)',
-                            border: '1px solid var(--border-medium)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '11px',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--text-secondary)',
-                          }}
-                        >
-                          {project.media.durationSeconds.toFixed(1)}s
-                        </div>
-                      </div>
-                      <div className="control-group">
-                        <label className="input-label">Audio Sample Rate</label>
-                        <div
-                          style={{
-                            padding: '6px 10px',
-                            backgroundColor: 'var(--bg-input)',
-                            border: '1px solid var(--border-medium)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '11px',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--text-secondary)',
-                          }}
-                        >
-                          16 kHz (Normalized)
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="control-group">
-                      <label className="input-label">Script Mode</label>
-                      <select
-                        className="select-box"
-                        value={project.settings.scriptMode}
-                        onChange={(e) => onScriptModeChange(e.target.value as ScriptMode)}
-                      >
-                        <option value="roman">Roman Hinglish</option>
-                        <option value="devanagari">Devanagari</option>
-                        <option value="exact">Exact Spoken (Verbatim)</option>
-                        <option value="cleaned">Cleaned Speech (Filler Removed)</option>
-                      </select>
-                    </div>
-
-                    <div className="control-group">
-                      <label className="input-label">Speaker Diarization</label>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '100%' }}
-                        disabled={!audioWavPath || project.events.length === 0 || isDiarizing}
-                        onClick={onDiarizeSpeakers}
-                      >
-                        {isDiarizing ? 'Diarizing Speakers...' : 'Diarize Speakers'}
-                      </button>
-                      <p className="control-help-text">
-                        Assign speaker labels to subtitle events using acoustic clustering.
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </aside>
+      {/* 3. Contextual Right Inspector */}
+      {!focusMode && inspectorVisible && (
+        <>
+          <div
+            className="panel-resizer-x"
+            onMouseDown={handleRightResizeMouseDown}
+            title="Drag to resize inspector"
+          />
+          <aside
+            className="editor-right-inspector"
+            style={{ width: `${inspectorWidth}px` }}
+          >
+            <ContextualInspector
+              selectedEvent={selectedEvent}
+              onUpdateText={onUpdateText}
+              onUpdateTiming={onUpdateTiming}
+              onUpdateSpeaker={onUpdateSpeaker}
+              onSplit={onSplitAtPlayhead}
+              onMerge={onMergeWithNext}
+              onDuplicate={onDuplicateSelected}
+              onDelete={onDeleteSelected}
+              styleConfig={project.style}
+              onUpdateStyle={updateStyle}
+              media={project.media || null}
+              aspectRatio={aspectRatio}
+              onAspectRatioChange={onAspectRatioChange}
+              onDiarizeSpeakers={onDiarizeSpeakers}
+              isDiarizing={isDiarizing}
+              audioWavPath={audioWavPath}
+              eventsCount={project.events.length}
+              scriptMode={project.settings.scriptMode}
+              onScriptModeChange={onScriptModeChange}
+              onClose={toggleInspector}
+            />
+          </aside>
+        </>
       )}
     </div>
   );
