@@ -177,5 +177,15 @@ describe('Subtitle File Exporters (Phase 9: TASK-043, TASK-044)', () => {
       expect(ass).toContain('[Script Info]');
       expect(ass).toContain('[Events]');
     });
+
+    it('generates word-level active highlighting dialogue slices when burnIn is true', () => {
+      const ass = generateAssScript([mockEvents[0]], mockStyle, { burnIn: true, includeKaraoke: true });
+      expect(ass).toContain('[Events]');
+      // Each word is rendered in its active interval with \c and activeWordColor
+      expect(ass).toContain('\\c&H00D7FF&'); // activeColorAss BGR for #FFD700
+      expect(ass).toContain('\\c&HFFFFFF&'); // baseColorAss
+      expect(ass).toContain('Hello');
+      expect(ass).toContain('Studio!');
+    });
   });
 });

@@ -1729,3 +1729,202 @@ Rules governing this registry:
 * **Verification Method**: Created `tests/unit/tutorialGuide.test.ts` (8/8 passed). Ran full suite (`npm test`, 40/40 suites, 278/278 tests passed).
 * **Notes**: Completed in Phase 16.
 
+---
+
+## Phase 17: Complete Desktop UI Architecture Redesign
+
+### TASK-080
+* **ID**: TASK-080
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Professional Design System Tokens & Base Layout Architecture (3-Column Editor Grid)
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-079
+* **Description**: Implement unified design tokens and 3-column flex/grid architecture in `src/renderer/index.css` supporting Left Subtitle Browser (~280px), Center Maximized Media Stage (~900-950px), and Right Contextual Inspector (~320-360px).
+* **Implementation Requirements**:
+  * Establish consistent 4px spacing scale and calm dark/light surfaces.
+  * Define responsive 3-column flex layout container with smooth collapsible transitions.
+  * Maintain zero emojis and zero em dashes across all styles and class labels.
+* **Acceptance Criteria**:
+  * 3-column layout structure cleanly scales from 1280x720 up to 2560x1440.
+* **Verification Method**: Implemented in `src/renderer/index.css` (`.editor-workspace-3col`, `.editor-left-panel`, `.editor-center-stage`, `.editor-right-inspector`, `.panel-resizer-x`, `.center-stage-splitter`). Verified in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-081
+* **ID**: TASK-081
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Compact Desktop Titlebar, Primary Navigation, and Calm Status Bar
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Redesign the application header into a compact 36px desktop titlebar and replace the technical hardware-laden status bar with a calm project-centric status bar in `src/renderer/src/App.tsx`.
+* **Implementation Requirements**:
+  * Titlebar displays brand mark, app name, project name, save state, Shortcuts, Guide, and theme toggle.
+  * Primary navigation bar displays clean desktop tabs: Projects, Editor, Subtitles, Style, Export, Settings.
+  * Status bar displays Status, Subtitle count, Project duration, Video resolution, Audio channels.
+* **Acceptance Criteria**:
+  * No permanent technical ASR/hardware jargon displayed in the main status bar.
+* **Verification Method**: Implemented in `src/renderer/src/App.tsx`. Replaced permanent CPU INT8 and hardware diagnostic text with clean status message, subtitle count, and performance profile trigger. Verified in unit tests.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-082
+* **ID**: TASK-082
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Left Subtitle Browser Panel with High-Density Virtualization, Search, and Filtering
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Create `SubtitleBrowserPanel.tsx` providing a dedicated vertical browser on the left (~280px) with live search, filter, counter, quick add, and smooth virtualization.
+* **Implementation Requirements**:
+  * Header shows title, subtitle counter, and add button.
+  * Search input with instant filtering.
+  * High-density virtualized rows (44px) showing index, timecode, duration, speaker tag, and text.
+  * Click to select, double click to edit, playhead synchronization.
+* **Acceptance Criteria**:
+  * Subtitle list renders smoothly with high density; selecting subtitle jumps playhead.
+* **Verification Method**: Created `src/renderer/src/components/SubtitleBrowserPanel.tsx`. Verified search, warnings filter, active playhead sync, and panel toggle in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-083
+* **ID**: TASK-083
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Center Stage: Large Responsive Media Viewer with Embedded Playback Controls
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Redesign `VideoPlayerPreview.tsx` to maximize available center workspace, eliminating wasted black letterbox margins, with dedicated playback controls directly beneath the video canvas.
+* **Implementation Requirements**:
+  * ResizeObserver dynamically computes frame dimensions matching native video aspect ratio.
+  * Subtitle overlay strictly bounded to video image with 1080p scale factor parity.
+  * Dedicated playback bar with Play/Pause, frame step, skip 1s, timecode, speed, volume, captions, and fullscreen.
+* **Acceptance Criteria**:
+  * Video preview receives the majority of available screen space; subtitles never overflow into letterbox.
+* **Verification Method**: Updated `VideoPlayerPreview.tsx` with reduced margin bounds (padding 4px) and aspect-bounded kinetic subtitle rendering. Verified frame calculations in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-084
+* **ID**: TASK-084
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Center Stage: Integrated Multi-Track Timeline with Vertical Resizing & Visual Duration Blocks
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-080, TASK-083
+* **Description**: Overhaul `WaveformTimeline.tsx` into a true multi-track timeline positioned directly below the playback controls, featuring Video Ruler, Audio Waveform, and Subtitle Duration blocks with vertical drag-resizing.
+* **Implementation Requirements**:
+  * Subtitle blocks sized proportionally to actual event duration (`duration * pixelsPerSecond`).
+  * Left and right edge drag handles for precise start/end retiming.
+  * Vertical resizable splitter allowing timeline expansion up to 280px.
+  * Clear vertical playhead with scrub synchronization.
+* **Acceptance Criteria**:
+  * Subtitle blocks accurately depict duration; zoom and scrubbing function smoothly.
+* **Verification Method**: Updated `WaveformTimeline.tsx` with timeline track headers column (Time, Audio, Subs), Fit Timeline button, and vertical splitter in `EditorWorkspace.tsx`. Verified in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-085
+* **ID**: TASK-085
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Contextual 4-Tab Right Inspector (Subtitle, Style, Video, Audio) with Progressive Disclosure
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Create `ContextualInspector.tsx` consolidating controls into 4 contextual tabs (Subtitle, Style, Video, Audio) with progressive disclosure and collapsible width.
+* **Implementation Requirements**:
+  * Subtitle tab: Textarea, Start/End/Duration timing inputs, quick split/merge/delete actions, word-level timing accordion.
+  * Style tab: Quick Style controls first; Advanced Style in collapsible accordion.
+  * Video tab: Probed stream metadata, resolution, FPS, aspect ratio.
+  * Audio tab: Sample rate, channels, speaker diarization trigger.
+  * Collapse toggle button (`Ctrl+I`).
+* **Acceptance Criteria**:
+  * Inspector adapts contextually to selected subtitle; advanced settings collapsed by default.
+* **Verification Method**: Created `src/renderer/src/components/ContextualInspector.tsx`. Verified 4-tab switching, progressive disclosure accordions, and style updates in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-086
+* **ID**: TASK-086
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Compact Visual Style Preset Browser & Separated Quick/Advanced Typography Controls
+* **Priority**: Medium
+* **Status**: [x]
+* **Dependencies**: TASK-085
+* **Description**: Build a compact visual preset browser and clean typography sliders inside the Style Inspector tab, replacing oversized card grids.
+* **Implementation Requirements**:
+  * Preset strip showing micro-cards with name and color preview.
+  * Quick sliders for font size, weight, line height, background opacity.
+  * Collapsible advanced section for stroke, shadow, padding, active word highlight, and animation.
+* **Acceptance Criteria**:
+  * Style browsing is fast, visual, and occupies minimal vertical space.
+* **Verification Method**: Built into `ContextualInspector.tsx` (`.preset-mini-grid`, `.preset-mini-card`). Verified built-in preset configurations in `tests/unit/uiRedesign.test.ts`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-087
+* **ID**: TASK-087
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Streamlined 4-Step "Generate Subtitles" Dialog without Technical Jargon
+* **Priority**: High
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Redesign `GenerateSubtitlesDialog.tsx` into an intuitive 4-step workflow (Language, Subtitle Output, Quality, Generate) with technical options hidden inside an expandable accordion.
+* **Implementation Requirements**:
+  * Step 1: Language selection (Auto Detect, English, Hindi, Hinglish, Mixed).
+  * Step 2: Output selection (Original, Clean, Translate).
+  * Step 3: Quality selection (Fast, Balanced, Maximum Quality).
+  * Step 4: Collapsible advanced options (beam size, VAD threshold, temperature).
+* **Acceptance Criteria**:
+  * Dialog is clean and understandable for non-technical users while preserving advanced control.
+* **Verification Method**: Refactored `src/renderer/src/components/GenerateSubtitlesDialog.tsx` into 4-step wizard with clean Lucide icons and progressive disclosure. Verified in TypeScript compiler and tests.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-088
+* **ID**: TASK-088
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Calm Performance & Hardware Diagnostics Settings with Capability Detection
+* **Priority**: Medium
+* **Status**: [x]
+* **Dependencies**: TASK-080
+* **Description**: Ensure all technical hardware and diagnostic details reside exclusively in `SettingsWorkspace.tsx` under Performance and Diagnostics tabs with hardware capability detection.
+* **Implementation Requirements**:
+  * Performance Mode options (Fast, Balanced, Maximum Quality) with clear guidance.
+  * Capability check explicitly noting CPU INT8 fallback for legacy GPUs (GT 730).
+  * Deep hardware scan and memory diagnostics available on demand.
+* **Acceptance Criteria**:
+  * Technical telemetry remains accessible in Settings without cluttering the editing workflow.
+* **Verification Method**: Verified hardware and telemetry segregation in `SettingsWorkspace.tsx` and status bar in `App.tsx`.
+* **Notes**: Completed in Phase 17.
+
+---
+
+### TASK-089
+* **ID**: TASK-089
+* **Phase**: Phase 17 - Complete Desktop UI Architecture Redesign
+* **Title**: Comprehensive End-to-End Responsive Verification, Multi-Resolution Tests, and Release Packaging
+* **Priority**: Critical
+* **Status**: [x]
+* **Dependencies**: TASK-080 through TASK-088
+* **Description**: Verify the redesigned desktop application across multiple resolutions (1280x720, 1600x900, 1920x1080), run full unit test suite, and compile signed Windows executables.
+* **Implementation Requirements**:
+  * Create `tests/unit/uiRedesign.test.ts`.
+  * Verify 100% pass rate on `npm test`.
+  * Build production Windows setup and portable executables with code signing.
+* **Acceptance Criteria**:
+  * All tests pass; executables build cleanly; verification hashes documented.
+* **Verification Method**: Executed `npm run typecheck`, `npm test` (all 42 test suites, 11 tests in uiRedesign.test.ts passing), `npm run build`, and `npm run dist:win`.
+* **Notes**: Completed in Phase 17.
+
+
+

@@ -38,7 +38,9 @@ describe('Video Burn-In Rendering Engine (Phase 9: TASK-045, TASK-046)', () => {
       expect(args).toContain('-i');
       expect(args).toContain('C:\\Videos\\input.mp4');
       expect(args).toContain('-vf');
-      expect(args).toContain("ass='C\\:/Temp/sub.ass'");
+      const vfIndex = args.indexOf('-vf');
+      expect(args[vfIndex + 1]).toContain("ass='C\\:/Temp/sub.ass'");
+      expect(args[vfIndex + 1]).toContain('setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709');
       expect(args).toContain('-c:v');
       expect(args).toContain('libx264');
       expect(args).toContain('-preset');
@@ -47,6 +49,10 @@ describe('Video Burn-In Rendering Engine (Phase 9: TASK-045, TASK-046)', () => {
       expect(args).toContain('20');
       expect(args).toContain('-pix_fmt');
       expect(args).toContain('yuv420p');
+      expect(args).toContain('-color_primaries');
+      expect(args).toContain('bt709');
+      expect(args).toContain('-color_trc');
+      expect(args).toContain('-colorspace');
       expect(args).toContain('-c:a');
       expect(args).toContain('aac');
     });

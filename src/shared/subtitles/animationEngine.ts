@@ -314,27 +314,29 @@ export function formatAssTimestamp(seconds: number): string {
   return `${hours}:${mStr}:${sStr}.${csStr}`;
 }
 
-/**
- * Compile ASS override tags for entrance and exit transitions
- */
-export function compileAssTransitionTags(config?: Partial<AnimationConfig>): string {
-  if (!config) return '';
+export function compileAssTransitionTags(
+  config?: Partial<AnimationConfig>,
+  phase: 'both' | 'entrance-only' | 'exit-only' | 'none' = 'both'
+): string {
+  if (!config || phase === 'none') return '';
 
   const durationMs = Math.max(0, Math.round(config.durationMs ?? 150));
   const entrance = config.entrance ?? 'none';
   const exit = config.exit ?? 'none';
 
   const tags: string[] = [];
+  const allowEntrance = phase === 'both' || phase === 'entrance-only';
+  const allowExit = phase === 'both' || phase === 'exit-only';
 
   // Fades
-  const inFade = entrance === 'fade' ? durationMs : 0;
-  const outFade = exit === 'fade' ? durationMs : 0;
+  const inFade = allowEntrance && entrance === 'fade' ? durationMs : 0;
+  const outFade = allowExit && exit === 'fade' ? durationMs : 0;
   if (inFade > 0 || outFade > 0) {
     tags.push(`\\fad(${inFade},${outFade})`);
   }
 
   // Scale Pop
-  if (entrance === 'pop' && durationMs > 0) {
+  if (allowEntrance && entrance === 'pop' && durationMs > 0) {
     tags.push(`\\fscx50\\fscy50\\t(0,${durationMs},\\fscx100\\fscy100)`);
   }
 

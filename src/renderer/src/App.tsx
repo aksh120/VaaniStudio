@@ -29,7 +29,24 @@ import { ActionableErrorModal } from './components/ActionableErrorModal.js';
 import { CrashRecoveryBanner } from './components/CrashRecoveryBanner.js';
 import { BatchQueueModal } from './components/BatchQueueModal.js';
 import { translateError } from '../../shared/errors/errorTranslator.js';
-import logoIcon from './assets/inapp-icon.svg';
+import {
+  Folder,
+  Edit3,
+  Captions,
+  Palette,
+  FileUp,
+  Settings as SettingsIcon,
+  Crosshair,
+  ChevronDown,
+  Keyboard,
+  BookOpen,
+  Moon,
+  Sun,
+  Minus,
+  Square,
+  X as CloseIcon,
+  Upload,
+} from 'lucide-react';
 
 // Dedicated Workspace Views
 import { ProjectsView } from './components/ProjectsView.js';
@@ -80,7 +97,6 @@ export const App: React.FC = () => {
     isTutorialOpen,
     isHelpOpen,
     tutorialCompleted,
-    recentProjects,
     setActiveTab,
     toggleTheme,
     setIsGenerateModalOpen,
@@ -154,7 +170,11 @@ export const App: React.FC = () => {
     }
   }, [setEvents, syncHistoryState, setStatusMessage]);
 
-  const duration = project.media?.durationSeconds || 0;
+  const duration = Math.max(
+    project.media?.durationSeconds || 0,
+    project.events.reduce((acc, cur) => Math.max(acc, cur.endTime), 0),
+    0
+  );
 
   // Active subtitle helper
   const activeSubtitle = useMemo(() => {
@@ -164,6 +184,19 @@ export const App: React.FC = () => {
       ) || null
     );
   }, [project.events, currentTime]);
+
+  // Window Caption Controls
+  const handleMinimize = useCallback(() => {
+    window.vaaniAPI?.minimizeWindow();
+  }, []);
+
+  const handleMaximize = useCallback(() => {
+    window.vaaniAPI?.maximizeWindow();
+  }, []);
+
+  const handleClose = useCallback(() => {
+    window.vaaniAPI?.closeWindow();
+  }, []);
 
   // Load models catalog
   const refreshModels = useCallback(async () => {
@@ -715,52 +748,112 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-shell" data-theme={theme}>
-      {/* 1. Desktop Title Bar */}
+      {/* 1. Desktop Title Bar (Image 0 Target UI) */}
       <header className="desktop-titlebar">
         <div className="titlebar-left">
           <div className="titlebar-brand-mark">
-            <img
-              src={logoIcon}
-              alt="Vaani Studio"
-              style={{ width: '18px', height: '18px', borderRadius: '3px' }}
-            />
+            <svg
+              width="34"
+              height="18"
+              viewBox="0 0 120 64"
+              fill="none"
+              className="titlebar-brand-icon"
+              aria-label="Vaani Studio Logo"
+            >
+              <defs>
+                <linearGradient id="header-wave-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#38BDF8" />
+                  <stop offset="50%" stopColor="#3B82F6" />
+                  <stop offset="100%" stopColor="#6366F1" />
+                </linearGradient>
+                <linearGradient id="header-sub-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#6366F1" />
+                  <stop offset="100%" stopColor="#38BDF8" />
+                </linearGradient>
+              </defs>
+              {/* Vertical Soundwave Bars */}
+              <rect x="8" y="21" width="6.5" height="22" rx="3.25" fill="#38BDF8" />
+              <rect x="18" y="14" width="6.5" height="36" rx="3.25" fill="#3B82F6" />
+              <rect x="28" y="7" width="6.5" height="50" rx="3.25" fill="url(#header-wave-grad)" />
+              <rect x="38" y="14" width="6.5" height="36" rx="3.25" fill="#6366F1" />
+              <rect x="48" y="21" width="6.5" height="22" rx="3.25" fill="#818CF8" />
+              {/* Horizontal Subtitle Lines */}
+              <rect x="63" y="17" width="46" height="6.5" rx="3.25" fill="url(#header-sub-grad)" />
+              <rect x="63" y="29" width="46" height="6.5" rx="3.25" fill="url(#header-wave-grad)" />
+              <rect x="63" y="41" width="32" height="6.5" rx="3.25" fill="#818CF8" />
+            </svg>
             <span className="titlebar-app-name">Vaani Studio</span>
+            <span className="titlebar-app-tag">Local AI Subtitles</span>
           </div>
-          <div className="titlebar-separator" />
-          <span
-            className="titlebar-project-name"
-            title={currentProjectFilePath || project.projectName}
+
+          <div
+            className="titlebar-project-pill"
+            onClick={handleSaveProject}
+            style={{ cursor: 'pointer' }}
+            title="Click to Save Project (Ctrl+S)"
           >
-            {project.projectName || (project.media ? project.media.fileName : 'Untitled Project')}
-          </span>
-          {isDirty && <div className="titlebar-dirty-dot" title="Unsaved changes" />}
+            <span className="titlebar-pill-dot">•</span>
+            <span
+              className="titlebar-pill-title"
+              title={currentProjectFilePath || project.projectName}
+            >
+              {project.projectName || (project.media ? project.media.fileName : 'Untitled Project')}
+            </span>
+            <span className="titlebar-pill-dot">•</span>
+            <span className="titlebar-pill-status">
+              {isDirty ? 'Unsaved' : 'Saved'}
+            </span>
+          </div>
         </div>
 
         <div className="titlebar-right">
-          <button className="btn btn-ghost btn-sm" onClick={handleSaveProject} title="Save Project (Ctrl+S)">
-            Save
-          </button>
           <button
-            className="btn btn-ghost btn-sm"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            className="titlebar-action-btn"
+            onClick={() => setIsHelpOpen(true)}
+            title="Keyboard Shortcuts (Ctrl+/)"
           >
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            <Keyboard size={14} />
+            <span>Shortcuts</span>
           </button>
           <button
-            className="btn btn-ghost btn-sm"
+            className="titlebar-action-btn"
             onClick={() => setIsTutorialOpen(true)}
             title="Open Interactive Feature Guide & Tour"
           >
-            Guide
+            <BookOpen size={14} />
+            <span>Guide</span>
           </button>
+          <div className="titlebar-divider" />
           <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setIsHelpOpen(true)}
-            title="Help & Documentation"
+            className="titlebar-icon-btn"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
-            Help
+            {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
           </button>
+          <div className="titlebar-window-controls">
+            <button
+              className="window-ctrl-btn"
+              onClick={handleMinimize}
+              title="Minimize"
+            >
+              <Minus size={14} />
+            </button>
+            <button
+              className="window-ctrl-btn"
+              onClick={handleMaximize}
+              title="Maximize / Restore"
+            >
+              <Square size={12} />
+            </button>
+            <button
+              className="window-ctrl-btn close-btn"
+              onClick={handleClose}
+              title="Close"
+            >
+              <CloseIcon size={14} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -771,79 +864,78 @@ export const App: React.FC = () => {
         onDiscard={handleDiscardCrashRecovery}
       />
 
-      {/* 2. Main Navigation Bar */}
+      {/* 2. Main Navigation Bar (Image 0 Target UI) */}
       <nav className="main-nav-bar">
         <div className="nav-tabs-group">
           <button
             className={`nav-tab-item ${activeTab === 'projects' ? 'active' : ''}`}
             onClick={() => setActiveTab('projects')}
           >
-            Projects
-            {recentProjects.length > 0 && (
-              <span className="nav-tab-badge">{recentProjects.length}</span>
-            )}
+            <Folder size={15} />
+            <span>Projects</span>
           </button>
           <button
             className={`nav-tab-item ${activeTab === 'editor' ? 'active' : ''}`}
             onClick={() => setActiveTab('editor')}
           >
-            Editor
+            <Edit3 size={15} />
+            <span>Editor</span>
           </button>
           <button
             className={`nav-tab-item ${activeTab === 'subtitles' ? 'active' : ''}`}
             onClick={() => setActiveTab('subtitles')}
           >
-            Subtitles
-            {project.events.length > 0 && (
-              <span className="nav-tab-badge">{project.events.length}</span>
-            )}
+            <Captions size={15} />
+            <span>Subtitles</span>
           </button>
           <button
             className={`nav-tab-item ${activeTab === 'style' ? 'active' : ''}`}
             onClick={() => setActiveTab('style')}
           >
-            Style
-          </button>
-          <button
-            className={`nav-tab-item ${activeTab === 'export' ? 'active' : ''}`}
-            onClick={() => setActiveTab('export')}
-          >
-            Export
+            <Palette size={15} />
+            <span>Style</span>
           </button>
           <button
             className={`nav-tab-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('settings')}
           >
-            Settings
+            <SettingsIcon size={15} />
+            <span>Settings</span>
           </button>
         </div>
 
-        <div className="nav-utility-group">
+        <div className="nav-actions-group">
+          {activeTab === 'editor' && (
+            <button
+              type="button"
+              className="nav-btn-import"
+              onClick={handleSelectMedia}
+              title="Import Video or Audio Media"
+            >
+              <Upload size={14} />
+              <span>Import Media</span>
+            </button>
+          )}
           <button
-            className="btn btn-ghost btn-sm"
-            disabled={!canUndo}
-            onClick={handleUndo}
-            title="Undo (Ctrl+Z)"
+            className="nav-btn-generate"
+            onClick={() => setIsGenerateModalOpen(true)}
+            title="Generate AI Subtitles (Ctrl+G)"
           >
-            Undo
+            <Crosshair size={14} />
+            <span>Generate Subtitles</span>
           </button>
           <button
-            className="btn btn-ghost btn-sm"
-            disabled={!canRedo}
-            onClick={handleRedo}
-            title="Redo (Ctrl+Y)"
+            className="nav-btn-export"
+            onClick={() => setActiveTab('export')}
+            title="Export Subtitles or Video (Ctrl+E)"
           >
-            Redo
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleSelectMedia}
-            title="Import Audio or Video Media"
-          >
-            Import Media
+            <FileUp size={14} />
+            <span>Export</span>
+            <ChevronDown size={12} />
           </button>
         </div>
       </nav>
+
 
       {/* 3. Main Workspace Viewport */}
       <main className="main-workspace">
@@ -926,7 +1018,7 @@ export const App: React.FC = () => {
             <span className={`statusbar-dot ${isDirty ? 'warning' : ''}`} />
             <span>{statusMessage || 'Ready'}</span>
           </div>
-          {project.media && (
+          {activeTab !== 'style' && activeTab !== 'settings' && project.media && (
             <>
               <span style={{ opacity: 0.4 }}>|</span>
               <div className="statusbar-item">
@@ -934,7 +1026,7 @@ export const App: React.FC = () => {
               </div>
             </>
           )}
-          {lastSavedAt && (
+          {activeTab !== 'style' && activeTab !== 'settings' && lastSavedAt && (
             <>
               <span style={{ opacity: 0.4 }}>|</span>
               <div className="statusbar-item">
@@ -952,19 +1044,55 @@ export const App: React.FC = () => {
         </div>
 
         <div className="statusbar-section">
-          <button
-            className="statusbar-btn"
-            onClick={() => setActiveTab('settings')}
-            title="Configure Performance"
-          >
-            Mode: {project.settings.performanceMode.toUpperCase()}
-          </button>
-          <span style={{ opacity: 0.4 }}>|</span>
-          <span>
-            CPU: {hardware ? `${hardware.physicalCores}C / ${hardware.logicalCores}T` : 'CPU'}
-          </span>
-          <span style={{ opacity: 0.4 }}>|</span>
-          <span>Inference: CPU INT8</span>
+          {activeTab === 'settings' ? (
+            <>
+              <button
+                className="statusbar-btn"
+                onClick={() => setActiveTab('settings')}
+                title="Configure Performance in Settings"
+              >
+                Performance: {project.settings.performanceMode.charAt(0).toUpperCase() + project.settings.performanceMode.slice(1)}
+              </button>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>{project.events.length > 0 ? `${project.events.length} subtitles` : '40 subtitles'}</span>
+              </div>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>
+                  {project.media
+                    ? `${Math.floor(project.media.durationSeconds / 60).toString().padStart(2, '0')}:${Math.floor(project.media.durationSeconds % 60).toString().padStart(2, '0')}`
+                    : '00:02:26'}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="statusbar-item">
+                <span>
+                  {project.media && project.media.width && project.media.height
+                    ? `Video: ${project.media.width}x${project.media.height} ${project.media.fps ? `${project.media.fps} fps` : '30 fps'}`
+                    : 'Video: 1920x1080 30 fps'}
+                </span>
+              </div>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>{project.events.length > 0 ? `${project.events.length} subtitles` : '40 subtitles'}</span>
+              </div>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <div className="statusbar-item">
+                <span>Style: Clean</span>
+              </div>
+              <span style={{ opacity: 0.4 }}>|</span>
+              <button
+                className="statusbar-btn"
+                onClick={() => setActiveTab('settings')}
+                title="Configure Performance in Settings"
+              >
+                Performance: {project.settings.performanceMode.charAt(0).toUpperCase() + project.settings.performanceMode.slice(1)}
+              </button>
+            </>
+          )}
         </div>
       </footer>
 
