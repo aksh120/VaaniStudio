@@ -83,7 +83,15 @@ function isDirectoryWritable(dirPath: string): boolean {
 export function getModelsDir(): string {
   const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
 
-  // If installed via setup (not portable), prefer setup folder's models directory if writable
+  // 1. If running portable executable, prefer the portable executable folder's models directory
+  if (isPortable && process.env.PORTABLE_EXECUTABLE_DIR) {
+    const candidatePortableModels = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'models');
+    if (isDirectoryWritable(candidatePortableModels)) {
+      return candidatePortableModels;
+    }
+  }
+
+  // 2. If installed via setup (not portable), prefer setup folder's models directory if writable
   if (!isPortable && process.execPath) {
     const setupDir = path.dirname(process.execPath);
     // Ignore development electron runner directory

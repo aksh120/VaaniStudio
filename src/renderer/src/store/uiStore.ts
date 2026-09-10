@@ -30,6 +30,7 @@ interface UIState {
   isTutorialOpen: boolean;
   isHelpOpen: boolean;
   tutorialCompleted: boolean;
+  openInEditorAfterGeneration: boolean;
   recentProjects: RecentProjectEntry[];
 
   // Actions
@@ -49,6 +50,7 @@ interface UIState {
   setIsTutorialOpen: (open: boolean) => void;
   setIsHelpOpen: (open: boolean) => void;
   setTutorialCompleted: (completed: boolean) => void;
+  setOpenInEditorAfterGeneration: (open: boolean) => void;
   addRecentProject: (entry: Omit<RecentProjectEntry, 'lastOpened'>) => void;
   removeRecentProject: (id: string) => void;
   clearRecentProjects: () => void;
@@ -70,6 +72,7 @@ export const useUIStore = create<UIState>()(
       isTutorialOpen: false,
       isHelpOpen: false,
       tutorialCompleted: false,
+      openInEditorAfterGeneration: true,
       recentProjects: [],
 
       setActiveTab: (tab) => set({ activeTab: tab }),
@@ -103,6 +106,7 @@ export const useUIStore = create<UIState>()(
       setIsTutorialOpen: (isTutorialOpen) => set({ isTutorialOpen }),
       setIsHelpOpen: (isHelpOpen) => set({ isHelpOpen }),
       setTutorialCompleted: (tutorialCompleted) => set({ tutorialCompleted }),
+      setOpenInEditorAfterGeneration: (openInEditorAfterGeneration) => set({ openInEditorAfterGeneration }),
 
       addRecentProject: (entry) =>
         set((state) => {

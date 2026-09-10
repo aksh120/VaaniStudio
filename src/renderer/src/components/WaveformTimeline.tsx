@@ -20,6 +20,7 @@ export interface WaveformTimelineProps {
   onInsertSubtitle?: () => void;
   onMergeWithNext?: () => void;
   onDeleteSelected?: () => void;
+  timelineHeight?: number;
 }
 
 const formatPlayheadBadge = (time: number): string => {
@@ -50,9 +51,16 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
   onInsertSubtitle,
   onMergeWithNext,
   onDeleteSelected,
+  timelineHeight,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Dynamic track heights responsive to vertical resizing
+  const currentTotalHeight = timelineHeight || 160;
+  const availableForTracks = Math.max(80, currentTotalHeight - 54);
+  const waveformHeight = Math.max(48, Math.min(260, Math.round(availableForTracks * 0.58)));
+  const subtitleTrackHeight = Math.max(36, Math.min(120, availableForTracks - waveformHeight));
 
   // Zoom scale: pixels per second (min 20, max 200, default 50)
   const [pixelsPerSecond, setPixelsPerSecond] = useState<number>(60);
@@ -133,7 +141,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
         ctx.fillRect(x, midY - barH, 1.5, barH * 2);
       }
     }
-  }, [waveformData, totalWidth, duration, pixelsPerSecond]);
+  }, [waveformData, totalWidth, duration, pixelsPerSecond, waveformHeight]);
 
   // Playhead scrubbing handler
   const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -352,10 +360,10 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
             <div className="timeline-track-header-item" style={{ height: '24px' }}>
               Time
             </div>
-            <div className="timeline-track-header-item" style={{ height: '56px' }}>
+            <div className="timeline-track-header-item" style={{ height: `${waveformHeight}px` }}>
               Audio
             </div>
-            <div className="timeline-track-header-item" style={{ height: '38px' }}>
+            <div className="timeline-track-header-item" style={{ height: `${subtitleTrackHeight}px` }}>
               Subs
             </div>
           </div>
@@ -384,17 +392,17 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
           </div>
 
           {/* Audio Waveform Canvas */}
-          <div className="waveform-canvas-layer">
+          <div className="waveform-canvas-layer" style={{ height: `${waveformHeight}px` }}>
             <canvas
               ref={canvasRef}
               width={totalWidth}
-              height={56}
+              height={waveformHeight}
               className="waveform-canvas"
             />
           </div>
 
           {/* Subtitle Blocks Layer */}
-          <div className="subtitles-blocks-track">
+          <div className="subtitles-blocks-track" style={{ height: `${subtitleTrackHeight}px` }}>
             {events.map((evt) => {
               const left = evt.startTime * pixelsPerSecond;
               const width = Math.max(24, (evt.endTime - evt.startTime) * pixelsPerSecond);
@@ -407,6 +415,8 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
                   style={{
                     left: `${left}px`,
                     width: `${width}px`,
+                    height: `${Math.max(26, subtitleTrackHeight - 6)}px`,
+                    top: '3px',
                   }}
                   onClick={(e) => {
                     e.stopPropagation();

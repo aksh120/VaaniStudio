@@ -48,6 +48,16 @@ describe('FasterWhisper ASR Engine', () => {
       return;
     }
 
+    try {
+      const { resolvePythonPath } = await import('../../src/main/asr/pythonResolver.js');
+      const pythonPath = resolvePythonPath();
+      const { execSync } = await import('node:child_process');
+      execSync(`"${pythonPath}" -c "import sys"`, { timeout: 3000, stdio: 'ignore' });
+    } catch {
+      console.warn('Skipping live audio transcription test: Python runtime is not installed or runnable in this environment');
+      return;
+    }
+
     const progressUpdates: ProgressUpdate[] = [];
     const segments: ASRSegment[] = [];
 

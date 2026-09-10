@@ -36,7 +36,7 @@ import {
   Palette,
   FileUp,
   Settings as SettingsIcon,
-  Crosshair,
+  Sparkles,
   ChevronDown,
   Keyboard,
   BookOpen,
@@ -97,6 +97,7 @@ export const App: React.FC = () => {
     isTutorialOpen,
     isHelpOpen,
     tutorialCompleted,
+    openInEditorAfterGeneration,
     setActiveTab,
     toggleTheme,
     setIsGenerateModalOpen,
@@ -576,7 +577,9 @@ export const App: React.FC = () => {
       setStatusMessage(
         `Generated ${res.data.events.length} subtitles (${res.data.language.toUpperCase()}).`
       );
-      setActiveTab('editor');
+      if (openInEditorAfterGeneration) {
+        setActiveTab('editor');
+      }
     } else {
       setStatusMessage(`Transcription failed: ${res.error?.message || 'Error'}`);
     }
@@ -783,7 +786,7 @@ export const App: React.FC = () => {
               <rect x="63" y="41" width="32" height="6.5" rx="3.25" fill="#818CF8" />
             </svg>
             <span className="titlebar-app-name">Vaani Studio</span>
-            <span className="titlebar-app-tag">Local AI Subtitles</span>
+            <span className="titlebar-app-tag">v0.1.0</span>
           </div>
 
           <div
@@ -921,7 +924,7 @@ export const App: React.FC = () => {
             onClick={() => setIsGenerateModalOpen(true)}
             title="Generate AI Subtitles (Ctrl+G)"
           >
-            <Crosshair size={14} />
+            <Sparkles size={14} />
             <span>Generate Subtitles</span>
           </button>
           <button
@@ -1107,6 +1110,7 @@ export const App: React.FC = () => {
         transcriptionProgress={transcriptionProgress}
         onStartTranscription={handleStartTranscription}
         onCancelTranscription={handleCancelTranscription}
+        onSelectMedia={handleSelectMedia}
       />
 
       <TutorialDialog

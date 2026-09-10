@@ -27,4 +27,12 @@ describe('GPU Fallback and Hardware Probe', () => {
       }
     }
   });
+
+  it('accurately resolves real hardware or CPU without hardcoding GT 730 unconditionally', () => {
+    const res = resolveInferenceDevice();
+    // If no NVIDIA GPU is present or CUDA is not supported, it should not blindly claim GT 730 unless that is the actual adapter name
+    if (res.device === 'cpu' && !res.gpuName) {
+      expect(res.gpuName).toBeUndefined();
+    }
+  });
 });

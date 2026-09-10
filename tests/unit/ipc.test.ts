@@ -8,6 +8,7 @@ describe('IPC Contracts and Hardware Profile Detection', () => {
     expect(IPC_CHANNELS.SELECT_MEDIA_FILE).toBe('vaani:select-media-file');
     expect(IPC_CHANNELS.SAVE_PROJECT).toBe('vaani:save-project');
     expect(IPC_CHANNELS.LOAD_PROJECT).toBe('vaani:load-project');
+    expect(IPC_CHANNELS.OPEN_PATH).toBe('vaani:open-path');
   });
 
   it('detects system hardware and enforces CPU-first execution for legacy GPUs', () => {

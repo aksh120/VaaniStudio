@@ -6,6 +6,7 @@ import {
   VideoExportPreset,
   RenderProgressUpdate,
 } from '../../../shared/types/models.js';
+import { ExportConfirmationModal } from './ExportConfirmationModal.js';
 
 interface ExportWorkspaceProps {
   onOpenBatchQueue: () => void;
@@ -30,6 +31,7 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
   const [renderProgress, setRenderProgress] = useState<RenderProgressUpdate | null>(null);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (!window.vaaniAPI?.onRenderProgress) return;
@@ -40,6 +42,7 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
         setIsRendering(true);
       } else if (update.status === 'completed') {
         setIsRendering(false);
+        setShowSuccessModal(true);
         setStatusMessage(`Video rendered successfully: ${update.outputPath}`);
       } else if (update.status === 'failed') {
         setIsRendering(false);
@@ -466,6 +469,15 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
           </div>
         )}
       </div>
+
+      <ExportConfirmationModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        outputPath={renderProgress?.outputPath || customOutputPath}
+        elapsedSeconds={renderProgress?.elapsedSeconds}
+        resolution={resolution}
+        subtitleCount={project.events.length}
+      />
     </div>
   );
 };

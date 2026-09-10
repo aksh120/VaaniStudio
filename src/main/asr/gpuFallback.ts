@@ -54,26 +54,46 @@ export function resolveInferenceDevice(): DeviceResolution {
 
   // On Windows, query Win32_VideoController
   if (process.platform === 'win32') {
+    let wmiOutput = '';
     try {
-      const wmiOutput = execSync(
-        'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"',
-        { timeout: 3000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }
-      ).toString().trim();
-
-      const lines = wmiOutput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      for (const line of lines) {
-        if (line.toLowerCase().includes('nvidia')) {
-          detectedGpuName = line;
-          break;
-        }
-      }
+      // 1. Fast wmic query (~50-100ms)
+      wmiOutput = execSync('wmic path win32_VideoController get name', {
+        timeout: 1500,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString().trim();
     } catch {
-      // WMI query failed or timed out
+      // 2. Fallback to PowerShell if wmic is not in PATH or disabled
+      try {
+        wmiOutput = execSync(
+          'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"',
+          { timeout: 2500, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }
+        ).toString().trim();
+      } catch {
+        // GPU query failed
+      }
+    }
+
+    if (wmiOutput) {
+      const lines = wmiOutput
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l && !/^name$/i.test(l));
+
+      // Prioritize dedicated GPUs: NVIDIA first (for CUDA probe), then AMD Radeon, Intel Arc, or primary controller
+      const nvidia = lines.find((l) => /nvidia|geforce|quadro|rtx|gtx/i.test(l));
+      const amd = lines.find((l) => /amd|radeon/i.test(l));
+      const intelArc = lines.find((l) => /arc\s+[a-z]?\d+/i.test(l));
+      const anyRealGpu = lines.find((l) => !/basic\s+display|virtual|remote|microsoft\s+basic/i.test(l));
+
+      detectedGpuName = nvidia || amd || intelArc || anyRealGpu || lines[0];
     }
   }
 
   if (detectedGpuName) {
-    if (isLegacyUnsupportedGpu(detectedGpuName)) {
+    const isNvidia = /nvidia|geforce|quadro|rtx|gtx/i.test(detectedGpuName);
+
+    if (isNvidia && isLegacyUnsupportedGpu(detectedGpuName)) {
       cachedResolution = {
         device: 'cpu',
         computeType: 'int8',
@@ -84,29 +104,31 @@ export function resolveInferenceDevice(): DeviceResolution {
       return cachedResolution;
     }
 
-    // For other NVIDIA GPUs, test whether CTranslate2 can actually run with CUDA
-    try {
-      const pythonPath = resolvePythonPath();
-      const testCode = 'import ctranslate2; print(ctranslate2.get_cuda_device_count())';
-      const output = execSync(`"${pythonPath}" -c "${testCode}"`, {
-        timeout: 4000,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).toString().trim();
+    if (isNvidia) {
+      // For NVIDIA GPUs, test whether CTranslate2 can actually run with CUDA
+      try {
+        const pythonPath = resolvePythonPath();
+        const testCode = 'import ctranslate2; print(ctranslate2.get_cuda_device_count())';
+        const output = execSync(`"${pythonPath}" -c "${testCode}"`, {
+          timeout: 4000,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).toString().trim();
 
-      const count = parseInt(output, 10);
-      if (!isNaN(count) && count > 0) {
-        cachedResolution = {
-          device: 'cuda',
-          computeType: 'float16',
-          gpuName: detectedGpuName,
-          reason: `Detected compatible CUDA acceleration device: ${detectedGpuName}`,
-        };
-        logger.info('HARDWARE', `Inference device: cuda (${detectedGpuName})`);
-        return cachedResolution;
+        const count = parseInt(output, 10);
+        if (!isNaN(count) && count > 0) {
+          cachedResolution = {
+            device: 'cuda',
+            computeType: 'float16',
+            gpuName: detectedGpuName,
+            reason: `Detected compatible CUDA acceleration device: ${detectedGpuName}`,
+          };
+          logger.info('HARDWARE', `Inference device: cuda (${detectedGpuName})`);
+          return cachedResolution;
+        }
+      } catch {
+        // CUDA test failed, fall back cleanly to CPU
       }
-    } catch {
-      // CUDA test failed, fall back cleanly to CPU
     }
   }
 
@@ -115,8 +137,8 @@ export function resolveInferenceDevice(): DeviceResolution {
     computeType: 'int8',
     gpuName: detectedGpuName,
     reason: detectedGpuName
-      ? `CUDA runtime unavailable for ${detectedGpuName}. Defaulted to optimized CPU INT8 execution.`
-      : 'No dedicated CUDA GPU detected. Defaulted to optimized CPU INT8 execution.',
+      ? `Using ${detectedGpuName} with optimized CPU INT8 execution (CUDA requires compatible NVIDIA GPU).`
+      : 'No dedicated GPU detected. Defaulted to optimized CPU INT8 execution.',
   };
 
   logger.info('HARDWARE', `Inference device: ${cachedResolution.device} (${cachedResolution.reason})`);

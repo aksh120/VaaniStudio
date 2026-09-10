@@ -71,12 +71,15 @@ describe('UI Redesign Architecture and State Management', () => {
       expect(useUIStore.getState().timelineHeight).toBe(220);
     });
 
-    it('toggles editor focus mode for maximized preview editing', () => {
-      const { toggleFocusMode } = useUIStore.getState();
-      toggleFocusMode();
-      expect(useUIStore.getState().focusMode).toBe(true);
-      toggleFocusMode();
-      expect(useUIStore.getState().focusMode).toBe(false);
+    it('manages openInEditorAfterGeneration preference state', () => {
+      const { setOpenInEditorAfterGeneration } = useUIStore.getState();
+      expect(useUIStore.getState().openInEditorAfterGeneration).toBe(true);
+
+      setOpenInEditorAfterGeneration(false);
+      expect(useUIStore.getState().openInEditorAfterGeneration).toBe(false);
+
+      setOpenInEditorAfterGeneration(true);
+      expect(useUIStore.getState().openInEditorAfterGeneration).toBe(true);
     });
   });
 

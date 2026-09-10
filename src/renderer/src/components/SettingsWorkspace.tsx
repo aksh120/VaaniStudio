@@ -1545,9 +1545,9 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <span className="settings-status-key">GPU</span>
               <span
                 className="settings-status-val"
-                title={hardware?.gpuName || 'NVIDIA GeForce GT 730'}
+                title={hardware?.gpuName || 'Integrated Graphics / CPU Execution'}
               >
-                {hardware?.gpuName || 'NVIDIA GeForce GT 730'}
+                {hardware?.gpuName || 'Integrated Graphics / CPU Execution'}
               </span>
             </div>
             <div className="settings-status-row">
