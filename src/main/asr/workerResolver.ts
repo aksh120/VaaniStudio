@@ -32,6 +32,14 @@ export function resolveWorkerScriptPath(): string {
     );
   }
 
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    candidatePaths.unshift(
+      path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'worker.py'),
+      path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'resources', 'worker.py'),
+      path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'scripts', 'worker.py')
+    );
+  }
+
   let foundPath: string | null = null;
   for (const p of candidatePaths) {
     try {

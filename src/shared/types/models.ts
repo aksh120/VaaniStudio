@@ -438,6 +438,7 @@ export const IPC_CHANNELS = {
   WINDOW_MAXIMIZE: 'vaani:window-maximize',
   WINDOW_CLOSE: 'vaani:window-close',
   OPEN_EXTERNAL_URL: 'vaani:open-external-url',
+  OPEN_PATH: 'vaani:open-path',
   LOG_MESSAGE: 'vaani:log-message',
   PROGRESS_EVENT: 'vaani:progress-event',
 } as const;

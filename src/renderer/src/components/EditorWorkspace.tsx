@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { useProjectStore } from '../store/projectStore.js';
 import { useUIStore } from '../store/uiStore.js';
 import { VideoPlayerPreview, AspectRatioMode } from './VideoPlayerPreview.js';
@@ -147,22 +147,29 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   );
 
   // Timeline Vertical Splitter Resizing
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
   const isDraggingTimelineRef = useRef(false);
   const handleTimelineResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       isDraggingTimelineRef.current = true;
+      setIsDraggingTimeline(true);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
       const startY = e.clientY;
       const startHeight = timelineHeight;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
         if (!isDraggingTimelineRef.current) return;
         const delta = startY - moveEvent.clientY;
-        const newHeight = Math.max(120, Math.min(420, startHeight + delta));
+        const newHeight = Math.max(110, Math.min(500, startHeight + delta));
         setTimelineHeight(newHeight);
       };
       const onMouseUp = () => {
         isDraggingTimelineRef.current = false;
+        setIsDraggingTimeline(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
       };
@@ -240,10 +247,12 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
         {/* Horizontal Splitter Handle for Timeline Resizing */}
         <div
-          className="center-stage-splitter"
+          className={`center-stage-splitter ${isDraggingTimeline ? 'dragging' : ''}`}
           onMouseDown={handleTimelineResizeMouseDown}
           title="Drag to resize timeline height"
-        />
+        >
+          <div className="splitter-grip-bar" />
+        </div>
 
         {/* Integrated Multi-Track Waveform Timeline */}
         <div
@@ -255,6 +264,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           }}
         >
           <WaveformTimeline
+            timelineHeight={timelineHeight}
             duration={duration}
             currentTime={currentTime}
             onSeek={setCurrentTime}

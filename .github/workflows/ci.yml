@@ -1,27 +1,31 @@
 name: CI
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  validate:
-    name: Build, Lint, and Test
+  test-and-build:
+    name: Test & Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
-        node-version: [20.x, 22.x]
+        node-version: [22.x]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup FFmpeg (Linux)
+      - name: Setup FFmpeg & Packaging Tools (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg libarchive-tools
 
       - name: Setup FFmpeg (Windows)
         if: runner.os == 'Windows'
@@ -53,3 +57,34 @@ jobs:
 
       - name: Run automated tests
         run: npm test
+
+      - name: Package Windows Executables
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Linux Executables
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux --x64 --publish never
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Builds
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: |
+            dist-release/*.exe
+          retention-days: 7
+
+      - name: Upload Linux Builds
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-builds
+          path: |
+            dist-release/*.AppImage
+            dist-release/*.deb
+          retention-days: 7

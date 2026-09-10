@@ -958,6 +958,22 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     }
   );
 
+  // Open / Launch File Directly via Shell
+  ipcMain.handle(
+    IPC_CHANNELS.OPEN_PATH,
+    async (_event, targetPath: string): Promise<IPCResult<boolean>> => {
+      try {
+        if (targetPath && fs.existsSync(targetPath)) {
+          await shell.openPath(targetPath);
+          return { success: true, data: true };
+        }
+        return { success: false, error: { code: 'FILE_NOT_FOUND', message: 'Target file not found.' } };
+      } catch (err: any) {
+        return { success: false, error: { code: 'OPEN_PATH_FAILED', message: err?.message || 'Could not launch file.' } };
+      }
+    }
+  );
+
   // Speaker Diarization
   ipcMain.handle(
     IPC_CHANNELS.DIARIZE_SUBTITLES,

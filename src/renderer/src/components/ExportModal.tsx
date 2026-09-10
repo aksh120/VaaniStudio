@@ -15,6 +15,7 @@ import {
   RenderProgressUpdate,
 } from '../../../shared/types/models.js';
 import { Download, FileText, Video, Check, AlertTriangle, FolderOpen, X } from 'lucide-react';
+import { ExportConfirmationModal } from './ExportConfirmationModal.js';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [renderProgress, setRenderProgress] = useState<RenderProgressUpdate | null>(null);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   // Subscribe to IPC render progress updates
   useEffect(() => {
@@ -57,6 +59,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         setIsRendering(true);
       } else if (update.status === 'completed') {
         setIsRendering(false);
+        setShowSuccessModal(true);
         onStatusMessage?.(`Video rendered successfully: ${update.outputPath}`);
       } else if (update.status === 'failed') {
         setIsRendering(false);
@@ -548,6 +551,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           )}
         </div>
       </div>
+
+      <ExportConfirmationModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        outputPath={renderProgress?.outputPath || customOutputPath}
+        elapsedSeconds={renderProgress?.elapsedSeconds}
+        resolution={resolution}
+        subtitleCount={project.events.length}
+      />
     </div>
   );
 };

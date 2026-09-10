@@ -9,7 +9,6 @@ import {
   Plus,
   Clock,
   Trash2,
-  ArrowRight,
   Layers,
   HelpCircle,
 } from 'lucide-react';
@@ -93,23 +92,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         </button>
       </div>
 
-      {/* 4-Step Standard Workflow Strip */}
-      <div className="workflow-steps-strip">
-        <span style={{ fontWeight: 600, color: 'var(--text-primary)', marginRight: '8px' }}>
-          Workflow:
-        </span>
-        <span className="workflow-step-num">1</span>
-        <span>Import Video or Audio</span>
-        <ArrowRight size={12} style={{ opacity: 0.5 }} />
-        <span className="workflow-step-num">2</span>
-        <span>Generate Subtitles</span>
-        <ArrowRight size={12} style={{ opacity: 0.5 }} />
-        <span className="workflow-step-num">3</span>
-        <span>Review & Style</span>
-        <ArrowRight size={12} style={{ opacity: 0.5 }} />
-        <span className="workflow-step-num">4</span>
-        <span>Export Subtitles or Video</span>
-      </div>
 
       {/* Recent Projects Table Section */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>

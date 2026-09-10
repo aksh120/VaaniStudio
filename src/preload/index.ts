@@ -204,6 +204,10 @@ export const vaaniAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.SHOW_ITEM_IN_FOLDER, filePath);
   },
 
+  openPath: (targetPath: string): Promise<IPCResult<boolean>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.OPEN_PATH, targetPath);
+  },
+
   diarizeSubtitles: (payload: {
     audioPath: string;
     events: SubtitleEvent[];

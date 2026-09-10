@@ -40,14 +40,27 @@ export function getFFmpegPaths(): FFmpegPaths {
     return cachedPaths;
   }
 
-  // 2. Check local bundled resources directory
-  const baseDir = process.env.APP_ROOT || process.cwd();
+  // 2. Check local bundled resources directory across dev, installed setup, and portable targets
   const exeSuffix = process.platform === 'win32' ? '.exe' : '';
-  const bundledFfmpeg = path.join(baseDir, 'resources', 'ffmpeg', `ffmpeg${exeSuffix}`);
-  const bundledFfprobe = path.join(baseDir, 'resources', 'ffmpeg', `ffprobe${exeSuffix}`);
-  if (fs.existsSync(bundledFfmpeg) && fs.existsSync(bundledFfprobe)) {
-    cachedPaths = { ffmpegPath: bundledFfmpeg, ffprobePath: bundledFfprobe, isAvailable: true };
-    return cachedPaths;
+  const searchDirs = [
+    process.env.APP_ROOT || process.cwd(),
+    process.resourcesPath,
+    process.env.PORTABLE_EXECUTABLE_DIR,
+    process.execPath ? path.dirname(process.execPath) : undefined,
+  ].filter(Boolean) as string[];
+
+  for (const dir of searchDirs) {
+    const candidates = [
+      { ffmpeg: path.join(dir, 'resources', 'ffmpeg', `ffmpeg${exeSuffix}`), ffprobe: path.join(dir, 'resources', 'ffmpeg', `ffprobe${exeSuffix}`) },
+      { ffmpeg: path.join(dir, 'ffmpeg', `ffmpeg${exeSuffix}`), ffprobe: path.join(dir, 'ffmpeg', `ffprobe${exeSuffix}`) },
+      { ffmpeg: path.join(dir, 'bin', `ffmpeg${exeSuffix}`), ffprobe: path.join(dir, 'bin', `ffprobe${exeSuffix}`) },
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c.ffmpeg) && fs.existsSync(c.ffprobe)) {
+        cachedPaths = { ffmpegPath: c.ffmpeg, ffprobePath: c.ffprobe, isAvailable: true };
+        return cachedPaths;
+      }
+    }
   }
 
   // 3. Check known standard Windows locations

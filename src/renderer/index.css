@@ -775,6 +775,397 @@ html, body, #root {
 }
 
 /* ==========================================================================
+   Redesigned Generate Subtitles Dialog (Image 2 Reference - Studio Ergonomics)
+   ========================================================================== */
+.gen-subtitles-modal {
+  max-width: 680px !important;
+  width: 100%;
+  border-radius: 8px !important;
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-medium) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65) !important;
+  overflow: hidden;
+}
+
+.gen-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.gen-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.gen-header-icon-wrap {
+  color: #38BDF8;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.gen-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.gen-modal-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.gen-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.gen-close-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+.gen-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  max-height: calc(85vh - 130px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Media Info Card */
+.gen-media-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.gen-media-thumb {
+  width: 112px;
+  height: 64px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gen-thumb-play-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  padding-left: 2px;
+}
+
+.gen-thumb-duration-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.85);
+  color: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.gen-media-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.gen-media-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.gen-media-filepath {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 5px;
+}
+
+.gen-media-specs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.gen-media-specs .spec-divider {
+  opacity: 0.35;
+}
+
+.gen-change-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.gen-change-file-btn:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-strong);
+}
+
+/* 4-Row Form Layout */
+.gen-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gen-form-row {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  align-items: start;
+  gap: 20px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gen-form-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.gen-row-label-col {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.gen-row-icon {
+  color: var(--text-secondary);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.gen-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.gen-row-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.gen-row-input-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gen-select-box {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.gen-select-box:focus {
+  border-color: var(--accent-active);
+}
+
+.gen-model-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.status-icon-ready {
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
+.status-text-ready {
+  color: var(--color-success);
+}
+
+.status-icon-download {
+  color: #38BDF8;
+  flex-shrink: 0;
+}
+
+.status-text-download {
+  color: #38BDF8;
+}
+
+.gen-model-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background-color: rgba(56, 189, 248, 0.07);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #93C5FD;
+  line-height: 1.4;
+}
+
+.gen-model-info-box .info-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.gen-profile-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Transcribing State */
+.gen-transcribing-state {
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.gen-transcribing-headline {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.gen-transcribing-percent {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.gen-progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: var(--bg-canvas);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+
+.gen-progress-fill {
+  height: 100%;
+  background-color: var(--accent-active);
+  transition: width 200ms ease;
+}
+
+/* Footer */
+.gen-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  gap: 16px;
+}
+
+.gen-footer-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  max-width: 380px;
+}
+
+.gen-checkbox {
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
+.gen-checkbox-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.gen-checkbox-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.gen-checkbox-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.gen-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.gen-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* ==========================================================================
    Workspace Styles: Projects, Editor, Subtitles, Style, Export, Settings
    ========================================================================== */
 
@@ -905,19 +1296,46 @@ html, body, #root {
 
 /* Horizontal Splitter between Viewer and Timeline */
 .center-stage-splitter {
-  height: 5px;
-  min-height: 5px;
+  height: 6px;
+  min-height: 6px;
   background-color: var(--border-subtle);
   cursor: row-resize;
   flex-shrink: 0;
   transition: background-color var(--transition-fast);
   position: relative;
-  z-index: 10;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.center-stage-splitter::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: 0;
+  right: 0;
+}
+
+.splitter-grip-bar {
+  width: 38px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--border-strong);
+  transition: background-color var(--transition-fast), width var(--transition-fast);
+  pointer-events: none;
 }
 
 .center-stage-splitter:hover,
 .center-stage-splitter.dragging {
   background-color: var(--accent-active);
+}
+
+.center-stage-splitter:hover .splitter-grip-bar,
+.center-stage-splitter.dragging .splitter-grip-bar {
+  background-color: #ffffff;
+  width: 54px;
 }
 
 .center-stage-timeline {

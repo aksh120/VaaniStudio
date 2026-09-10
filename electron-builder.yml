@@ -54,6 +54,7 @@ nsis:
 
 portable:
   artifactName: VaaniStudio-Portable-${version}.exe
+  requestExecutionLevel: asInvoker
 
 publish: null
 
