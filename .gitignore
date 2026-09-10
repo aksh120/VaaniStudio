@@ -45,3 +45,6 @@ cache/
 scratch/
 tests/fixtures_temp/
 tests/fixtures_waveform/
+
+/dev_files/
+/release-temp/
