@@ -48,3 +48,5 @@ tests/fixtures_waveform/
 
 /dev_files/
 /release-temp/
+/.opencode
+opencode.json
