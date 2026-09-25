@@ -1,6 +1,6 @@
 {
   "name": "vaani-studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A free, local-first AI subtitle generator for Windows, built for highly accurate English, Hindi, and Hinglish transcription, word-level timing, subtitle styling, animations, and video export.",
   "main": "dist-electron/main/index.js",
   "type": "module",

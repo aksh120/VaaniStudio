@@ -887,7 +887,7 @@ export const App: React.FC = () => {
                <rect x="60" y="32" width="20" height="5" rx="1" fill="currentColor" opacity=".36" />
              </svg>
             <span className="titlebar-app-name">Vaani Studio</span>
-            <span className="titlebar-app-tag">v0.1.0</span>
+            <span className="titlebar-app-tag">v0.1.1</span>
           </div>
 
            <button

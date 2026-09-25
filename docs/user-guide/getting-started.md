@@ -19,13 +19,13 @@ Vaani Studio is engineered to operate on standard consumer hardware:
 ## 2. Installation
 
 ### Option A: Windows Installer (.exe)
-1. Download `VaaniStudio-Setup-0.1.0.exe` from the official repository releases.
+1. Download `VaaniStudio-Setup-0.1.1.exe` from the official repository releases.
 2. Run the installer and choose whether to install for current user or all users.
 3. Select your desired destination directory (defaults to `%LOCALAPPDATA%/Programs/VaaniStudio`).
 4. The installer creates desktop and Start Menu shortcuts and registers `.vsp` project file associations.
 
 ### Option B: Standalone Portable Package (.exe)
-1. Download `VaaniStudio-Portable-0.1.0.exe`.
+1. Download `VaaniStudio-Portable-0.1.1.exe`.
 2. Place the executable in any directory (such as a USB drive or local folder).
 3. Double-click to launch without registry changes or installation steps.
 

@@ -1482,7 +1482,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">About Vaani Studio</h2>
               <p className="settings-main-subtitle">
-                Version 0.1.0 (Desktop Edition)
+                Version 0.1.1 (Desktop Edition)
               </p>
             </div>
 
@@ -1715,7 +1715,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
           <div className="settings-status-grid">
             <div className="settings-status-row">
               <span className="settings-status-key">Application Version</span>
-              <span className="settings-status-val">v0.1.0</span>
+              <span className="settings-status-val">v0.1.1</span>
             </div>
             <div className="settings-status-row">
               <span className="settings-status-key">Operating System</span>

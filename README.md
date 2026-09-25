@@ -108,10 +108,10 @@ Full benchmark methodologies and sample manifests are documented in [docs/benchm
 ## Installation and Distribution
 
 ### 1. Windows Installer (Recommended)
-Download the latest `VaaniStudio-Setup-0.1.0.exe` from [Releases](https://github.com/aksh120/VaaniStudio/releases). The installer configures desktop shortcuts, Start Menu integration, and registers the `.vsp` file association.
+Download the latest `VaaniStudio-Setup-0.1.1.exe` from [Releases](https://github.com/aksh120/VaaniStudio/releases). The installer configures desktop shortcuts, Start Menu integration, and registers the `.vsp` file association.
 
 ### 2. Standalone Portable Version
-Download `VaaniStudio-Portable-0.1.0.exe` to run immediately without installation or administrative permissions.
+Download `VaaniStudio-Portable-0.1.1.exe` to run immediately without installation or administrative permissions.
 
 ### 3. Building from Source
 ```bash
