@@ -8,16 +8,35 @@ Vaani Studio is a free, desktop application engineered for content creators, vid
 
 ## Downloads & Releases
 
-Pre-compiled binary releases for Windows and Linux are available directly on the [GitHub Releases](https://github.com/aksh120/VaaniStudio/releases) page:
+**Current release: `v0.1.2`** &mdash; the first release signed with Vaani Studio's current
+code-signing certificate. Download it from the
+[GitHub Releases](https://github.com/aksh120/VaaniStudio/releases/tag/v0.1.2) page:
 
 | Platform | Distribution Format | Download Asset | Description |
-| :--- | :--- | :--- | :--- |
-| **Windows** | Setup Wizard | `VaaniStudio-Setup-*.exe` | Recommended installer with desktop & start menu shortcuts |
-| **Windows** | Portable Executable | `VaaniStudio-Portable-*.exe` | Single self-contained `.exe` requiring zero installation |
-| **Linux** | Universal AppImage | `VaaniStudio-*.AppImage` | Standalone executable for Ubuntu, Debian, Fedora, Arch |
-| **Linux** | Debian / Ubuntu | `VaaniStudio-*.deb` | Native deb package for Debian, Ubuntu, and Linux Mint |
+| :--- | :--- | :--- | :--- | :--- |
+| **Windows** | Setup Wizard | `VaaniStudio-Setup-0.1.2.exe` | Recommended installer with desktop & start menu shortcuts |
+| **Windows** | Portable Executable | `VaaniStudio-Portable-0.1.2.exe` | Single self-contained `.exe` requiring zero installation |
+| **Linux** | Universal AppImage | `VaaniStudio-0.1.2.AppImage` | Standalone executable for Ubuntu, Debian, Fedora, Arch |
+| **Linux** | Debian / Ubuntu | `VaaniStudio-0.1.2.deb` | Native deb package for Debian, Ubuntu, and Linux Mint |
 
-Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary integrity before execution.
+Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary integrity
+before execution.
+
+> **Do not use the Windows binaries from `v0.1.0` or `v0.1.1`.** They were signed with a
+> certificate that was accidentally exposed in this repository and must be treated as
+> revoked. Upgrade to `v0.1.2`.
+
+### Verifying the publisher
+
+Windows builds are Authenticode-signed by `CN=Vaani Studio, O=Akshat Apoorv, C=IN`
+(RSA-3072 / SHA-256). Check the signer in the file's **Properties > Digital Signatures**
+tab before running a download.
+
+The certificate is currently **self-signed** and published here as
+[`certs/vaani-studio.cer`](certs/vaani-studio.cer), so Windows reports *Unknown publisher*
+until you install it once into **Trusted Root Certification Authorities**. A CA-issued
+OV or EV certificate removes that step; see [docs/code-signing.md](docs/code-signing.md)
+for the details and for how signing credentials are supplied to the build.
 
 ---
 
@@ -25,15 +44,19 @@ Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary in
 
 * **100% Offline & Private**: All speech recognition, audio normalization, and video rendering occur locally on your workstation. No media or transcripts ever leave your device.
 * **Specialized for Indic & Code-Switched Speech**: Seamlessly handles colloquial Hinglish, Indian English phrasing, technical code-switching, and bi-directional Devanagari / Latin transliteration.
-* **Kinetic Typography & Karaoke Engine**: Millisecond-accurate active word highlighting, entrance motion (Fade, Pop, Slide Up, Bounce), and Advanced SubStation Alpha (`\k`) tag generation.
-* **Professional Style Studio**: Visual typography panel with font customization, outline stroke, drop shadow, background container boxes, and 7 built-in presets (Clean, Minimal, Podcast, Karaoke, Punch, Neon, Cinematic).
+* **Kinetic Typography & Karaoke Engine**: Word-level highlighting stays in sync with audio, spoken words keep the highlight colour, and the word currently being spoken gets emphasis. Includes entrance motion (Fade, Pop, Slide Up, Bounce) and Advanced SubStation Alpha (`\k`) tag generation.
+* **Synchronized Preview & Export**: One shared timing resolver drives the preview overlay and the SRT / VTT / ASS / burn-in output, so adjacent captions never drift or highlight the wrong word.
+* **Professional Style Studio**: Visual typography panel with font customization, outline stroke, drop shadow, background container boxes, and 24 built-in style presets.
+* **Speech Recognition Model Manager**: Browse model cards, compare size and intended use, track download progress, set the default model, and inspect per-model technical metadata without leaving Settings.
 * **High-Performance Editor Workspace**: Virtualized subtitle list rendering 1000+ segments at 60 FPS, HTML5 Canvas audio waveform timeline with draggable boundaries, 100-state transactional Undo/Redo, and full keyboard shortcut control.
 * **Hardware-Adaptive Inference**: Automatic CPU topology probing (physical/logical cores, memory ceiling, AVX2 support) and dynamic INT8 quantization with graceful GPU fallback.
+* **Consistent Transcription Requests**: A shared request resolver guarantees that the GUI, CLI, and batch queue all launch the same engine, model, language mode, and beam size for a given job.
 * **Intelligent Model Advisor & Deep Hardware Inspection**: Optional user-authorized system diagnostic analyzing AVX2 vector capabilities, dedicated GPU VRAM, and RAM headroom to recommend the fastest, highest-accuracy Whisper model with zero telemetry.
 * **Speaker Diarization & Color Coding**: Turn-taking silence detection and acoustic energy clustering identifying distinct speakers with interactive badges and color styling.
 * **Batch Media Processing Queue**: Sequential batch processing with per-item error isolation, automatic audio extraction, transcription, and subtitle file export.
 * **Headless Command-Line Interface (CLI)**: Standalone command-line tool (`vaani`) for automated terminal workflows, scripted transcription, and subtitle burning without launching the GUI.
 * **Enterprise-Grade Data Safety**: Atomic `.vsp` project saves with physical disk platter flushing (`fsyncSync`), 60-second background autosave snapshots, dead-process crash recovery, and actionable system error guidance.
+* **Signed Release Pipeline**: Automated Windows and Linux builds on every tag, Authenticode-signed with credentials supplied only through repository secrets, published with SHA-256 checksums.
 
 ---
 
@@ -46,42 +69,55 @@ Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary in
 |  Frontend UI (React 18 + TypeScript + Vite)                             |
 |  * Virtualized Subtitle List (60 FPS)     * Video Player Preview        |
 |  * Canvas Waveform Timeline (Draggable)   * Style Studio & Presets      |
-|  * Kinetic Preview Renderer               * Actionable Error Modals     |
+|  * Kinetic Preview Renderer               * Model Manager               |
 +-------------------------------------------------------------------------+
-                                    | (IPC Bridge via contextBridge)
+                                     | (IPC Bridge via contextBridge)
 +-------------------------------------------------------------------------+
 |  Main Desktop Process (Electron 35)                                     |
 |  * Hardware Profiler & Thread Budgeting   * Project Persistence (.vsp)  |
 |  * Background Autosave Engine             * Crash Recovery Registry     |
 |  * Export Job Queue Manager               * Daily Local File Logger     |
 +-------------------------------------------------------------------------+
-        |                                                 |
+         |                                                 |
 +------------------------------+        +---------------------------------+
 |  Media Engine Subsystem      |        |  ASR Inference Engine           |
-|  * FFmpeg / FFprobe Wrappers |        |  * faster-whisper (CTranslate2) |
-|  * 16 kHz Audio Extraction   |        |  * INT8 CPU Quantization        |
-|  * Waveform Peak Generator   |        |  * Silero VAD Speech Detection  |
-|  * Hardware Burn-in (NVENC)  |        |  * Hallucination Mitigation     |
-+------------------------------+        +---------------------------------+
+|  * FFmpeg / FFprobe Wrappers |        |  * Engine Factory & Registry    |
+|  * 16 kHz Audio Extraction   |        |  * faster-whisper (CTranslate2) |
+|  * Waveform Peak Generator   |        |  * INT8 CPU Quantization        |
+|  * Hardware Burn-in (NVENC)  |        |  * Silero VAD Speech Detection  |
++------------------------------+        |  * Hallucination Mitigation     |
+|  Shared Subtitle Core        |        +---------------------------------+
+|  * Transcript Pipeline       |
+|  * Timing Resolver           |        One request resolver is shared by the GUI,
+|  * Karaoke Animation Engine  |        the CLI, and the batch queue so every job
+|  * ASS / SRT / VTT Exporters |        launches the same engine and model.
++------------------------------+
 ```
 
 ---
 
-## Speech Recognition Benchmark Results
+## Speech Recognition Benchmark Status
 
-Measured against our curated 26-sample evaluation dataset (`tests/fixtures/benchmark/manifest.json`) across diverse acoustic conditions:
+**No verified accuracy or timing figures are published yet, and earlier versions of this
+README were wrong to show them.** The current state of the benchmark harness:
 
-| Category | Samples | Target WER | Measured WER | Target CER | Measured CER | Keyword Accuracy | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Clean English | 5 | < 10.0% | 0.82% | < 5.0% | 0.24% | 99.40% | Pass |
-| Indian English | 5 | < 12.0% | 1.15% | < 6.0% | 0.38% | 99.10% | Pass |
-| Modern Hindi (Devanagari) | 5 | < 14.0% | 1.62% | < 7.0% | 0.58% | 98.60% | Pass |
-| Hinglish Code-Switching | 6 | < 15.0% | 1.84% | < 7.5% | 0.69% | 98.40% | Pass |
-| Fast & Noisy Speech | 3 | < 18.0% | 2.45% | < 9.0% | 0.94% | 97.80% | Pass |
-| Music & Silence Edge Cases | 2 | 0 False Positives | 0.00% | 0 False Positives | 0.00% | 100.00% | Pass |
-| **Aggregate Score** | **26** | **< 12.0%** | **1.43%** | **< 6.0%** | **0.52%** | **98.96%** | **Pass** |
+* `tests/fixtures/benchmark/manifest.json` defines 26 evaluation samples with reference
+  text, expected keywords, and target durations. It contains **no audio**.
+* `scripts/generateAccuracyReport.ts` supplies each sample's *own reference text* as the
+  hypothesis, so the recognizer is never executed. The WER and CER values in
+  `docs/benchmarks/accuracy_report.md` are therefore self-comparisons of text against
+  itself, not recognition measurements.
+* Word-timing error in that harness compares timestamps by array position rather than by
+  aligning predicted words to reference words.
 
-Full benchmark methodologies and sample manifests are documented in [docs/benchmarks/accuracy_report.md](docs/benchmarks/accuracy_report.md).
+Those synthetic numbers have been removed from this README rather than presented as
+results. Publishing real figures requires the work tracked as **ACC-001** in
+[plan_update.md](plan_update.md): an audio corpus with checksums, actual engine execution
+over every sample, word-aligned timing comparison, and per-track WER/CER with confidence
+intervals for English, Hindi, and Hinglish.
+
+What *is* verified on every push is the automated test suite (44 files, 329 tests) and a
+Windows and Linux build in CI.
 
 ---
 
@@ -91,8 +127,13 @@ Full benchmark methodologies and sample manifests are documented in [docs/benchm
 | :--- | :--- | :--- | :--- | :--- |
 | Whisper Tiny | 39M | 42 MB | INT8 | Rapid drafting, low-spec or constrained CPUs |
 | Whisper Base | 74M | 75 MB | INT8 | Fast speech recognition, clean English/Hindi |
-| Whisper Small | 244M | 245 MB | INT8 | Recommended default: optimal for conversational Hinglish |
-| Whisper Medium | 769M | 780 MB | INT8 | Maximum transcription fidelity for complex multi-speaker audio |
+| Whisper Small | 244M | 245 MB | INT8 | **Recommended default**: optimal for English, Hindi, and conversational Hinglish |
+| Whisper Medium | 769M | 780 MB | INT8 | High transcription fidelity for complex multi-speaker audio |
+| Whisper Large v3 | 1.55B | ~3 GB | INT8 | Opt-in high-accuracy model for demanding and code-switched audio |
+
+Models are downloaded on demand and can be managed, verified, and set as default from
+**Settings > Speech Recognition**. Download and verification failures are surfaced rather
+than silently falling back.
 
 ---
 
@@ -100,8 +141,8 @@ Full benchmark methodologies and sample manifests are documented in [docs/benchm
 
 * **OS**: Windows 10 or Windows 11 (64-bit)
 * **CPU**: Intel Core i5 / i7 (3rd Gen or newer) or AMD Ryzen with AVX2 instruction support
-* **RAM**: 8 GB minimum (16 GB recommended for Whisper Medium)
-* **Storage**: 2 GB free disk space
+* **RAM**: 8 GB minimum (16 GB recommended, 32 GB for Whisper Large v3)
+* **Storage**: 1 GB for the application, plus 42 MB to ~3 GB per downloaded model
 
 ---
 
@@ -175,7 +216,10 @@ vaani models verify whisper-small-ct2-int8
 * [Getting Started Guide](docs/user-guide/getting-started.md)
 * [Transcription and Subtitle Editing](docs/user-guide/transcription-and-editing.md)
 * [Styling, Kinetic Typography, and Export](docs/user-guide/styling-and-export.md)
+* [Code Signing and Publisher Verification](docs/code-signing.md)
 * [Troubleshooting and FAQ](docs/user-guide/troubleshooting.md)
+* [UI Redesign](UI_REDESIGN.md) and [Design System](DESIGN_SYSTEM.md)
+* [Accuracy, Timing, and UI Improvement Plan](plan_update.md)
 * [Security Policy](SECURITY.md)
 * [Contributing Guidelines](CONTRIBUTING.md)
 * [Changelog](CHANGELOG.md)
