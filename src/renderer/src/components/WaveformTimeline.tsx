@@ -21,6 +21,7 @@ export interface WaveformTimelineProps {
   onMergeWithNext?: () => void;
   onDeleteSelected?: () => void;
   timelineHeight?: number;
+  audioOffsetSeconds?: number;
 }
 
 const formatPlayheadBadge = (time: number): string => {
@@ -52,6 +53,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
   onMergeWithNext,
   onDeleteSelected,
   timelineHeight,
+  audioOffsetSeconds = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -123,8 +125,9 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
       return;
     }
 
-    const peaks = waveformData.peaks;
-    const totalPeaks = peaks.length;
+     const peaks = waveformData.peaks;
+     const totalPeaks = peaks.length;
+     const audioDuration = waveformData.durationSeconds || duration;
     const midY = height / 2;
     const maxBarHeight = (height / 2) - 4;
 
@@ -132,8 +135,9 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
 
     // Map time to peaks
     for (let x = 0; x < width; x += 2) {
-      const timeAtX = x / pixelsPerSecond;
-      const peakIdx = Math.floor((timeAtX / duration) * totalPeaks);
+       const timeAtX = x / pixelsPerSecond;
+       const audioTime = timeAtX - audioOffsetSeconds;
+       const peakIdx = Math.floor((audioTime / audioDuration) * totalPeaks);
 
       if (peakIdx >= 0 && peakIdx < totalPeaks) {
         const peakVal = peaks[peakIdx];
@@ -141,7 +145,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
         ctx.fillRect(x, midY - barH, 1.5, barH * 2);
       }
     }
-  }, [waveformData, totalWidth, duration, pixelsPerSecond, waveformHeight]);
+  }, [waveformData, totalWidth, duration, pixelsPerSecond, waveformHeight, audioOffsetSeconds]);
 
   // Playhead scrubbing handler
   const handleTimelineMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -411,8 +415,17 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               return (
                 <div
                   key={evt.id}
-                  className={`subtitle-timeline-block ${isSelected ? 'block-selected' : ''}`}
-                  style={{
+                   className={`subtitle-timeline-block ${isSelected ? 'block-selected' : ''}`}
+                   role="button"
+                   tabIndex={0}
+                   aria-label={`Subtitle ${evt.index}: ${evt.text}`}
+                   onKeyDown={(event) => {
+                     if (event.key === 'Enter' || event.key === ' ') {
+                       event.preventDefault();
+                       onSelectEvent(evt.id);
+                     }
+                   }}
+                   style={{
                     left: `${left}px`,
                     width: `${width}px`,
                     height: `${Math.max(26, subtitleTrackHeight - 6)}px`,
@@ -436,8 +449,22 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
                 >
                   {/* Left Trim Handle */}
                   <div
-                    className="trim-handle trim-handle-left"
-                    title="Drag to trim start time"
+                     className="trim-handle trim-handle-left"
+                     role="slider"
+                     tabIndex={0}
+                     aria-label="Subtitle start handle"
+                     aria-valuemin={0}
+                     aria-valuemax={evt.endTime}
+                     aria-valuenow={evt.startTime}
+                     title="Drag to trim start time"
+                     onKeyDown={(e) => {
+                       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                       e.preventDefault();
+                       e.stopPropagation();
+                       const delta = e.key === 'ArrowRight' ? 0.1 : -0.1;
+                       const nextStart = Math.max(0, Math.min(evt.endTime - 0.2, evt.startTime + delta));
+                       onUpdateEventTiming(evt.id, nextStart, evt.endTime);
+                     }}
                     onMouseDown={(e) => {
                       e.stopPropagation();
                       onSelectEvent(evt.id);
@@ -459,8 +486,22 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
 
                   {/* Right Trim Handle */}
                   <div
-                    className="trim-handle trim-handle-right"
-                    title="Drag to trim end time"
+                     className="trim-handle trim-handle-right"
+                     role="slider"
+                     tabIndex={0}
+                     aria-label="Subtitle end handle"
+                     aria-valuemin={evt.startTime}
+                     aria-valuemax={effectiveDuration}
+                      aria-valuenow={evt.endTime}
+                      title="Drag to trim end time"
+                      onKeyDown={(e) => {
+                        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const delta = e.key === 'ArrowRight' ? 0.1 : -0.1;
+                        const nextEnd = Math.min(effectiveDuration, Math.max(evt.startTime + 0.2, evt.endTime + delta));
+                        onUpdateEventTiming(evt.id, evt.startTime, nextEnd);
+                      }}
                     onMouseDown={(e) => {
                       e.stopPropagation();
                       onSelectEvent(evt.id);

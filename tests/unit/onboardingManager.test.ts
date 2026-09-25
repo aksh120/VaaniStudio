@@ -100,6 +100,8 @@ describe('Phase 13: First-Run Onboarding and Model Management (TASK-057)', () =>
       fs.mkdirSync(testDir, { recursive: true });
       fs.writeFileSync(path.join(testDir, 'config.json'), JSON.stringify({ model_type: 'whisper' }));
       fs.writeFileSync(path.join(testDir, 'model.bin'), Buffer.alloc(1024 * 64, 42));
+      fs.writeFileSync(path.join(testDir, 'tokenizer.json'), '{}');
+      fs.writeFileSync(path.join(testDir, 'vocabulary.txt'), 'test vocabulary');
 
       const result = await verifyModelIntegrity(testModelId);
       expect(result.valid).toBe(true);

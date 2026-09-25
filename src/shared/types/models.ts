@@ -3,6 +3,21 @@
  * Strongly typed contracts shared across Main, Preload, and Renderer processes.
  */
 
+export interface MediaStreamInfo {
+  index: number;
+  type: 'audio' | 'video';
+  codec?: string;
+  channels?: number;
+  sampleRate?: number;
+  width?: number;
+  height?: number;
+  language?: string;
+  disposition?: string;
+  startTimeSeconds?: number;
+  timeBase?: string;
+  isDefault?: boolean;
+}
+
 export interface MediaInfo {
   filePath: string;
   fileName: string;
@@ -16,6 +31,16 @@ export interface MediaInfo {
   videoCodec?: string;
   bitrate?: number;
   fileSizeBytes: number;
+  audioStreamIndex?: number;
+  videoStreamIndex?: number;
+  audioStreamStartSeconds?: number;
+  workingAudioOriginSeconds?: number;
+  videoStreamStartSeconds?: number;
+  audioStreamLanguage?: string;
+  audioStreamDisposition?: string;
+  audioStreams?: MediaStreamInfo[];
+  videoStreams?: MediaStreamInfo[];
+  outputOriginSeconds?: number;
 }
 
 export interface WordTiming {
@@ -42,6 +67,7 @@ export interface SubtitleEvent {
   endTime: number;   // Seconds
   text: string;
   words: WordTiming[];
+  wordTimingState?: 'fresh' | 'stale' | 'legacy-unverified';
   speakerId?: string;
   speakerLabel?: string;
   cps?: number; // Characters per second reading speed
@@ -121,18 +147,24 @@ export interface AnimationConfig {
 export type LanguageMode = 'english' | 'hindi' | 'hinglish' | 'auto';
 export type ScriptMode = 'exact' | 'roman' | 'devanagari' | 'cleaned';
 export type PerformanceMode = 'fast' | 'balanced' | 'quality';
+export type ModelSelectionSource = 'profile' | 'user';
+export type ASREngineId = 'faster-whisper';
+export type InferenceDevice = 'cpu' | 'cuda';
+export type ASRComputeType = 'int8' | 'float16' | 'float32' | 'int8_float16';
 
 export interface ProjectSettings {
   languageMode: LanguageMode;
   scriptMode: ScriptMode;
   performanceMode: PerformanceMode;
   modelId: string;
+  modelSelectionSource?: ModelSelectionSource;
+  selectedAudioStreamIndex?: number;
   maxCharactersPerLine: number;
   maxLinesPerSubtitle: number;
   targetReadingSpeedCPS: number;
 }
 
-export const CURRENT_PROJECT_VERSION = 1;
+export const CURRENT_PROJECT_VERSION = 2;
 
 export interface ProjectExportRecord {
   id: string;
@@ -197,7 +229,8 @@ export interface ModelIntegrityResult {
 }
 
 export interface ProjectData {
-  projectVersion: number; // Current schema version: 1
+  projectVersion: number; // Current schema version: 2
+  sourceFilePath?: string;
   projectId: string;
   projectName: string;
   createdAt: string; // ISO 8601
@@ -210,6 +243,7 @@ export interface ProjectData {
   style: SubtitleStyle;
   animation: AnimationConfig;
   exportHistory?: ProjectExportRecord[];
+  lastTranscriptionRun?: TranscriptionRunMetadata;
   speakers?: SpeakerProfile[];
 }
 
@@ -228,6 +262,8 @@ export interface BatchJobConfig {
   languageMode: LanguageMode;
   scriptMode: ScriptMode;
   modelId: string;
+  modelSelectionSource?: ModelSelectionSource;
+  performanceMode?: PerformanceMode;
   exportFormat: 'srt' | 'vtt' | 'ass';
   outputDirectory: string;
   renderVideo?: boolean;
@@ -267,7 +303,8 @@ export interface HardwareProfile {
   gpuVramMB?: number;
   hasCudaSupport: boolean;
   recommendedMode: PerformanceMode;
-  inferenceDevice: 'cpu' | 'cuda';
+  inferenceDevice: InferenceDevice;
+  inferenceComputeType?: ASRComputeType;
   allocatedThreads?: CPUAllocationConfig;
   memoryStats?: MemoryStats;
 }
@@ -312,12 +349,22 @@ export interface ModelInfo {
 }
 
 export interface TranscriptionOptions {
+  engineId?: ASREngineId;
   modelId: string;
+  performanceMode?: PerformanceMode;
+  modelSelectionSource?: ModelSelectionSource;
   language?: string;
   scriptMode?: ScriptMode;
   beamSize?: number;
   temperature?: number;
   vadFilter?: boolean;
+  device?: InferenceDevice;
+  computeType?: ASRComputeType;
+  cpuThreads?: number;
+  audioStreamIndex?: number;
+  audioTimeOffsetSeconds?: number;
+  workingAudioOriginSeconds?: number;
+  outputOriginSeconds?: number;
   initialPrompt?: string;
 }
 
@@ -334,13 +381,42 @@ export interface ASRSegment {
   endTime: number;
   text: string;
   words: ASRWord[];
+  avgLogprob?: number;
+  noSpeechProbability?: number;
+  compressionRatio?: number;
 }
+
+export type ASRLanguageClassification =
+  | 'pure_english'
+  | 'pure_hindi'
+  | 'code_switched_hinglish';
 
 export interface ASRTranscriptionResult {
   language: string;
   durationSeconds: number;
   segments: ASRSegment[];
-  classification?: 'pure_english' | 'pure_hindi' | 'code_switched_hinglish';
+  classification?: ASRLanguageClassification;
+}
+
+export interface TranscriptionRunMetadata {
+  engineId: ASREngineId;
+  modelId: string;
+  language: string;
+  scriptMode?: ScriptMode;
+  generatedAt: string;
+  audioStreamIndex?: number;
+  workingAudioOriginSeconds?: number;
+  outputOriginSeconds?: number;
+}
+
+export interface TranscriptionResponse {
+  events: SubtitleEvent[];
+  language: string;
+  durationSeconds: number;
+  classification?: ASRLanguageClassification;
+  engineId: ASREngineId;
+  modelId: string;
+  run?: TranscriptionRunMetadata;
 }
 
 /**

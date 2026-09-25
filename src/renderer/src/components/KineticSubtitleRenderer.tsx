@@ -16,8 +16,10 @@ import {
 } from '../../../shared/types/models.js';
 import {
   calculateTransitionState,
-  getWordHighlightState,
+  getWordHighlightStates,
+  synchronizeWordTimingsToEvent,
 } from '../../../shared/subtitles/animationEngine.js';
+import { getWordDisplayText } from '../../../shared/subtitles/wordAlignment.js';
 import { DEFAULT_ANIMATION } from '../../../shared/defaults.js';
 
 export interface KineticSubtitleRendererProps {
@@ -108,12 +110,25 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
     return `${x}px ${y}px ${blur}px ${color}`;
   }, [styleConfig.shadowOffsetX, styleConfig.shadowOffsetY, styleConfig.shadowBlur, styleConfig.shadowColor]);
 
+  const synchronizedWords = useMemo(
+    () => (event ? synchronizeWordTimingsToEvent(event) : []),
+    [event]
+  );
+  const wordStates = useMemo(
+    () => getWordHighlightStates(synchronizedWords, currentTime),
+    [synchronizedWords, currentTime]
+  );
+
   if (!event || !transition.isVisible) {
     return null;
   }
 
   const fontSizePx = Math.max(12, Math.round((styleConfig.fontSize || 44) * scaleFactor));
-  const hasWords = Boolean(event.words && event.words.length > 0);
+  const hasWords = Boolean(
+    event.words
+    && event.words.length > 0
+     && (event.wordTimingState === undefined || event.wordTimingState === 'fresh')
+  );
 
   // Transition transform for kinetic animation
   const kineticTransform = `translateY(${transition.translateY}px) scale(${transition.scale})`;
@@ -155,8 +170,8 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
         }}
       >
         {hasWords ? (
-          event.words!.map((w: WordTiming, idx: number) => {
-            const state = getWordHighlightState(w, currentTime);
+          synchronizedWords.map((w: WordTiming, idx: number) => {
+            const state = wordStates[idx] || 'future';
             const isWordActive = state === 'active';
             const isWordPast = state === 'past';
 
@@ -166,7 +181,7 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
                 ? animConfig.activeWordScale || 1.08
                 : 1.0;
 
-            const punctuation = w.punctuationFollows || '';
+            const wordText = getWordDisplayText(w);
 
             // Render Sweep Karaoke Mode
             if (animConfig.karaokeMode === 'sweep') {
@@ -198,8 +213,7 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
                       opacity: isWordActive ? 0.9 : 1.0,
                     }}
                   >
-                    {w.word}
-                    {punctuation}
+                    {wordText}
                   </span>
 
                   {/* Sweep Fill Layer: Clips over the base layer from left to right */}
@@ -218,8 +232,7 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
                       userSelect: 'none',
                     }}
                   >
-                    {w.word}
-                    {punctuation}
+                    {wordText}
                   </span>
                 </span>
               );
@@ -243,8 +256,7 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
                   willChange: 'transform, color',
                 }}
               >
-                {w.word}
-                {punctuation}
+                {wordText}
               </span>
             );
           })

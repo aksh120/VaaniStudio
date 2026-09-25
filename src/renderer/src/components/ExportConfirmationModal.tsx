@@ -1,5 +1,6 @@
 import React from 'react';
-import { CheckCircle2, Film, FolderOpen, Play, X, Copy, Check } from 'lucide-react';
+import { Film, FolderOpen, Play, Copy, Check } from 'lucide-react';
+import { Dialog } from './ui/Dialog.js';
 
 export interface ExportConfirmationModalProps {
   isOpen: boolean;
@@ -45,29 +46,32 @@ export const ExportConfirmationModal: React.FC<ExportConfirmationModalProps> = (
     }
   };
 
-  return (
-    <div className="modal-backdrop">
-      <div className="modal-dialog export-confirm-modal" style={{ maxWidth: '560px' }}>
-        {/* Header */}
-        <div className="modal-header" style={{ alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle2 size={20} style={{ color: 'var(--color-success)' }} />
-            <div>
-              <h3 className="modal-title" style={{ fontSize: '15px' }}>
-                Video Exported Successfully
-              </h3>
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                Your burned-in subtitle video has been rendered and saved.
-              </p>
-            </div>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        </div>
+  const footer = (
+    <>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={handlePlayVideo} title="Open video in the default media player">
+        <Play size={13} />
+        <span>Play video</span>
+      </button>
+      <div className="dialog-footer-actions">
+        <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenFolder} title="Open the destination folder">
+          <FolderOpen size={13} />
+          <span>Open folder</span>
+        </button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Done</button>
+      </div>
+    </>
+  );
 
-        {/* Body */}
-        <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+  return (
+    <Dialog
+      isOpen={isOpen && Boolean(outputPath)}
+      onClose={onClose}
+      title="Video exported"
+      description="The burned-in subtitle video has been rendered and saved."
+      className="export-confirm-modal"
+      footer={footer}
+    >
+      <div className="export-confirm-body">
           {/* File Card */}
           <div
             style={{
@@ -219,49 +223,6 @@ export const ExportConfirmationModal: React.FC<ExportConfirmationModalProps> = (
             </button>
           </div>
         </div>
-
-        {/* Footer Actions */}
-        <div
-          className="modal-footer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 20px',
-          }}
-        >
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handlePlayVideo}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            title="Open video in default media player"
-          >
-            <Play size={13} />
-            <span>Play Video</span>
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handleOpenFolder}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Open folder in File Explorer"
-            >
-              <FolderOpen size={13} />
-              <span>Open in Folder</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onClose}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 };

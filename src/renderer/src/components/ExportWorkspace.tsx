@@ -7,6 +7,7 @@ import {
   RenderProgressUpdate,
 } from '../../../shared/types/models.js';
 import { ExportConfirmationModal } from './ExportConfirmationModal.js';
+import { ProgressBar } from './ui/ProgressBar.js';
 
 interface ExportWorkspaceProps {
   onOpenBatchQueue: () => void;
@@ -155,46 +156,24 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
 
   return (
     <div className="export-workspace">
-      <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-        {/* Workspace Title & Summary */}
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            Export Subtitles & Video
-          </h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Export clean subtitle files for video players and streaming platforms, or burn styled subtitles directly into an MP4 video.
-          </p>
-        </div>
-
-        {/* Project Summary Strip */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 16px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            marginBottom: '24px',
-            fontSize: '12px',
-          }}
-        >
+      <div className="export-workspace-inner">
+        <header className="workspace-page-header">
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>Project: </span>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-              {project.projectName || 'Untitled Project'}
-            </span>
-            <span style={{ margin: '0 8px', color: 'var(--border-medium)' }}>|</span>
-            <span style={{ color: 'var(--text-muted)' }}>Subtitles: </span>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{eventCount} lines</span>
-            <span style={{ margin: '0 8px', color: 'var(--border-medium)' }}>|</span>
-            <span style={{ color: 'var(--text-muted)' }}>Media: </span>
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {project.media ? project.media.fileName : 'None'}
-            </span>
+            <div className="workspace-eyebrow">Output</div>
+            <h1 className="workspace-page-title">Export</h1>
+            <p className="workspace-page-description">Write subtitle files or render styled subtitles into the video.</p>
           </div>
+        </header>
 
+        <div className="export-project-summary">
+          <div className="export-project-summary-meta">
+            <span>Project</span>
+            <strong>{project.projectName || 'Untitled Project'}</strong>
+            <span>Subtitles</span>
+            <strong>{eventCount} lines</strong>
+            <span>Media</span>
+            <strong>{project.media ? project.media.fileName : 'None'}</strong>
+          </div>
           <button
             className="btn btn-secondary btn-sm"
             onClick={onOpenBatchQueue}
@@ -204,33 +183,24 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
           </button>
         </div>
 
-        {/* Mode Selector Tabs */}
-        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '24px' }}>
+        <div className="export-mode-tabs" role="tablist" aria-label="Export type">
           <button
-            className="btn btn-ghost"
-            style={{
-              borderRadius: '0',
-              borderBottom: activeTab === 'subtitles' ? '2px solid var(--accent-primary)' : '2px solid transparent',
-              color: activeTab === 'subtitles' ? 'var(--accent-active)' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'subtitles' ? 600 : 500,
-              padding: '8px 16px',
-            }}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'subtitles'}
+            className={`export-mode-tab ${activeTab === 'subtitles' ? 'active' : ''}`}
             onClick={() => setActiveTab('subtitles')}
           >
-            Subtitle Files (SRT / VTT / ASS)
+            Subtitle Files
           </button>
           <button
-            className="btn btn-ghost"
-            style={{
-              borderRadius: '0',
-              borderBottom: activeTab === 'video' ? '2px solid var(--accent-primary)' : '2px solid transparent',
-              color: activeTab === 'video' ? 'var(--accent-active)' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'video' ? 600 : 500,
-              padding: '8px 16px',
-            }}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'video'}
+            className={`export-mode-tab ${activeTab === 'video' ? 'active' : ''}`}
             onClick={() => setActiveTab('video')}
           >
-            Burn-In Video (MP4)
+            Burn-In Video
           </button>
         </div>
 
@@ -239,31 +209,23 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="control-group">
               <label className="input-label">Output Format</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+               <div className="export-format-grid">
                 {[
                   { id: 'srt', title: 'SubRip (.srt)', desc: 'Standard format. Compatible with all video players and YouTube.' },
                   { id: 'vtt', title: 'WebVTT (.vtt)', desc: 'HTML5 video standard. Perfect for web playback.' },
                   { id: 'ass', title: 'Advanced SubStation (.ass)', desc: 'Preserves fonts, colors, positioning, and kinetic highlight.' },
                 ].map((f) => (
-                  <div
-                    key={f.id}
-                    onClick={() => setSubtitleFormat(f.id as SubtitleFormat)}
-                    style={{
-                      padding: '12px',
-                      borderRadius: 'var(--radius-sm)',
-                      backgroundColor: subtitleFormat === f.id ? 'var(--accent-subtle)' : 'var(--bg-surface)',
-                      border: subtitleFormat === f.id ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: subtitleFormat === f.id ? 'var(--accent-active)' : 'var(--text-primary)', marginBottom: '4px' }}>
-                      {f.title}
-                    </div>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                      {f.desc}
-                    </p>
-                  </div>
-                ))}
+                   <button
+                     type="button"
+                     key={f.id}
+                     onClick={() => setSubtitleFormat(f.id as SubtitleFormat)}
+                      className={`export-format-card ${subtitleFormat === f.id ? 'selected' : ''}`}
+                      aria-pressed={subtitleFormat === f.id}
+                    >
+                      <span className="export-format-title">{f.title}</span>
+                      <span className="export-format-description">{f.desc}</span>
+                   </button>
+                 ))}
               </div>
             </div>
 
@@ -428,24 +390,11 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
                       </span>
                     </div>
 
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '6px',
-                        backgroundColor: 'var(--bg-canvas)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${renderProgress.percent || 5}%`,
-                          height: '100%',
-                          backgroundColor: 'var(--accent-active)',
-                          transition: 'width 200ms ease',
-                        }}
-                      />
-                    </div>
+                     <ProgressBar
+                       value={renderProgress.percent || 5}
+                       label="Rendering video"
+                       detail={renderProgress.percent ? `${renderProgress.percent.toFixed(1)}%` : 'Processing'}
+                     />
                   </div>
                 )}
 

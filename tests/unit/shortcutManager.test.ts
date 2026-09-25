@@ -118,6 +118,61 @@ describe('ShortcutManager Keyboard Dispatcher', () => {
     expect(onSplit).toHaveBeenCalledTimes(2);
   });
 
+  it('leaves Tab for native focus navigation and supports Alt+Arrow subtitle navigation', () => {
+    const onNextSubtitle = vi.fn();
+    const onPrevSubtitle = vi.fn();
+    const manager = new ShortcutManager({ onNextSubtitle, onPrevSubtitle });
+
+    const tabEvent = {
+      key: 'Tab',
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      target: { tagName: 'DIV' },
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+    expect(manager.handleKeyDown(tabEvent)).toBe(false);
+    expect(tabEvent.preventDefault).not.toHaveBeenCalled();
+
+    const nextEvent = {
+      key: 'ArrowDown',
+      altKey: true,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      target: { tagName: 'DIV' },
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+    expect(manager.handleKeyDown(nextEvent)).toBe(true);
+    expect(onNextSubtitle).toHaveBeenCalledTimes(1);
+
+    const previousEvent = {
+      ...nextEvent,
+      key: 'ArrowUp',
+    } as unknown as KeyboardEvent;
+    expect(manager.handleKeyDown(previousEvent)).toBe(true);
+    expect(onPrevSubtitle).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not split or merge while an input is focused', () => {
+    const onSplit = vi.fn();
+    const onMerge = vi.fn();
+    const manager = new ShortcutManager({ onSplit, onMerge });
+    const inputEvent = {
+      key: 'k',
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      target: { tagName: 'INPUT' },
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+
+    expect(manager.handleKeyDown(inputEvent)).toBe(false);
+    expect(onSplit).not.toHaveBeenCalled();
+    expect(onMerge).not.toHaveBeenCalled();
+    expect(inputEvent.preventDefault).not.toHaveBeenCalled();
+  });
+
   it('handles ArrowLeft / ArrowRight frame and second stepping', () => {
     const onStepFrame = vi.fn();
     const onStepSecond = vi.fn();

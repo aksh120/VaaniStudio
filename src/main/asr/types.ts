@@ -1,13 +1,15 @@
 import {
+  ASRComputeType,
   ASRSegment,
   ASRTranscriptionResult,
+  InferenceDevice,
   ProgressUpdate,
   TranscriptionOptions,
 } from '../../shared/types/models.js';
 
 export interface EngineInitOptions {
-  device?: 'cpu' | 'cuda';
-  computeType?: 'int8' | 'float16' | 'float32';
+  device?: InferenceDevice;
+  computeType?: ASRComputeType;
   cpuThreads?: number;
 }
 

@@ -19,7 +19,10 @@ import {
   compileAssTransitionTags,
   compileAssKaraokeText,
   formatAssTimestamp,
+  synchronizeWordTimingsToEvent,
 } from './animationEngine.js';
+import { getWordDisplayText } from './wordAlignment.js';
+import { mapSubtitleEvents, SubtitleTimingContext } from './timing.js';
 
 export interface AssScriptOptions {
   title?: string;
@@ -29,6 +32,7 @@ export interface AssScriptOptions {
   animationConfig?: AnimationConfig;
   styleName?: string;
   burnIn?: boolean;
+  timing?: SubtitleTimingContext;
 }
 
 /**
@@ -141,17 +145,21 @@ export function generateAssScript(
   ];
 
   // Sort events chronologically by startTime
-  const sortedEvents = [...events].sort((a, b) => a.startTime - b.startTime);
+  const sortedEvents = mapSubtitleEvents(events, options.timing);
 
   for (const ev of sortedEvents) {
-    const hasWords = Boolean(ev.words && ev.words.length > 0);
+    const hasWords = Boolean(
+      ev.words
+      && ev.words.length > 0
+      && (ev.wordTimingState === undefined || ev.wordTimingState === 'fresh')
+    );
     const isKaraoke = includeKaraoke && hasWords;
 
     // For video burn-in (or step karaoke mode when requested), slice dialogue lines
     // so only the currently spoken word is highlighted in activeWordColor,
     // matching KineticSubtitleRenderer precisely.
     if (options.burnIn && isKaraoke && animConfig?.karaokeMode !== 'sweep') {
-      const words = ev.words!;
+      const words = synchronizeWordTimingsToEvent(ev);
       const activeColorTag = colorToAssOverrideTag(style.activeWordColor || '#FACC15', 1.0);
       const baseColorTag = colorToAssOverrideTag(style.primaryColor || '#FFFFFF', style.primaryOpacity ?? 1.0);
       const scaleTag = animConfig?.activeWordEmphasis
@@ -162,8 +170,7 @@ export function generateAssScript(
       const formatLineWords = (activeIdx: number): string => {
         return words
           .map((w, idx) => {
-            const punctuation = w.punctuationFollows || '';
-            let wordText = `${w.word}${punctuation}`;
+            let wordText = getWordDisplayText(w);
             if (style.textTransform === 'uppercase') {
               wordText = wordText.toUpperCase();
             } else if (style.textTransform === 'lowercase') {

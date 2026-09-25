@@ -8,11 +8,14 @@
 
 import { SubtitleEvent, SubtitleStyle } from '../types/models.js';
 import { generateAssScript, AssScriptOptions } from './assScriptGenerator.js';
+import { mapSubtitleEvents, SubtitleTimingContext } from './timing.js';
 
 export interface ExporterOptions {
   lineEnding?: 'crlf' | 'lf';
   includeHeaderNotes?: boolean;
   includeSpeakerLabels?: boolean;
+  languageTag?: string;
+  timing?: SubtitleTimingContext;
 }
 
 /**
@@ -61,7 +64,7 @@ export function exportToSrt(
   options: ExporterOptions = {}
 ): string {
   const eol = options.lineEnding === 'crlf' ? '\r\n' : '\n';
-  const sorted = [...events].sort((a, b) => a.startTime - b.startTime);
+  const sorted = mapSubtitleEvents(events, options.timing);
 
   const blocks: string[] = [];
 
@@ -90,11 +93,14 @@ export function exportToVtt(
   options: ExporterOptions = {}
 ): string {
   const eol = options.lineEnding === 'crlf' ? '\r\n' : '\n';
-  const sorted = [...events].sort((a, b) => a.startTime - b.startTime);
+  const sorted = mapSubtitleEvents(events, options.timing);
 
   const header = ['WEBVTT'];
   if (options.includeHeaderNotes !== false) {
-    header.push('Kind: captions', 'Language: en');
+    header.push('Kind: captions');
+    if (options.languageTag) {
+      header.push(`Language: ${options.languageTag}`);
+    }
   }
 
   const cues: string[] = [header.join(eol)];

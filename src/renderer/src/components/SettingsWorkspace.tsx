@@ -9,6 +9,9 @@ import {
   DeepSystemScanResult,
   ModelsStorageSummary,
 } from '../../../shared/types/models.js';
+import { getPerformanceProfileConfig } from '../../../shared/hardware/hardwareProfiles.js';
+import { ProgressBar } from './ui/ProgressBar.js';
+import { Dialog } from './ui/Dialog.js';
 import {
   Palette,
   Boxes,
@@ -38,12 +41,18 @@ import {
   ExternalLink,
   FolderGit2,
   Tag,
+  Copy,
+  Download,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 interface SettingsWorkspaceProps {
   models: ModelInfo[];
   hardware: HardwareProfile | null;
   onRefreshModels: () => void;
+  onSelectAudioStream?: (streamIndex: number) => void;
 }
 
 type SettingsTab =
@@ -58,34 +67,120 @@ type SettingsTab =
   | 'diagnostics'
   | 'about';
 
+interface ModelPresentation {
+  summary: string;
+  languages: string;
+  accuracy: string;
+  memory: string;
+  useCase: string;
+}
+
+const MODEL_PRESENTATION: Record<string, ModelPresentation> = {
+  'whisper-tiny-ct2-int8': {
+    summary: 'Fastest · Lowest memory',
+    languages: 'Multilingual',
+    accuracy: 'Good',
+    memory: 'Low',
+    useCase: 'Quick drafts and testing',
+  },
+  'whisper-base-ct2-int8': {
+    summary: 'Fast · Balanced accuracy',
+    languages: 'English · Hindi',
+    accuracy: 'Balanced',
+    memory: 'Low',
+    useCase: 'Fast transcription',
+  },
+  'whisper-small-ct2-int8': {
+    summary: 'Balanced · English, Hindi & Hinglish',
+    languages: 'English · Hindi · Hinglish',
+    accuracy: 'High',
+    memory: 'Moderate',
+    useCase: 'General subtitle generation',
+  },
+  'whisper-medium-ct2-int8': {
+    summary: 'High accuracy · Complex speech',
+    languages: 'Multilingual',
+    accuracy: 'High',
+    memory: 'High',
+    useCase: 'Complex and multi-speaker audio',
+  },
+  'whisper-large-v3-ct2-int8': {
+    summary: 'Highest accuracy · Multilingual',
+    languages: 'Multilingual',
+    accuracy: 'Highest',
+    memory: 'Very high',
+    useCase: 'Demanding multilingual speech',
+  },
+};
+
+const getModelPresentation = (model: ModelInfo): ModelPresentation => {
+  return MODEL_PRESENTATION[model.id] || {
+    summary: model.description.split(/[.!?]/)[0] || 'Local speech recognition',
+    languages: 'Multilingual',
+    accuracy: 'Model-specific',
+    memory: 'Model-specific',
+    useCase: 'General transcription',
+  };
+};
+
+const getModelDisplayName = (model: ModelInfo): string => {
+  return model.name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+};
+
+const formatModelSize = (sizeMB: number): string => {
+  if (sizeMB >= 1000) {
+    return `${(sizeMB / 1000).toFixed(1)} GB`;
+  }
+  return `${Math.round(sizeMB)} MB`;
+};
+
+const formatStorageSize = (sizeMB: number): string => {
+  if (sizeMB >= 1000) {
+    return `${(sizeMB / 1000).toFixed(2)} GB`;
+  }
+  return `${Math.round(sizeMB)} MB`;
+};
+
 export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   models,
   hardware,
   onRefreshModels,
+  onSelectAudioStream,
 }) => {
   const { project, updateSettings, setStatusMessage } = useProjectStore();
-  const { theme, setTheme, setIsTutorialOpen } = useUIStore();
+  const {
+    theme,
+    setTheme,
+    setIsTutorialOpen,
+    setActiveTab: setWorkspaceTab,
+    startPage: persistedStartPage,
+    setStartPage,
+    autosaveEnabled,
+    autosaveIntervalSeconds,
+    setAutosaveEnabled,
+     setAutosaveIntervalSeconds,
+     recentProjectsLimit,
+     setRecentProjectsLimit,
+   } = useUIStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
   // General Settings State (Matching Image 0)
   const [language, setLanguage] = useState('English');
-  const [startPage, setStartPage] = useState('Projects');
   const [checkForUpdates, setCheckForUpdates] = useState(true);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
-  const [autoSaveInterval, setAutoSaveInterval] = useState('Every 60 seconds');
-  const [projectLocation, setProjectLocation] = useState(
-    'C:\\Users\\YourName\\Vaani Studio\\Projects'
-  );
-  const [recentProjectsLimit, setRecentProjectsLimit] = useState('10');
-  const [rememberLayout, setRememberLayout] = useState(true);
-  const [defaultImportFolder, setDefaultImportFolder] = useState(
-    'C:\\Users\\YourName\\Videos'
-  );
+   const [projectLocation, setProjectLocation] = useState('');
+   const [rememberLayout, setRememberLayout] = useState(true);
+  const [defaultImportFolder, setDefaultImportFolder] = useState('');
   const [autoAddToTimeline, setAutoAddToTimeline] = useState(true);
-  const [preferredAudioTrack, setPreferredAudioTrack] = useState('First Track (Recommended)');
+  const [isSwitchingAudioStream, setIsSwitchingAudioStream] = useState(false);
+  const availableAudioStreams = project.media?.audioStreams || [];
+  const selectedAudioStreamIndex =
+    project.settings.selectedAudioStreamIndex ?? project.media?.audioStreamIndex ?? availableAudioStreams[0]?.index;
 
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const platformLabel = typeof navigator !== 'undefined' && navigator.platform
+    ? navigator.platform
+    : 'Unknown platform';
 
   // Existing diagnostic, storage, and models state
   const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
@@ -99,8 +194,37 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   const [shortcutFilter, setShortcutFilter] = useState('');
   const [storageSummary, setStorageSummary] = useState<ModelsStorageSummary | null>(null);
   const [modelToDelete, setModelToDelete] = useState<string | null>(null);
+  const [modelDetailsId, setModelDetailsId] = useState<string | null>(null);
+  const [openModelMenuId, setOpenModelMenuId] = useState<string | null>(null);
+  const [advancedModelInfoOpen, setAdvancedModelInfoOpen] = useState(false);
+  const [storagePathCopied, setStoragePathCopied] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+
+  const handleStartPageChange = (value: string) => {
+    const nextTab = value === 'editor' ? 'editor' : 'projects';
+    setStartPage(nextTab);
+    setWorkspaceTab(nextTab);
+  };
+
+  const handleAudioStreamChange = async (streamIndex: number) => {
+    if (!onSelectAudioStream) return;
+    setIsSwitchingAudioStream(true);
+    try {
+      await onSelectAudioStream(streamIndex);
+    } finally {
+      setIsSwitchingAudioStream(false);
+    }
+  };
+
+  const handlePerformanceModeChange = (mode: PerformanceMode) => {
+    const updates: Partial<typeof project.settings> = { performanceMode: mode };
+    if (project.settings.modelSelectionSource !== 'user') {
+      updates.modelId = getPerformanceProfileConfig(mode).modelId;
+      updates.modelSelectionSource = 'profile';
+    }
+    updateSettings(updates);
+  };
 
   const fetchStorageSummary = async () => {
     if (window.vaaniAPI?.getModelsStorageSummary) {
@@ -150,10 +274,36 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     }
   };
 
+  const handleSelectDefaultModel = (modelId: string) => {
+    const model = models.find((item) => item.id === modelId);
+    if (!model?.isDownloaded) return;
+    updateSettings({ modelId, modelSelectionSource: 'user' });
+    setStatusMessage(`Default transcription model: ${getModelDisplayName(model)}`);
+  };
+
+  const handleCopyStoragePath = async () => {
+    if (!storageSummary?.storagePath || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(storageSummary.storagePath);
+      setStoragePathCopied(true);
+      setTimeout(() => setStoragePathCopied(false), 1800);
+    } catch {
+      setStatusMessage('Could not copy the model storage path.');
+    }
+  };
+
+  const handleOpenModelFolder = (model: ModelInfo) => {
+    const targetPath = model.localPath || storageSummary?.storagePath;
+    if (targetPath && window.vaaniAPI?.showItemInFolder) {
+      window.vaaniAPI.showItemInFolder(targetPath);
+    }
+  };
+
   const handleDownloadModel = async (modelId: string) => {
     if (!window.vaaniAPI) return;
-    setDownloadingModelId(modelId);
-    setDownloadPercent(5);
+     setDownloadingModelId(modelId);
+     setOpenModelMenuId(null);
+     setDownloadPercent(5);
     setDownloadMessage('Connecting to Hugging Face...');
 
     const cleanup = window.vaaniAPI.onProgress((prog) => {
@@ -189,10 +339,17 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     if (!window.vaaniAPI) return;
     try {
       const res = await window.vaaniAPI.deleteModel(modelId);
-      if (res.success) {
-        setStatusMessage('Deleted model files and Hugging Face cache.');
-        setModelToDelete(null);
-        onRefreshModels();
+       if (res.success) {
+         if (project.settings.modelId === modelId) {
+           const fallbackModel = models.find((model) => model.isDownloaded && model.id !== modelId);
+           if (fallbackModel) {
+             updateSettings({ modelId: fallbackModel.id, modelSelectionSource: 'user' });
+           }
+         }
+         setStatusMessage('Deleted model files and Hugging Face cache.');
+         setModelToDelete(null);
+         setOpenModelMenuId(null);
+         onRefreshModels();
         fetchStorageSummary();
       } else {
         setStatusMessage(res.error?.message || 'Failed to delete model.');
@@ -238,17 +395,16 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   const handleResetDefaults = () => {
     setTheme('dark');
     setLanguage('English');
-    setStartPage('Projects');
+     setStartPage('projects');
     setCheckForUpdates(true);
-    setAutoSaveEnabled(true);
-    setAutoSaveInterval('Every 60 seconds');
-    setProjectLocation('C:\\Users\\YourName\\Vaani Studio\\Projects');
-    setRecentProjectsLimit('10');
+     setAutosaveEnabled(true);
+     setAutosaveIntervalSeconds(60);
+     setProjectLocation('');
+     setRecentProjectsLimit(10);
     setRememberLayout(true);
-    setDefaultImportFolder('C:\\Users\\YourName\\Videos');
-    setAutoAddToTimeline(true);
-    setPreferredAudioTrack('First Track (Recommended)');
-    updateSettings({ performanceMode: 'balanced' });
+     setDefaultImportFolder('');
+     setAutoAddToTimeline(true);
+     updateSettings({ performanceMode: 'balanced', selectedAudioStreamIndex: undefined });
     setFeedbackMessage('Settings restored to default preferences.');
     setTimeout(() => setFeedbackMessage(null), 3000);
   };
@@ -260,12 +416,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     { key: 'Ctrl + K / S', desc: 'Split active subtitle at playhead position', context: 'Editor' },
     { key: 'Ctrl + M', desc: 'Merge selected subtitle with adjacent segment', context: 'Editor' },
     { key: 'Delete', desc: 'Delete currently selected subtitle', context: 'Subtitles' },
-    { key: 'Ctrl + F', desc: 'Toggle Find & Replace bar', context: 'Subtitles' },
-    { key: 'Enter', desc: 'Commit inline text edit or confirm dialog', context: 'Subtitles' },
-    { key: 'Escape', desc: 'Deselect subtitle or close modal', context: 'Global' },
-    { key: 'Arrow Left / Right', desc: 'Step playhead backward / forward 1 second', context: 'Editor' },
-    { key: 'Shift + Left / Right', desc: 'Step playhead backward / forward 1 frame (1/30s)', context: 'Editor' },
-    { key: 'Arrow Up / Down', desc: 'Navigate to previous / next subtitle event', context: 'Editor' },
+     { key: 'Enter', desc: 'Commit inline text edit or confirm dialog', context: 'Subtitles' },
+     { key: 'Escape', desc: 'Deselect subtitle or close modal', context: 'Global' },
+     { key: 'Arrow Left / Right', desc: 'Step playhead backward / forward one frame', context: 'Editor' },
+     { key: 'Shift + Left / Right', desc: 'Step playhead backward / forward one second', context: 'Editor' },
+     { key: 'Alt + Up / Down', desc: 'Navigate to previous / next subtitle event', context: 'Editor' },
+     { key: 'Tab / Shift + Tab', desc: 'Move keyboard focus between controls', context: 'Global' },
   ];
 
   const filteredShortcuts = shortcuts.filter(
@@ -288,6 +444,40 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     { id: 'about', label: 'About', icon: Info },
   ];
 
+  const installedModels = models.filter((model) => model.isDownloaded);
+  const configuredDefaultModel = models.find((model) => model.id === project.settings.modelId) || null;
+  const detailsModel = models.find((model) => model.id === modelDetailsId) || null;
+  const detailsPresentation = detailsModel ? getModelPresentation(detailsModel) : null;
+  const detailsFooter = detailsModel ? (
+    <>
+      {detailsModel.isDownloaded ? (
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm model-details-delete"
+          onClick={() => {
+            setModelToDelete(detailsModel.id);
+            setModelDetailsId(null);
+          }}
+        >
+          Delete model
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={() => void handleDownloadModel(detailsModel.id)}
+          disabled={downloadingModelId === detailsModel.id}
+        >
+          <Download size={13} />
+          <span>Download {formatModelSize(detailsModel.sizeMB)}</span>
+        </button>
+      )}
+      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setModelDetailsId(null)}>
+        Done
+      </button>
+    </>
+  ) : undefined;
+
   return (
     <div className="settings-workspace-root">
       {/* ===================================================================
@@ -296,16 +486,19 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
       <aside className="settings-sidebar">
         <div className="settings-sidebar-header">Settings</div>
 
-        <nav className="settings-nav-list">
+        <nav className="settings-nav-list" role="tablist" aria-label="Settings categories">
           {categories.map((item) => {
             const IconComponent = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
-                key={item.id}
-                className={`settings-nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.id)}
-              >
+               <button
+                 type="button"
+                 role="tab"
+                 aria-selected={isActive}
+                 key={item.id}
+                 className={`settings-nav-item ${isActive ? 'active' : ''}`}
+                 onClick={() => setActiveTab(item.id)}
+               >
                 <IconComponent size={15} />
                 <span>{item.label}</span>
               </button>
@@ -330,6 +523,17 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
           COLUMN 2: CENTER MAIN SETTINGS CONTENT AREA
          =================================================================== */}
       <main className="settings-main-column">
+        <header className="workspace-page-header settings-page-header">
+          <div>
+            <div className="workspace-eyebrow">{activeTab === 'models' ? 'Settings' : 'Application'}</div>
+            <h1 className="workspace-page-title">{activeTab === 'models' ? 'Speech Recognition' : 'Settings'}</h1>
+            <p className="workspace-page-description">
+              {activeTab === 'models'
+                ? 'Download and manage local transcription models.'
+                : 'Configure models, media, performance, and workspace behavior.'}
+            </p>
+          </div>
+        </header>
         {feedbackMessage && (
           <div
             style={{
@@ -371,13 +575,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <Globe size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Language</span>
-                    <span className="settings-row-desc">Choose the application language (UI only).</span>
+                     <span className="settings-row-desc">English is the only interface language in this build.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
                   <select
-                    className="settings-select-box"
-                    value={language}
+                     className="settings-select-box"
+                     disabled
+                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
                   >
                     <option value="English">English</option>
@@ -402,11 +607,11 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <div className="settings-row-right">
                   <select
                     className="settings-select-box"
-                    value={startPage}
-                    onChange={(e) => setStartPage(e.target.value)}
-                  >
-                    <option value="Projects">Projects</option>
-                    <option value="Editor">Editor</option>
+                     value={persistedStartPage}
+                     onChange={(e) => handleStartPageChange(e.target.value)}
+                   >
+                     <option value="projects">Projects</option>
+                     <option value="editor">Editor</option>
                   </select>
                 </div>
               </div>
@@ -417,16 +622,21 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <RefreshCw size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Check for Updates</span>
-                    <span className="settings-row-desc">Automatically check for updates on startup.</span>
+                     <span className="settings-row-desc">Updates are managed manually in this build.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <div
-                    className={`style-toggle-switch ${checkForUpdates ? 'active' : ''}`}
-                    onClick={() => setCheckForUpdates(!checkForUpdates)}
-                  >
-                    <div className="style-toggle-thumb" />
-                  </div>
+                   <button
+                     type="button"
+                     role="switch"
+                     disabled
+                     className={`style-toggle-switch ${checkForUpdates ? 'active' : ''}`}
+                     onClick={() => setCheckForUpdates(!checkForUpdates)}
+                     aria-label="Update checks"
+                     aria-checked={checkForUpdates}
+                   >
+                     <span className="style-toggle-thumb" />
+                   </button>
                 </div>
               </div>
             </div>
@@ -447,21 +657,25 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <div
-                    className={`style-toggle-switch ${autoSaveEnabled ? 'active' : ''}`}
-                    onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
-                  >
-                    <div className="style-toggle-thumb" />
-                  </div>
+                   <button
+                     type="button"
+                     role="switch"
+                     className={`style-toggle-switch ${autosaveEnabled ? 'active' : ''}`}
+                     onClick={() => setAutosaveEnabled(!autosaveEnabled)}
+                     aria-label="Autosave"
+                     aria-checked={autosaveEnabled}
+                   >
+                     <span className="style-toggle-thumb" />
+                   </button>
                   <select
                     className="settings-select-box"
-                    value={autoSaveInterval}
-                    onChange={(e) => setAutoSaveInterval(e.target.value)}
+                     value={autosaveIntervalSeconds}
+                     onChange={(e) => setAutosaveIntervalSeconds(Number(e.target.value))}
                   >
-                    <option value="Every 30 seconds">Every 30 seconds</option>
-                    <option value="Every 60 seconds">Every 60 seconds</option>
-                    <option value="Every 2 minutes">Every 2 minutes</option>
-                    <option value="Every 5 minutes">Every 5 minutes</option>
+                     <option value={30}>Every 30 seconds</option>
+                     <option value={60}>Every 60 seconds</option>
+                     <option value={120}>Every 2 minutes</option>
+                     <option value={300}>Every 5 minutes</option>
                   </select>
                 </div>
               </div>
@@ -471,22 +685,24 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <div className="settings-row-left">
                   <Folder size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
-                    <span className="settings-row-label">Project Location</span>
-                    <span className="settings-row-desc">Default folder for new projects.</span>
+                     <span className="settings-row-label">Project Location</span>
+                     <span className="settings-row-desc">Default project folders are not available in this build.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <input
-                    type="text"
-                    className="settings-path-input"
-                    value={projectLocation}
+                   <input
+                     type="text"
+                     className="settings-path-input"
+                     disabled
+                     value={projectLocation}
                     onChange={(e) => setProjectLocation(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    className="settings-path-btn"
-                    onClick={() => {
-                      setFeedbackMessage('Project location updated.');
+                   <button
+                     type="button"
+                     disabled
+                     className="settings-path-btn"
+                     onClick={() => {
+                       setFeedbackMessage('Project location updated.');
                       setTimeout(() => setFeedbackMessage(null), 2500);
                     }}
                   >
@@ -502,16 +718,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <Clock size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Recent Projects</span>
-                    <span className="settings-row-desc">
-                      Number of recent projects to show in the start page.
-                    </span>
+                     <span className="settings-row-desc">Number of recent projects shown in the start page.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <select
-                    className="settings-select-box"
-                    value={recentProjectsLimit}
-                    onChange={(e) => setRecentProjectsLimit(e.target.value)}
+                   <select
+                     className="settings-select-box"
+                     value={recentProjectsLimit}
+                     onChange={(e) => setRecentProjectsLimit(Number(e.target.value))}
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -527,18 +741,18 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <Layout size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Remember Layout</span>
-                    <span className="settings-row-desc">
-                      Restore panel sizes and layout between sessions.
-                    </span>
+                     <span className="settings-row-desc">Panel sizes and layout are remembered automatically.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <div
-                    className={`style-toggle-switch ${rememberLayout ? 'active' : ''}`}
-                    onClick={() => setRememberLayout(!rememberLayout)}
-                  >
-                    <div className="style-toggle-thumb" />
-                  </div>
+                   <button
+                     type="button"
+                     disabled
+                     className={`style-toggle-switch ${rememberLayout ? 'active' : ''}`}
+                     aria-label="Layout memory enabled"
+                   >
+                     <span className="style-toggle-thumb" />
+                   </button>
                 </div>
               </div>
             </div>
@@ -553,23 +767,23 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <Folder size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Default Import Folder</span>
-                    <span className="settings-row-desc">
-                      Last used folder for importing media files.
-                    </span>
+                     <span className="settings-row-desc">Import folder preferences are not available in this build.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <input
-                    type="text"
-                    className="settings-path-input"
-                    value={defaultImportFolder}
+                   <input
+                     type="text"
+                     className="settings-path-input"
+                     disabled
+                     value={defaultImportFolder}
                     onChange={(e) => setDefaultImportFolder(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    className="settings-path-btn"
-                    onClick={() => {
-                      setFeedbackMessage('Import folder updated.');
+                   <button
+                     type="button"
+                     disabled
+                     className="settings-path-btn"
+                     onClick={() => {
+                       setFeedbackMessage('Import folder updated.');
                       setTimeout(() => setFeedbackMessage(null), 2500);
                     }}
                   >
@@ -585,18 +799,18 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <Film size={16} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Auto Add to Timeline</span>
-                    <span className="settings-row-desc">
-                      Automatically add imported media to the timeline.
-                    </span>
+                     <span className="settings-row-desc">Imported media is managed from the editor workspace.</span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <div
-                    className={`style-toggle-switch ${autoAddToTimeline ? 'active' : ''}`}
-                    onClick={() => setAutoAddToTimeline(!autoAddToTimeline)}
-                  >
-                    <div className="style-toggle-thumb" />
-                  </div>
+                   <button
+                     type="button"
+                     disabled
+                     className={`style-toggle-switch ${autoAddToTimeline ? 'active' : ''}`}
+                     aria-label="Automatic timeline import enabled"
+                   >
+                     <span className="style-toggle-thumb" />
+                   </button>
                 </div>
               </div>
 
@@ -612,16 +826,22 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <select
-                    className="settings-select-box"
-                    value={preferredAudioTrack}
-                    onChange={(e) => setPreferredAudioTrack(e.target.value)}
-                  >
-                    <option value="First Track (Recommended)">First Track (Recommended)</option>
-                    <option value="Stereo Mix">Stereo Mix</option>
-                    <option value="Track 1">Track 1</option>
-                    <option value="Track 2">Track 2</option>
-                  </select>
+                   {availableAudioStreams.length > 0 ? (
+                     <select
+                       className="settings-select-box"
+                       value={selectedAudioStreamIndex ?? ''}
+                       disabled={isSwitchingAudioStream}
+                       onChange={(e) => void handleAudioStreamChange(Number(e.target.value))}
+                     >
+                       {availableAudioStreams.map((stream, index) => (
+                         <option key={stream.index} value={stream.index}>
+                           Track {index + 1} · {stream.language || stream.codec || 'Unknown'} · {stream.isDefault ? 'Default' : 'Alternate'}
+                         </option>
+                       ))}
+                     </select>
+                   ) : (
+                     <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Import media to inspect tracks</span>
+                   )}
                 </div>
               </div>
             </div>
@@ -642,41 +862,31 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
 
             <div className="settings-section-card">
               <div className="settings-card-title">Theme Selection</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
-                <div
-                  onClick={() => setTheme('dark')}
-                  style={{
-                    padding: '16px',
-                    backgroundColor: '#070B14',
-                    border: theme === 'dark' ? '2px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    color: '#F1F5F9',
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>Dark Theme</div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', lineHeight: 1.4 }}>
-                    Sleek charcoal surfaces, optimal for video previewing and low eye strain.
-                  </div>
-                </div>
+               <div className="settings-theme-grid">
+                 <button
+                   type="button"
+                   className={`settings-theme-option ${theme === 'dark' ? 'active' : ''}`}
+                   onClick={() => setTheme('dark')}
+                   aria-pressed={theme === 'dark'}
+                 >
+                   <span className="settings-theme-option-title">Dark</span>
+                   <span className="settings-theme-option-description">
+                     Neutral dark surfaces for long editing sessions.
+                   </span>
+                 </button>
 
-                <div
-                  onClick={() => setTheme('light')}
-                  style={{
-                    padding: '16px',
-                    backgroundColor: '#1E293B',
-                    border: theme === 'light' ? '2px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    color: '#F1F5F9',
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>Light Theme</div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', lineHeight: 1.4 }}>
-                    Crisp high-contrast theme following Windows 11 Fluent guidelines.
-                  </div>
-                </div>
-              </div>
+                 <button
+                   type="button"
+                   className={`settings-theme-option ${theme === 'light' ? 'active' : ''}`}
+                   onClick={() => setTheme('light')}
+                   aria-pressed={theme === 'light'}
+                 >
+                   <span className="settings-theme-option-title">Light</span>
+                   <span className="settings-theme-option-description">
+                     High-contrast workspace for bright environments.
+                   </span>
+                 </button>
+               </div>
             </div>
           </>
         )}
@@ -685,279 +895,271 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             TAB 3: MODELS
            ------------------------------------------------------------- */}
         {activeTab === 'models' && (
-          <>
-            <div className="settings-header-block">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <h2 className="settings-main-title">Speech Recognition Models</h2>
-                  <p className="settings-main-subtitle">
-                    Models run locally on your device via CTranslate2 INT8 quantization. Full offline privacy.
-                  </p>
+          <div className="model-manager">
+            <div className="model-manager-header">
+              <div>
+                <h2 className="settings-main-title">Models</h2>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  onRefreshModels();
+                  fetchStorageSummary();
+                }}
+                title="Refresh model states and storage usage"
+              >
+                <RefreshCw size={13} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            <section className="model-default-panel" aria-labelledby="default-model-heading">
+              <div className="model-default-copy">
+                <span id="default-model-heading" className="model-section-label">Default transcription model</span>
+                <span className="model-default-note">Used for new transcription runs.</span>
+              </div>
+              <div className="model-default-control">
+                <select
+                  aria-label="Default transcription model"
+                  className="model-default-select"
+                  value={configuredDefaultModel?.id || ''}
+                  onChange={(event) => handleSelectDefaultModel(event.target.value)}
+                  disabled={models.length === 0}
+                >
+                  {models.length === 0 && <option value="">No models available</option>}
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id} disabled={!model.isDownloaded}>
+                      {getModelDisplayName(model)}{model.isDownloaded ? '' : ' — Not installed'}
+                    </option>
+                  ))}
+                </select>
+                {configuredDefaultModel && !configuredDefaultModel.isDownloaded && (
+                  <span className="model-default-warning">Download this model before using it.</span>
+                )}
+              </div>
+            </section>
+
+            <section className="model-storage-summary" aria-labelledby="model-storage-heading">
+              <div className="model-storage-summary-header">
+                <div className="model-storage-summary-title">
+                  <span id="model-storage-heading" className="model-section-label">Model storage</span>
+                  <span className="model-storage-summary-meta">{installedModels.length} of {models.length} installed</span>
                 </div>
                 <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    onRefreshModels();
-                    fetchStorageSummary();
-                  }}
-                  title="Refresh model states and storage usage"
+                  type="button"
+                  className="model-icon-action"
+                  onClick={() => void handleCopyStoragePath()}
+                  disabled={!storageSummary?.storagePath}
+                  title="Copy model storage path"
+                  aria-label="Copy model storage path"
                 >
-                  Refresh Models
+                  <Copy size={13} />
+                  <span>{storagePathCopied ? 'Copied' : 'Copy path'}</span>
                 </button>
               </div>
-            </div>
-
-            {/* Storage overview */}
-            <div className="settings-section-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '13px', color: '#F8FAFC' }}>
-                      Model Storage Directory
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        backgroundColor: storageSummary?.isSetupFolder ? 'rgba(74, 222, 128, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                        color: storageSummary?.isSetupFolder ? '#4ade80' : '#38bdf8',
-                        border: `1px solid ${storageSummary?.isSetupFolder ? 'rgba(74, 222, 128, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`,
-                      }}
-                    >
-                      {storageSummary?.isSetupFolder ? 'Setup App Folder' : 'Local AppData'}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '11px',
-                      color: '#94A3B8',
-                      wordBreak: 'break-all',
-                      userSelect: 'text',
-                    }}
-                  >
+              <div className="model-storage-fields">
+                <div className="model-storage-field">
+                  <span>Models</span>
+                  <strong>{installedModels.length} of {models.length} installed</strong>
+                </div>
+                <div className="model-storage-field">
+                  <span>Storage</span>
+                  <strong>{formatStorageSize(storageSummary?.totalModelsSizeMB ?? 0)} used</strong>
+                </div>
+                <div className="model-storage-field model-storage-location">
+                  <span>Location</span>
+                  <strong title={storageSummary?.storagePath || 'Locating storage path...'}>
                     {storageSummary?.storagePath || 'Locating storage path...'}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {storageSummary?.storagePath && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        if (window.vaaniAPI?.showItemInFolder && storageSummary.storagePath) {
-                          window.vaaniAPI.showItemInFolder(storageSummary.storagePath);
-                        }
-                      }}
-                      title="Open storage folder in Windows File Explorer"
-                    >
-                      Open Folder
-                    </button>
-                  )}
-
-                  {storageSummary && storageSummary.downloadedCount > 0 && (
-                    <>
-                      {showDeleteAllConfirm ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            disabled={isDeletingAll}
-                            onClick={handleDeleteAllModels}
-                          >
-                            {isDeletingAll ? 'Deleting All...' : 'Confirm Delete All'}
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            disabled={isDeletingAll}
-                            onClick={() => setShowDeleteAllConfirm(false)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          style={{ color: 'var(--color-danger, #ef4444)' }}
-                          onClick={() => setShowDeleteAllConfirm(true)}
-                          title="Delete all downloaded models to free disk space"
-                        >
-                          Delete All Models
-                        </button>
-                      )}
-                    </>
-                  )}
+                  </strong>
                 </div>
               </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '24px',
-                  paddingTop: '10px',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                  fontSize: '11.5px',
-                  color: '#94A3B8',
-                }}
-              >
-                <div>
-                  Disk Usage: <strong style={{ color: '#F8FAFC' }}>{storageSummary?.totalModelsSizeMB ?? 0} MB</strong>
-                </div>
-                <div>
-                  Downloaded Models: <strong style={{ color: '#F8FAFC' }}>{storageSummary?.downloadedCount ?? 0} / {models.length}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Model list cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {models.map((m) => {
-                const isDownloading = downloadingModelId === m.id;
-                const isConfirmingDelete = modelToDelete === m.id;
-
-                return (
-                  <div
-                    key={m.id}
-                    className="settings-section-card"
-                    style={{
-                      border: isDownloading ? '1px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.07)',
-                    }}
+              <div className="model-storage-footer">
+                {storageSummary?.storagePath && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => window.vaaniAPI?.showItemInFolder?.(storageSummary.storagePath)}
+                    title="Open model storage folder"
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '16px',
-                      }}
+                    <Folder size={13} />
+                    <span>Open folder</span>
+                  </button>
+                )}
+                {installedModels.length > 0 && (
+                  showDeleteAllConfirm ? (
+                    <div className="model-delete-all-confirm">
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        disabled={isDeletingAll}
+                        onClick={() => void handleDeleteAllModels()}
+                      >
+                        {isDeletingAll ? 'Deleting...' : 'Confirm delete all'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={isDeletingAll}
+                        onClick={() => setShowDeleteAllConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="model-text-action danger"
+                      onClick={() => setShowDeleteAllConfirm(true)}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: 600, fontSize: '13px', color: '#F8FAFC' }}>
-                            {m.name}
-                          </span>
-                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                            ({m.sizeMB} MB)
-                          </span>
-                          {m.isDownloaded && (
-                            <span
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: 600,
-                                color: '#4ADE80',
-                                backgroundColor: 'rgba(74, 222, 128, 0.15)',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                              }}
-                            >
-                              Ready
-                            </span>
-                          )}
-                          {isDownloading && (
-                            <span
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: 600,
-                                color: '#60A5FA',
-                                backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                              }}
-                            >
-                              Downloading ({downloadPercent.toFixed(0)}%)
-                            </span>
-                          )}
-                        </div>
-                        <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                          {m.description}
-                        </p>
-                      </div>
+                      Delete all models
+                    </button>
+                  )
+                )}
+              </div>
+            </section>
 
-                      <div>
-                        {m.isDownloaded ? (
-                          isConfirmingDelete ? (
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <button
-                                className="btn btn-danger btn-sm"
-                                onClick={() => handleDeleteModel(m.id)}
-                                title="Permanently delete model files"
-                              >
-                                Confirm Delete
-                              </button>
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => setModelToDelete(null)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
+            <section className="model-list-section" aria-labelledby="model-list-heading">
+              <div className="model-list-header">
+                <div>
+                  <h3 id="model-list-heading">Models</h3>
+                  <span>{installedModels.length} of {models.length} installed</span>
+                </div>
+                <span className="model-list-hint">Select a model to view details</span>
+              </div>
+              <div className="model-list" role="list">
+                {models.length === 0 ? (
+                  <div className="model-list-empty">No models are available. Refresh to load the model catalog.</div>
+                ) : models.map((model) => {
+                  const presentation = getModelPresentation(model);
+                  const isDefault = configuredDefaultModel?.id === model.id;
+                  const isDownloading = downloadingModelId === model.id;
+                  const isMenuOpen = openModelMenuId === model.id;
+                  const isConfirmingDelete = modelToDelete === model.id;
+                  const modelStatus = isDownloading ? 'downloading' : model.isDownloaded ? 'ready' : 'not-installed';
+
+                  return (
+                    <div
+                      key={model.id}
+                      className={`model-row ${isDefault ? 'is-default' : ''} ${isDownloading ? 'is-downloading' : ''}`}
+                      role="listitem"
+                    >
+                      <button
+                        type="button"
+                        className="model-row-summary"
+                        onClick={() => {
+                          setAdvancedModelInfoOpen(false);
+                          setModelDetailsId(model.id);
+                        }}
+                        aria-label={`View details for ${getModelDisplayName(model)}`}
+                      >
+                        <span className="model-row-name-line">
+                          <strong>{getModelDisplayName(model)}</strong>
+                          {isDefault && <span className="model-row-label default">Default</span>}
+                          {model.isRecommended && <span className="model-row-label recommended">Recommended</span>}
+                        </span>
+                        <span className="model-row-description">{presentation.summary}</span>
+                      </button>
+                      <div className="model-row-size">{formatModelSize(model.sizeMB)}</div>
+                      <div className={`model-status ${modelStatus}`}>
+                        <span className="model-status-dot" />
+                        <span>{isDownloading ? 'Downloading' : model.isDownloaded ? 'Ready' : 'Not installed'}</span>
+                      </div>
+                      <div className="model-row-action">
+                        {isConfirmingDelete && model.isDownloaded ? (
+                          <div className="model-delete-confirm">
                             <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => setModelToDelete(m.id)}
-                              title="Delete model files to free disk space"
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => void handleDeleteModel(model.id)}
                             >
-                              Delete Model
+                              Delete
                             </button>
-                          )
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setModelToDelete(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : isDownloading ? (
+                          <span className="model-download-percent">{downloadPercent.toFixed(0)}%</span>
+                        ) : model.isDownloaded ? (
+                          <div className="model-actions-menu-wrap">
+                            <button
+                              type="button"
+                              className="model-icon-action"
+                              aria-label={`Actions for ${getModelDisplayName(model)}`}
+                              aria-haspopup="menu"
+                              aria-expanded={isMenuOpen}
+                              onClick={() => setOpenModelMenuId(isMenuOpen ? null : model.id)}
+                            >
+                              <MoreHorizontal size={15} />
+                            </button>
+                            {isMenuOpen && (
+                              <div className="model-actions-menu" role="menu">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setOpenModelMenuId(null);
+                                    setAdvancedModelInfoOpen(false);
+                                    setModelDetailsId(model.id);
+                                  }}
+                                >
+                                  View details
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setOpenModelMenuId(null);
+                                    handleOpenModelFolder(model);
+                                  }}
+                                >
+                                  Open model folder
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="danger"
+                                  onClick={() => {
+                                    setOpenModelMenuId(null);
+                                    setModelToDelete(model.id);
+                                  }}
+                                >
+                                  Delete model
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <button
-                            className="btn btn-primary btn-sm"
-                            disabled={isDownloading}
-                            onClick={() => handleDownloadModel(m.id)}
+                            type="button"
+                            className="btn btn-secondary btn-sm model-download-button"
+                            onClick={() => void handleDownloadModel(model.id)}
                           >
-                            {isDownloading ? `Downloading (${downloadPercent.toFixed(0)}%)...` : `Download (${m.sizeMB} MB)`}
+                            <Download size={13} />
+                            <span>Download {formatModelSize(model.sizeMB)}</span>
                           </button>
                         )}
                       </div>
-                    </div>
-
-                    {isDownloading && (
-                      <div style={{ width: '100%', paddingTop: '4px' }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            fontSize: '11px',
-                            color: '#94A3B8',
-                            marginBottom: '6px',
-                          }}
-                        >
-                          <span style={{ fontFamily: 'var(--font-mono)' }}>
-                            {downloadMessage || 'Connecting to Hugging Face...'}
-                          </span>
-                          <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
-                            {downloadPercent.toFixed(0)}%
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '5px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            borderRadius: '3px',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${Math.max(4, Math.min(100, downloadPercent))}%`,
-                              height: '100%',
-                              backgroundColor: '#2563EB',
-                              borderRadius: '3px',
-                              transition: 'width 0.25s ease',
-                            }}
+                      {isDownloading && (
+                        <div className="model-row-progress">
+                          <ProgressBar
+                            value={downloadPercent}
+                            label={downloadMessage || 'Downloading model'}
+                            detail={`${downloadPercent.toFixed(0)}%`}
                           />
                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
         )}
 
         {/* -------------------------------------------------------------
@@ -974,32 +1176,24 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
 
             <div className="settings-section-card">
               <div className="settings-card-title">Performance Mode</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                {[
-                  { id: 'fast', title: 'Fast Mode', desc: 'Minimal latency. Optimized for rapid drafts with Tiny/Base models.' },
-                  { id: 'balanced', title: 'Balanced Mode (Recommended)', desc: 'Optimal trade-off between transcription accuracy and speed.' },
-                  { id: 'quality', title: 'Maximum Quality', desc: 'Highest transcription fidelity using larger beam sizes and models.' },
-                ].map((mode) => (
-                  <div
-                    key={mode.id}
-                    onClick={() => updateSettings({ performanceMode: mode.id as PerformanceMode })}
-                    style={{
-                      padding: '14px',
-                      borderRadius: '8px',
-                      backgroundColor: project.settings.performanceMode === mode.id ? 'rgba(37, 99, 235, 0.15)' : '#070B14',
-                      border: project.settings.performanceMode === mode.id ? '1px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.08)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: project.settings.performanceMode === mode.id ? '#60A5FA' : '#F8FAFC', marginBottom: '4px' }}>
-                      {mode.title}
-                    </div>
-                    <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0, lineHeight: 1.4 }}>
-                      {mode.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
+               <div className="settings-performance-grid">
+                 {[
+                   { id: 'fast', title: 'Fast', desc: 'Minimal latency for rapid drafts with smaller models.' },
+                   { id: 'balanced', title: 'Balanced', desc: 'A practical balance of transcription accuracy and speed.' },
+                   { id: 'quality', title: 'Quality', desc: 'Highest fidelity with larger models and beam sizes.' },
+                 ].map((mode) => (
+                   <button
+                     type="button"
+                     key={mode.id}
+                     className={`settings-performance-option ${project.settings.performanceMode === mode.id ? 'active' : ''}`}
+                     aria-pressed={project.settings.performanceMode === mode.id}
+                     onClick={() => handlePerformanceModeChange(mode.id as PerformanceMode)}
+                   >
+                     <span className="settings-performance-title">{mode.title}</span>
+                     <span className="settings-performance-description">{mode.desc}</span>
+                   </button>
+                 ))}
+               </div>
             </div>
 
             {/* Memory & Cache Management */}
@@ -1054,7 +1248,8 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <input
                   type="text"
                   className="input-text"
-                  placeholder="Search shortcuts..."
+                   aria-label="Search keyboard shortcuts"
+                   placeholder="Search shortcuts..."
                   style={{ maxWidth: '280px', height: '32px' }}
                   value={shortcutFilter}
                   onChange={(e) => setShortcutFilter(e.target.value)}
@@ -1071,15 +1266,17 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredShortcuts.map((s, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#60A5FA', fontSize: '12px' }}>
-                          {s.key}
-                        </td>
-                        <td style={{ fontSize: '12px', color: '#F8FAFC' }}>{s.desc}</td>
-                        <td style={{ fontSize: '11px', color: '#94A3B8' }}>{s.context}</td>
-                      </tr>
-                    ))}
+                     {filteredShortcuts.length > 0 ? filteredShortcuts.map((s, idx) => (
+                       <tr key={idx}>
+                         <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#60A5FA', fontSize: '12px' }}>
+                           {s.key}
+                         </td>
+                         <td style={{ fontSize: '12px', color: '#F8FAFC' }}>{s.desc}</td>
+                         <td style={{ fontSize: '11px', color: '#94A3B8' }}>{s.context}</td>
+                       </tr>
+                     )) : (
+                       <tr><td colSpan={3}>No shortcuts match your search.</td></tr>
+                     )}
                   </tbody>
                 </table>
               </div>
@@ -1095,7 +1292,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">Privacy & Local-First Architecture</h2>
               <p className="settings-main-subtitle">
-                Your media never leaves this computer. 100% offline guarantee.
+                 Media processing stays on this computer; model downloads are the only network operation.
               </p>
             </div>
 
@@ -1105,10 +1302,10 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <strong style={{ color: '#F8FAFC' }}>Your media never leaves this computer.</strong> Vaani Studio is built from the ground up as a native desktop application. All speech recognition, waveform analysis, speaker diarization, and video burn-in happen entirely locally using your CPU and hardware.
                 </p>
                 <p>
-                  There is <strong style={{ color: '#F8FAFC' }}>zero cloud processing</strong>, zero voice telemetry, and no hidden data uploads. The only network connections made are when you explicitly request a Whisper model weight download from Hugging Face or check for application updates.
+                   There is <strong style={{ color: '#F8FAFC' }}>zero cloud processing</strong>, zero voice telemetry, and no hidden media uploads. Network access is used only when you explicitly download a model from Hugging Face.
                 </p>
                 <p>
-                  You can disconnect your internet connection entirely, and Vaani Studio will continue generating, editing, styling, and exporting subtitles with 100% functionality.
+                   You can disconnect your internet connection after models are available and continue editing, styling, and exporting subtitles.
                 </p>
               </div>
             </div>
@@ -1179,12 +1376,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <div className="settings-row-info">
                     <span className="settings-row-label">Max Characters Per Line</span>
                     <span className="settings-row-desc">
-                      Recommended 37 to 42 characters for broadcast readability.
+                       Formatting is controlled by the active subtitle style in this build.
                     </span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <select className="settings-select-box" defaultValue="42">
+                   <select className="settings-select-box" disabled defaultValue="42">
                     <option value="36">36 characters</option>
                     <option value="42">42 characters (Standard)</option>
                     <option value="48">48 characters</option>
@@ -1198,12 +1395,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <div className="settings-row-info">
                     <span className="settings-row-label">FFmpeg Hardware Acceleration</span>
                     <span className="settings-row-desc">
-                      Auto-detect NVENC or QSV hardware acceleration for video export.
+                       Export uses the encoder selected by the active hardware profile.
                     </span>
                   </div>
                 </div>
                 <div className="settings-row-right">
-                  <select className="settings-select-box" defaultValue="auto">
+                   <select className="settings-select-box" disabled defaultValue="auto">
                     <option value="auto">Auto-detect</option>
                     <option value="cpu">Software (libx264)</option>
                     <option value="nvenc">NVIDIA NVENC</option>
@@ -1522,15 +1719,15 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             </div>
             <div className="settings-status-row">
               <span className="settings-status-key">Operating System</span>
-              <span className="settings-status-val">Windows 11 (64-bit)</span>
+               <span className="settings-status-val">{platformLabel}</span>
             </div>
             <div className="settings-status-row">
               <span className="settings-status-key">CPU</span>
               <span
                 className="settings-status-val"
-                title={hardware?.cpuModel || 'Intel(R) Core(TM) i7-3770 CPU'}
-              >
-                {hardware?.cpuModel || 'Intel(R) Core(TM) i7-3770 CPU'}
+                 title={hardware?.cpuModel || 'Not detected'}
+               >
+                 {hardware?.cpuModel || 'Not detected'}
               </span>
             </div>
             <div className="settings-status-row">
@@ -1538,16 +1735,16 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <span className="settings-status-val">
                 {hardware?.totalMemoryMB
                   ? `${Math.round(hardware.totalMemoryMB / 1024)} GB`
-                  : '16 GB'}
+                   : 'Unknown'}
               </span>
             </div>
             <div className="settings-status-row">
               <span className="settings-status-key">GPU</span>
               <span
                 className="settings-status-val"
-                title={hardware?.gpuName || 'Integrated Graphics / CPU Execution'}
-              >
-                {hardware?.gpuName || 'Integrated Graphics / CPU Execution'}
+                 title={hardware?.gpuName || 'Not detected'}
+               >
+                 {hardware?.gpuName || 'Not detected'}
               </span>
             </div>
             <div className="settings-status-row">
@@ -1561,7 +1758,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     backgroundColor: '#22C55E',
                   }}
                 />
-                Available
+                 Run diagnostics to verify
               </span>
             </div>
             <div className="settings-status-row">
@@ -1572,10 +1769,10 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    backgroundColor: '#22C55E',
-                  }}
-                />
-                Ready
+                     backgroundColor: 'var(--text-muted)',
+                   }}
+                 />
+                 Run diagnostics to verify
               </span>
             </div>
           </div>
@@ -1594,6 +1791,56 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
           </button>
         </div>
       </aside>
+
+      <Dialog
+        isOpen={Boolean(detailsModel)}
+        onClose={() => setModelDetailsId(null)}
+        title={detailsModel ? getModelDisplayName(detailsModel) : 'Model details'}
+        description={detailsPresentation?.summary}
+        className="model-details-dialog"
+        footer={detailsFooter}
+      >
+        {detailsModel && detailsPresentation && (
+          <div className="model-details">
+            <div className="model-details-summary">
+              <div>
+                <span className="model-section-label">Model size</span>
+                <strong>{formatModelSize(detailsModel.sizeMB)}</strong>
+              </div>
+              <div className={`model-status ${detailsModel.isDownloaded ? 'ready' : 'not-installed'}`}>
+                <span className="model-status-dot" />
+                <span>{detailsModel.isDownloaded ? 'Ready' : 'Not installed'}</span>
+              </div>
+            </div>
+            <div className="model-details-grid">
+              <div><span>Languages</span><strong>{detailsPresentation.languages}</strong></div>
+              <div><span>Accuracy</span><strong>{detailsPresentation.accuracy}</strong></div>
+              <div><span>Memory</span><strong>{detailsPresentation.memory}</strong></div>
+              <div><span>Recommended for</span><strong>{detailsPresentation.useCase}</strong></div>
+            </div>
+            <div className="model-details-divider" />
+            <button
+              type="button"
+              className="model-advanced-toggle"
+              aria-expanded={advancedModelInfoOpen}
+              onClick={() => setAdvancedModelInfoOpen(!advancedModelInfoOpen)}
+            >
+              <span>Advanced model information</span>
+              {advancedModelInfoOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+            {advancedModelInfoOpen && (
+              <div className="model-advanced-grid">
+                <div><span>Architecture</span><strong>Whisper</strong></div>
+                <div><span>Parameters</span><strong>{detailsModel.parameters}</strong></div>
+                <div><span>Quantization</span><strong>INT8</strong></div>
+                <div><span>Runtime</span><strong>CTranslate2</strong></div>
+                <div><span>Format</span><strong>Local</strong></div>
+                <div><span>Languages</span><strong>{detailsPresentation.languages}</strong></div>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 };

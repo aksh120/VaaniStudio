@@ -20,6 +20,7 @@ import {
   AlignCenter,
   AlignRight,
   Check,
+  X,
 } from 'lucide-react';
 
 export interface ContextualInspectorProps {
@@ -65,7 +66,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   eventsCount,
   scriptMode,
   onScriptModeChange,
-  onClose: _onClose,
+  onClose,
 }) => {
   const { inspectorTab, setInspectorTab } = useUIStore();
 
@@ -97,28 +98,56 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
   return (
     <div className="contextual-inspector-root">
       {/* 3-Tab Navigation Header (Image 0 Target UI: Style | Translate | Review) */}
-      <div className="inspector-nav-tabs">
-        <button
-          className={`inspector-nav-btn ${inspectorTab === 'style' ? 'active' : ''}`}
-          onClick={() => setInspectorTab('style')}
+       <div className="inspector-nav-tabs" role="tablist" aria-label="Inspector sections">
+         <button
+           type="button"
+           role="tab"
+           aria-selected={inspectorTab === 'style'}
+           className={`inspector-nav-btn ${inspectorTab === 'style' ? 'active' : ''}`}
+           onClick={() => setInspectorTab('style')}
           title="Style Preset and Visual Appearance"
         >
           Style
         </button>
-        <button
-          className={`inspector-nav-btn ${inspectorTab === 'translate' ? 'active' : ''}`}
-          onClick={() => setInspectorTab('translate')}
-          title="Language Script and Translation"
-        >
-          Translate
+            <button
+             type="button"
+             role="tab"
+             aria-selected={inspectorTab === 'translate'}
+             className={`inspector-nav-btn ${inspectorTab === 'translate' ? 'active' : ''}`}
+             onClick={() => setInspectorTab('translate')}
+           title="Language and script presentation"
+         >
+           Script
         </button>
-        <button
-          className={`inspector-nav-btn ${inspectorTab === 'review' || inspectorTab === 'subtitle' ? 'active' : ''}`}
-          onClick={() => setInspectorTab('review')}
-          title="Subtitle Event Timing and Review"
-        >
-          Review
-        </button>
+             <button
+               type="button"
+               role="tab"
+               aria-selected={inspectorTab === 'review' || inspectorTab === 'subtitle'}
+               className={`inspector-nav-btn ${inspectorTab === 'review' || inspectorTab === 'subtitle' ? 'active' : ''}`}
+               onClick={() => setInspectorTab('review')}
+             title="Subtitle Event Timing and Review"
+           >
+             Review
+           </button>
+             <button
+               type="button"
+               role="tab"
+               aria-selected={inspectorTab === 'video'}
+               className={`inspector-nav-btn ${inspectorTab === 'video' ? 'active' : ''}`}
+               onClick={() => setInspectorTab('video')}
+             title="Media Properties"
+           >
+             Media
+           </button>
+             <button
+               type="button"
+               className="inspector-close-btn"
+             onClick={onClose}
+             aria-label="Hide inspector"
+             title="Hide inspector"
+           >
+             <X size={14} />
+           </button>
       </div>
 
       {/* Main Inspector Scroll Area */}
@@ -259,7 +288,23 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                   </div>
                 </div>
 
-                {/* Speaker Label */}
+                 {selectedEvent.wordTimingState === 'legacy-unverified' && (
+                   <div
+                     role="status"
+                     style={{
+                       padding: '7px 9px',
+                       border: '1px solid var(--color-warning)',
+                       borderRadius: 'var(--radius-xs)',
+                       color: 'var(--color-warning)',
+                       fontSize: '10px',
+                       lineHeight: 1.4,
+                     }}
+                   >
+                     Legacy timing is unverified. Re-extract audio and regenerate subtitles before synchronized export.
+                   </div>
+                 )}
+
+                 {/* Speaker Label */}
                 <div className="control-group">
                   <label className="input-label">Speaker</label>
                   <input
@@ -275,13 +320,15 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 {/* Word-Level Timings Accordion */}
                 {selectedEvent.words && selectedEvent.words.length > 0 && (
                   <div className="inspector-accordion">
-                    <div
-                      className="inspector-accordion-head"
-                      onClick={() => setIsWordTimingOpen(!isWordTimingOpen)}
-                    >
-                      <span>Word Timings ({selectedEvent.words.length})</span>
-                      {isWordTimingOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </div>
+                     <button
+                       type="button"
+                       className="inspector-accordion-head"
+                       aria-expanded={isWordTimingOpen}
+                       onClick={() => setIsWordTimingOpen(!isWordTimingOpen)}
+                     >
+                       <span>Word Timings ({selectedEvent.words.length})</span>
+                       {isWordTimingOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                     </button>
                     {isWordTimingOpen && (
                       <div className="inspector-accordion-body" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                         {selectedEvent.words.map((w, idx) => (
@@ -339,94 +386,40 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             {/* Current Preset Card */}
             <div className="current-preset-section">
               <span className="current-preset-label">Current Preset</span>
-              <div
-                className="current-preset-card"
-                onClick={() => setIsPresetPickerOpen(!isPresetPickerOpen)}
-                title="Click to select a style preset"
-              >
-                <div className="preset-thumbnail">
-                  <span className="preset-thumb-text">{currentPreset.name}</span>
-                </div>
-                <div className="preset-info-wrap">
-                  <span className="preset-card-title">{currentPreset.name}</span>
-                  <span className="preset-card-desc">{currentPreset.description}</span>
-                </div>
-                {isPresetPickerOpen ? (
-                  <ChevronDown size={16} color="#94A3B8" />
-                ) : (
-                  <ChevronRight size={16} color="#94A3B8" />
-                )}
-              </div>
+               <button
+                 type="button"
+                 className="current-preset-card"
+                 onClick={() => setIsPresetPickerOpen(!isPresetPickerOpen)}
+                 aria-expanded={isPresetPickerOpen}
+                 title="Select a style preset"
+               >
+                 <span className="preset-thumbnail">
+                   <span className="preset-thumb-text">{currentPreset.name}</span>
+                 </span>
+                 <span className="preset-info-wrap">
+                   <span className="preset-card-title">{currentPreset.name}</span>
+                   <span className="preset-card-desc">{currentPreset.description}</span>
+                 </span>
+                 {isPresetPickerOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+               </button>
 
               {/* Expandable Preset Picker Drawer */}
               {isPresetPickerOpen && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    padding: '8px',
-                    backgroundColor: '#0E1524',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '8px',
-                    maxHeight: '220px',
-                    overflowY: 'auto',
-                  }}
-                >
+                 <div className="preset-picker-list">
                   {BUILT_IN_PRESETS.map((preset) => (
-                    <div
-                      key={preset.id}
-                      onClick={() => handleSelectPreset(preset)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '6px 8px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        backgroundColor:
-                          styleConfig.name === preset.name ? 'rgba(37, 99, 235, 0.2)' : 'transparent',
-                        border:
-                          styleConfig.name === preset.name
-                            ? '1px solid #2563EB'
-                            : '1px solid transparent',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '44px',
-                          height: '28px',
-                          borderRadius: '4px',
-                          backgroundColor: '#090D16',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          color: '#F8FAFC',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {preset.name.slice(0, 5)}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>
-                          {preset.name}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            color: '#94A3B8',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {preset.description}
-                        </span>
-                      </div>
-                    </div>
+                     <button
+                       type="button"
+                       key={preset.id}
+                       className={`preset-picker-item ${styleConfig.name === preset.name ? 'active' : ''}`}
+                       onClick={() => handleSelectPreset(preset)}
+                       aria-pressed={styleConfig.name === preset.name}
+                     >
+                       <span className="preset-picker-thumb">{preset.name.slice(0, 5)}</span>
+                       <span className="preset-picker-copy">
+                         <span className="preset-picker-name">{preset.name}</span>
+                         <span className="preset-picker-description">{preset.description}</span>
+                       </span>
+                     </button>
                   ))}
                 </div>
               )}
@@ -436,15 +429,17 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             <div className="style-mode-segmented">
               <button
                 type="button"
-                className={`style-mode-btn ${styleMode === 'quick' ? 'active' : ''}`}
-                onClick={() => setStyleMode('quick')}
+                 className={`style-mode-btn ${styleMode === 'quick' ? 'active' : ''}`}
+                 aria-pressed={styleMode === 'quick'}
+                 onClick={() => setStyleMode('quick')}
               >
                 Quick Style
               </button>
               <button
                 type="button"
-                className={`style-mode-btn ${styleMode === 'advanced' ? 'active' : ''}`}
-                onClick={() => setStyleMode('advanced')}
+                 className={`style-mode-btn ${styleMode === 'advanced' ? 'active' : ''}`}
+                 aria-pressed={styleMode === 'advanced'}
+                 onClick={() => setStyleMode('advanced')}
               >
                 Advanced
               </button>

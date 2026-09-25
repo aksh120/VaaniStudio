@@ -13,6 +13,7 @@ import {
   AnimationType,
   KaraokeHighlightMode,
 } from '../types/models.js';
+import { getWordDisplayText } from './wordAlignment.js';
 
 export type WordHighlightState = 'future' | 'active' | 'past';
 
@@ -152,6 +153,68 @@ export function getActiveWordTiming(
  * Calculate Entrance, Display, and Exit transition states for a subtitle event
  * Supports 'pop', 'fade', 'slide-up', 'bounce', and 'none'
  */
+export function synchronizeWordTimingsToEvent(
+  event: Pick<SubtitleEvent, 'startTime' | 'endTime' | 'words'>
+): WordTiming[] {
+  const words = event.words || [];
+  if (words.length === 0) {
+    return [];
+  }
+
+  const eventDuration = Math.max(0.01, event.endTime - event.startTime);
+  const firstStart = Math.min(...words.map((word) => word.startTime));
+  const lastEnd = Math.max(...words.map((word) => word.endTime));
+  const wordSpan = Math.max(0, lastEnd - firstStart);
+  const wordsBeforeEvent = lastEnd <= event.startTime + 0.02;
+  const wordsAfterEvent = firstStart >= event.endTime - 0.02;
+  const degenerateTiming = wordSpan <= 0.001;
+
+  if (!wordsBeforeEvent && !wordsAfterEvent && !degenerateTiming) {
+    return words;
+  }
+
+  const sourceSpan = degenerateTiming ? 1 : wordSpan;
+  return words.map((word) => {
+    const relativeStart = (word.startTime - firstStart) / sourceSpan;
+    const relativeEnd = (word.endTime - firstStart) / sourceSpan;
+    const startTime = event.startTime + relativeStart * eventDuration;
+    const endTime = event.startTime + relativeEnd * eventDuration;
+    return {
+      ...word,
+      startTime,
+      endTime: Math.max(startTime + 0.01, endTime),
+    };
+  });
+}
+
+export function getWordHighlightStates(
+  words: WordTiming[] | undefined | null,
+  currentTime: number
+): WordHighlightState[] {
+  if (!words || words.length === 0) {
+    return [];
+  }
+
+  const timing = getActiveWordTiming(words, currentTime);
+  if (timing.activeIndex < 0) {
+    return words.map(() => 'future' as const);
+  }
+
+  if (timing.isGap) {
+    const lastWord = words[words.length - 1];
+    if (currentTime > lastWord.endTime) {
+      return words.map(() => 'past' as const);
+    }
+    return words.map((_, index) => (index <= timing.activeIndex ? 'past' as const : 'future' as const));
+  }
+
+  return words.map((_, index) => {
+    if (index < timing.activeIndex) return 'past' as const;
+    if (index === timing.activeIndex) return 'active' as const;
+    return 'future' as const;
+  });
+}
+
 export function calculateTransitionState(
   currentTime: number,
   startTime: number,
@@ -349,33 +412,39 @@ export function compileAssTransitionTags(
  * If words are missing or empty, cleanly falls back to plain event text.
  */
 export function compileAssKaraokeText(
-  event: Pick<SubtitleEvent, 'startTime' | 'endTime' | 'text' | 'words'>,
+  event: Pick<SubtitleEvent, 'startTime' | 'endTime' | 'text' | 'words' | 'wordTimingState'>,
   karaokeMode: KaraokeHighlightMode = 'step'
 ): string {
-  if (!event.words || event.words.length === 0) {
+  if (
+    !event.words ||
+    event.words.length === 0 ||
+    event.wordTimingState === 'stale' ||
+    event.wordTimingState === 'legacy-unverified'
+  ) {
     return event.text || '';
   }
 
+  const words = synchronizeWordTimingsToEvent(event);
   const tagPrefix = karaokeMode === 'sweep' ? '\\kf' : '\\k';
   const parts: string[] = [];
 
   // Pre-gap: silence before first word
-  const firstWord = event.words[0];
+  const firstWord = words[0];
   const preGapCs = Math.round((firstWord.startTime - event.startTime) * 100);
   if (preGapCs > 0) {
     parts.push(`{\\k${preGapCs}}`);
   }
 
-  for (let i = 0; i < event.words.length; i++) {
-    const w = event.words[i];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
     const durCs = Math.max(1, Math.round((w.endTime - w.startTime) * 100));
-    const punctuation = w.punctuationFollows || '';
+    const wordText = getWordDisplayText(w);
 
-    parts.push(`{${tagPrefix}${durCs}}${w.word}${punctuation}`);
+    parts.push(`{${tagPrefix}${durCs}}${wordText}`);
 
     // Inter-word gap
-    if (i < event.words.length - 1) {
-      const nextW = event.words[i + 1];
+    if (i < words.length - 1) {
+      const nextW = words[i + 1];
       const gapCs = Math.round((nextW.startTime - w.endTime) * 100);
       if (gapCs > 0) {
         parts.push(` {\\k${gapCs}}`);
@@ -386,7 +455,7 @@ export function compileAssKaraokeText(
   }
 
   // Post-gap: silence after last word
-  const lastWord = event.words[event.words.length - 1];
+  const lastWord = words[words.length - 1];
   const postGapCs = Math.round((event.endTime - lastWord.endTime) * 100);
   if (postGapCs > 0) {
     parts.push(`{\\k${postGapCs}}`);

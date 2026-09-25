@@ -116,19 +116,68 @@ describe('Subtitle Editor Operations (TASK-034)', () => {
     expect(updated[0].cpl).toBe(12);
   });
 
-  it('updates subtitle timing and proportionally scales word timestamps', () => {
-    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 1.0, 4.0);
+  it('updates only the first word boundary for a start-only edit', () => {
+    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 0.25, 3.0);
 
-    expect(retimed[0].startTime).toBe(1.0);
-    expect(retimed[0].endTime).toBe(4.0);
-    expect(retimed[0].words?.[0].startTime).toBe(1.0); // 1.0 + (0.0 - 0.0) * 1.0 = 1.0
-    expect(retimed[0].words?.[4].endTime).toBe(3.9);   // 1.0 + (2.9 - 0.0) * 1.0 = 3.9
+    expect(retimed[0].startTime).toBe(0.25);
+    expect(retimed[0].words?.[0].startTime).toBe(0.25);
+    expect(retimed[0].words?.[0].endTime).toBe(0.5);
+    expect(retimed[0].words?.[1].startTime).toBe(0.5);
+  });
+
+  it('updates only the last word boundary for an end-only edit', () => {
+    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 0.0, 3.5);
+
+    expect(retimed[0].endTime).toBe(3.5);
+    expect(retimed[0].words?.[3].endTime).toBe(2.2);
+    expect(retimed[0].words?.[4].startTime).toBe(2.2);
+    expect(retimed[0].words?.[4].endTime).toBe(3.5);
+  });
+
+  it('edits both boundaries without scaling unaffected words when they fit', () => {
+    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 0.25, 3.5);
+
+    expect(retimed[0].words?.[0].startTime).toBe(0.25);
+    expect(retimed[0].words?.[1].startTime).toBe(0.5);
+    expect(retimed[0].words?.[3].endTime).toBe(2.2);
+    expect(retimed[0].words?.[4].endTime).toBe(3.5);
+  });
+
+  it('keeps finite word times inside narrowed event bounds', () => {
+    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 2.8, 3.0);
+    const words = retimed[0].words || [];
+
+    expect(words.length).toBe(5);
+    for (const word of words) {
+      expect(Number.isFinite(word.startTime)).toBe(true);
+      expect(Number.isFinite(word.endTime)).toBe(true);
+      expect(word.startTime).toBeGreaterThanOrEqual(2.8);
+      expect(word.endTime).toBeLessThanOrEqual(3.0);
+      expect(word.startTime).toBeLessThanOrEqual(word.endTime);
+    }
+  });
+
+  it('keeps proportional retiming available as an explicit opt-in', () => {
+    const retimed = updateSubtitleTiming(sampleEvents, 'sub_1', 1.0, 4.0, true);
+
+    expect(retimed[0].words?.[0].startTime).toBe(1.0);
+    expect(retimed[0].words?.[4].endTime).toBe(3.9);
+  });
+
+  it('marks unsafe manual text edits stale and preserves safe token mappings', () => {
+    const unsafe = updateSubtitleText(sampleEvents, 'sub_1', 'Completely different caption');
+    expect(unsafe[0].wordTimingState).toBe('stale');
+
+    const safe = updateSubtitleText(sampleEvents, 'sub_1', 'Vaani Studio is lightning FAST');
+    expect(safe[0].wordTimingState).toBe('fresh');
+    expect(safe[0].words?.[4].word).toBe('FAST');
   });
 
   it('performs search and replace with regex and case sensitivity', () => {
     const res1 = searchAndReplace(sampleEvents, 'vaani', 'Voice', { matchCase: false });
     expect(res1.replacedCount).toBe(1);
     expect(res1.events[0].text).toContain('Voice Studio');
+    expect(res1.events[0].wordTimingState).toBe('stale');
 
     // Case sensitive search for lowercase 'vaani' should not match uppercase 'Vaani'
     const res2 = searchAndReplace(sampleEvents, 'vaani', 'Voice', { matchCase: true });

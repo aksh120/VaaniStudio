@@ -50,15 +50,42 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
   scriptMode: 'roman',
   performanceMode: 'balanced',
   modelId: 'whisper-small-ct2-int8',
+  modelSelectionSource: 'profile',
   maxCharactersPerLine: 37,
   maxLinesPerSubtitle: 2,
   targetReadingSpeedCPS: 19,
 };
 
+export function normalizeProjectSettings(
+  settings?: Partial<ProjectSettings> | null
+): ProjectSettings {
+  const merged = {
+    ...DEFAULT_SETTINGS,
+    ...(settings || {}),
+  } as ProjectSettings;
+  const modelSelectionSource =
+    settings?.modelSelectionSource === 'user'
+      ? 'user'
+      : settings?.modelSelectionSource === 'profile'
+      ? 'profile'
+      : settings
+      ? 'user'
+      : 'profile';
+
+  return {
+    ...merged,
+    modelId:
+      typeof merged.modelId === 'string' && merged.modelId.length > 0
+        ? merged.modelId
+        : DEFAULT_SETTINGS.modelId,
+    modelSelectionSource,
+  };
+}
+
 export function createEmptyProject(name = 'Untitled Project'): ProjectData {
   const now = new Date().toISOString();
   return {
-    projectVersion: 1,
+    projectVersion: 2,
     projectId: `proj-${Date.now()}`,
     projectName: name,
     createdAt: now,

@@ -11,16 +11,30 @@ import fs from 'node:fs';
 
 describe('Model Manager Subsystem', () => {
   it('contains expected catalog models for fast, balanced, and quality modes', () => {
-    expect(MODEL_CATALOG.length).toBeGreaterThanOrEqual(4);
+    expect(MODEL_CATALOG).toHaveLength(5);
     const ids = MODEL_CATALOG.map((m) => m.id);
     expect(ids).toContain('whisper-tiny-ct2-int8');
     expect(ids).toContain('whisper-base-ct2-int8');
     expect(ids).toContain('whisper-small-ct2-int8');
     expect(ids).toContain('whisper-medium-ct2-int8');
+    expect(ids).toContain('whisper-large-v3-ct2-int8');
 
     const recommended = MODEL_CATALOG.find((m) => m.isRecommended);
     expect(recommended).toBeDefined();
     expect(recommended?.id).toBe('whisper-small-ct2-int8');
+  });
+
+  it('describes Large v3 without making it the recommended model', () => {
+    const large = MODEL_CATALOG.find(
+      (model) => model.id === 'whisper-large-v3-ct2-int8'
+    );
+    expect(large).toMatchObject({
+      engineId: 'faster-whisper',
+      repoId: 'Systran/faster-whisper-large-v3',
+      sizeMB: 3000,
+      parameters: '1.55B',
+      isRecommended: false,
+    });
   });
 
   it('resolves valid models directory and model path', () => {

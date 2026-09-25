@@ -5,11 +5,223 @@
  */
 
 import { SubtitleEvent, WordTiming } from '../../../shared/types/models.js';
+import { getWordDisplayText } from '../../../shared/subtitles/wordAlignment.js';
 
 export interface SearchReplaceOptions {
   matchCase?: boolean;
   wholeWord?: boolean;
   useRegex?: boolean;
+}
+
+export interface UpdateSubtitleTimingOptions {
+  mode?: 'boundary' | 'proportional';
+  proportional?: boolean;
+  useProportionalScaling?: boolean;
+  useProportional?: boolean;
+}
+
+const TIMING_TOKEN_EDGE_PUNCTUATION_REGEX = /^[.,?!:;\u0964\u0965\-–—'"()\[\]{}]+|[.,?!:;\u0964\u0965\-–—'"()\[\]{}]+$/g;
+const TIMING_TRAILING_PUNCTUATION_REGEX = /[.,?!:;\u0964\u0965\-–—'"()\[\]{}]+$/;
+
+function normalizeTimingToken(token: string): string {
+  return token
+    .normalize('NFKC')
+    .replace(TIMING_TOKEN_EDGE_PUNCTUATION_REGEX, '')
+    .toLowerCase();
+}
+
+function mapWordsToTextIfSafe(event: SubtitleEvent, newText: string): WordTiming[] | null {
+  const textTokens = newText.replace(/\r?\n/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (!event.words || textTokens.length === 0 || textTokens.length !== event.words.length) {
+    return null;
+  }
+
+  const currentTokens = event.words.map((word) => normalizeTimingToken(getWordDisplayText(word)));
+  if (currentTokens.some((token, index) => token !== normalizeTimingToken(textTokens[index]))) {
+    return null;
+  }
+
+  return event.words.map((word, index) => {
+    const token = textTokens[index];
+    const punctuationMatch = token.match(TIMING_TRAILING_PUNCTUATION_REGEX);
+    const punctuation = punctuationMatch?.[0] || '';
+    return {
+      ...word,
+      word: token,
+      punctuationFollows: punctuation || undefined,
+    };
+  });
+}
+
+function getWordTimingState(
+  event: SubtitleEvent,
+  newText: string,
+  mappedWords: WordTiming[] | null
+): SubtitleEvent['wordTimingState'] {
+  if (newText === event.text) {
+    return event.wordTimingState;
+  }
+  if (event.wordTimingState === 'stale' || event.wordTimingState === 'legacy-unverified') {
+    return event.wordTimingState;
+  }
+  if (!mappedWords) {
+    return 'stale';
+  }
+  return 'fresh';
+}
+
+function roundTiming(value: number): number {
+  return Number(value.toFixed(3));
+}
+
+function finiteOr(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function clampTiming(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function shouldUseProportionalTiming(
+  options?: UpdateSubtitleTimingOptions | boolean
+): boolean {
+  if (options === true) {
+    return true;
+  }
+  if (!options || typeof options !== 'object') {
+    return false;
+  }
+  return options.mode === 'proportional'
+    || options.proportional === true
+    || options.useProportionalScaling === true
+    || options.useProportional === true;
+}
+
+function constrainWordTimings(
+  words: WordTiming[],
+  eventStart: number,
+  eventEnd: number
+): WordTiming[] {
+  const boundedStart = roundTiming(eventStart);
+  const boundedEnd = roundTiming(eventEnd);
+  let previousEnd = boundedStart;
+
+  return words.map((word) => {
+    const rawStart = finiteOr(word.startTime, previousEnd);
+    const rawEnd = finiteOr(word.endTime, rawStart);
+    let start = clampTiming(rawStart, boundedStart, boundedEnd);
+    let end = clampTiming(rawEnd, start, boundedEnd);
+
+    if (start < previousEnd) {
+      start = previousEnd;
+    }
+    if (end < start) {
+      end = start;
+    }
+
+    const roundedStart = roundTiming(start);
+    const roundedEnd = Math.max(roundedStart, roundTiming(end));
+    previousEnd = Math.min(boundedEnd, roundedEnd);
+    return {
+      ...word,
+      startTime: roundedStart,
+      endTime: previousEnd,
+    };
+  });
+}
+
+function needsBoundaryRepair(
+  words: WordTiming[],
+  eventStart: number,
+  eventEnd: number
+): boolean {
+  let previousEnd = eventStart;
+  for (const word of words) {
+    const start = finiteOr(word.startTime, previousEnd);
+    const end = finiteOr(word.endTime, start);
+    if (
+      start < eventStart
+      || start > eventEnd
+      || end < eventStart
+      || end > eventEnd
+      || end < start
+      || start < previousEnd
+    ) {
+      return true;
+    }
+    previousEnd = end;
+  }
+  return false;
+}
+
+function scaleWordsToEvent(
+  words: WordTiming[],
+  oldStart: number,
+  oldEnd: number,
+  newStart: number,
+  newEnd: number
+): WordTiming[] {
+  const oldDuration = Math.max(0.01, oldEnd - oldStart);
+  if (!Number.isFinite(oldDuration) || oldDuration <= 0) {
+    return words.map((word) => ({ ...word }));
+  }
+
+  const scale = (newEnd - newStart) / oldDuration;
+  return words.map((word) => {
+    const start = finiteOr(word.startTime, oldStart);
+    const end = finiteOr(word.endTime, start);
+    return {
+      ...word,
+      startTime: roundTiming(newStart + (start - oldStart) * scale),
+      endTime: roundTiming(newStart + (end - oldStart) * scale),
+    };
+  });
+}
+
+function retimeWordsAtBoundaries(
+  words: WordTiming[],
+  oldStart: number,
+  oldEnd: number,
+  newStart: number,
+  newEnd: number,
+  startChanged: boolean,
+  endChanged: boolean
+): WordTiming[] {
+  if (words.length === 0) {
+    return words;
+  }
+
+  let updatedWords = words.map((word) => ({ ...word }));
+  const lastIndex = updatedWords.length - 1;
+  if (startChanged) {
+    updatedWords[0].startTime = newStart;
+  }
+  if (endChanged) {
+    updatedWords[lastIndex].endTime = newEnd;
+  }
+
+  if (startChanged && endChanged) {
+    const oldDuration = oldEnd - oldStart;
+    const shift = newStart - oldStart;
+    const sameDuration = Math.abs((newEnd - newStart) - oldDuration) < 0.0005;
+    if (Number.isFinite(oldDuration) && oldDuration > 0 && sameDuration) {
+      updatedWords = words.map((word) => ({
+        ...word,
+        startTime: roundTiming(finiteOr(word.startTime, oldStart) + shift),
+        endTime: roundTiming(finiteOr(word.endTime, finiteOr(word.startTime, oldStart)) + shift),
+      }));
+      updatedWords[0].startTime = newStart;
+      updatedWords[lastIndex].endTime = newEnd;
+    } else if (needsBoundaryRepair(updatedWords, newStart, newEnd)) {
+      updatedWords = scaleWordsToEvent(words, oldStart, oldEnd, newStart, newEnd);
+      if (updatedWords.length > 0) {
+        updatedWords[0].startTime = newStart;
+        updatedWords[lastIndex].endTime = newEnd;
+      }
+    }
+  }
+
+  return constrainWordTimings(updatedWords, newStart, newEnd);
 }
 
 /**
@@ -156,8 +368,17 @@ export function mergeSubtitles(
     startTime: mergedStartTime,
     endTime: mergedEndTime,
     text: mergedText,
-    words: mergedWords.length > 0 ? mergedWords : [],
-    cps: metrics.cps,
+     words: mergedWords.length > 0 ? mergedWords : [],
+     wordTimingState:
+       e1.wordTimingState === 'stale' ||
+       e1.wordTimingState === 'legacy-unverified' ||
+       e2.wordTimingState === 'stale' ||
+       e2.wordTimingState === 'legacy-unverified'
+         ? e1.wordTimingState === 'legacy-unverified' || e2.wordTimingState === 'legacy-unverified'
+           ? 'legacy-unverified' as const
+           : 'stale' as const
+         : e1.wordTimingState || 'fresh',
+     cps: metrics.cps,
     cpl: metrics.cpl,
   };
 
@@ -268,9 +489,16 @@ export function updateSubtitleText(
     if (e.id !== eventId) return e;
     const duration = e.endTime - e.startTime;
     const metrics = calculateMetrics(newText, duration);
+    const textChanged = newText !== e.text;
+    const mappedWords = textChanged && e.wordTimingState !== 'stale' && e.wordTimingState !== 'legacy-unverified'
+      ? mapWordsToTextIfSafe(e, newText)
+      : null;
+    const wordTimingState = getWordTimingState(e, newText, mappedWords);
     return {
       ...e,
       text: newText,
+      ...(mappedWords ? { words: mappedWords } : {}),
+      ...(wordTimingState ? { wordTimingState } : {}),
       cps: metrics.cps,
       cpl: metrics.cpl,
     };
@@ -278,39 +506,61 @@ export function updateSubtitleText(
 }
 
 /**
- * Update start and end timings of a subtitle event and scale words proportionally
+ * Update start and end timings of a subtitle event with boundary edits by default
  */
 export function updateSubtitleTiming(
   events: SubtitleEvent[],
   eventId: string,
   newStartTime: number,
-  newEndTime: number
+  newEndTime: number,
+  options?: UpdateSubtitleTimingOptions | boolean
 ): SubtitleEvent[] {
-  if (newStartTime >= newEndTime) return events;
+  if (
+    !Number.isFinite(newStartTime)
+    || !Number.isFinite(newEndTime)
+    || newStartTime >= newEndTime
+  ) {
+    return events;
+  }
+
+  const roundedStart = roundTiming(newStartTime);
+  const roundedEnd = roundTiming(newEndTime);
+  if (!Number.isFinite(newEndTime - newStartTime) || roundedStart >= roundedEnd) {
+    return events;
+  }
+  const useProportionalTiming = shouldUseProportionalTiming(options);
 
   return events.map((e) => {
     if (e.id !== eventId) return e;
 
     const oldStart = e.startTime;
-    const oldDuration = Math.max(0.01, e.endTime - oldStart);
+    const oldEnd = e.endTime;
     const newDuration = newEndTime - newStartTime;
-    const scale = newDuration / oldDuration;
-
-    let scaledWords = e.words;
-    if (e.words && e.words.length > 0) {
-      scaledWords = e.words.map((w) => ({
-        ...w,
-        startTime: Number((newStartTime + (w.startTime - oldStart) * scale).toFixed(3)),
-        endTime: Number((newStartTime + (w.endTime - oldStart) * scale).toFixed(3)),
-      }));
-    }
+    const startChanged = newStartTime !== oldStart;
+    const endChanged = newEndTime !== oldEnd;
+    const words = e.words || [];
+    const updatedWords = useProportionalTiming
+      ? constrainWordTimings(
+        scaleWordsToEvent(words, oldStart, oldEnd, roundedStart, roundedEnd),
+        roundedStart,
+        roundedEnd
+      )
+      : retimeWordsAtBoundaries(
+        words,
+        oldStart,
+        oldEnd,
+        roundedStart,
+        roundedEnd,
+        startChanged,
+        endChanged
+      );
 
     const metrics = calculateMetrics(e.text, newDuration);
     return {
       ...e,
-      startTime: Number(newStartTime.toFixed(3)),
-      endTime: Number(newEndTime.toFixed(3)),
-      words: scaledWords,
+      startTime: roundedStart,
+      endTime: roundedEnd,
+      words: updatedWords,
       cps: metrics.cps,
       cpl: metrics.cpl,
     };
@@ -355,10 +605,17 @@ export function searchAndReplace(
     const nextText = e.text.replace(regex, replacement);
     const duration = e.endTime - e.startTime;
     const metrics = calculateMetrics(nextText, duration);
+    const textChanged = nextText !== e.text;
+    const mappedWords = textChanged && e.wordTimingState !== 'stale' && e.wordTimingState !== 'legacy-unverified'
+      ? mapWordsToTextIfSafe(e, nextText)
+      : null;
+    const wordTimingState = getWordTimingState(e, nextText, mappedWords);
 
     return {
       ...e,
       text: nextText,
+      ...(mappedWords ? { words: mappedWords } : {}),
+      ...(wordTimingState ? { wordTimingState } : {}),
       cps: metrics.cps,
       cpl: metrics.cpl,
     };

@@ -18,6 +18,7 @@ export interface RecentProjectEntry {
 
 interface UIState {
   activeTab: WorkspaceTab;
+  startPage: WorkspaceTab;
   theme: ThemeMode;
   leftPanelVisible: boolean;
   leftPanelWidth: number;
@@ -31,10 +32,14 @@ interface UIState {
   isHelpOpen: boolean;
   tutorialCompleted: boolean;
   openInEditorAfterGeneration: boolean;
+  autosaveEnabled: boolean;
+  autosaveIntervalSeconds: number;
   recentProjects: RecentProjectEntry[];
+  recentProjectsLimit: number;
 
   // Actions
   setActiveTab: (tab: WorkspaceTab) => void;
+  setStartPage: (tab: WorkspaceTab) => void;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
   setLeftPanelVisible: (visible: boolean) => void;
@@ -51,6 +56,9 @@ interface UIState {
   setIsHelpOpen: (open: boolean) => void;
   setTutorialCompleted: (completed: boolean) => void;
   setOpenInEditorAfterGeneration: (open: boolean) => void;
+  setAutosaveEnabled: (enabled: boolean) => void;
+  setAutosaveIntervalSeconds: (seconds: number) => void;
+  setRecentProjectsLimit: (limit: number) => void;
   addRecentProject: (entry: Omit<RecentProjectEntry, 'lastOpened'>) => void;
   removeRecentProject: (id: string) => void;
   clearRecentProjects: () => void;
@@ -60,6 +68,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       activeTab: 'projects',
+      startPage: 'projects',
       theme: 'dark',
       leftPanelVisible: true,
       leftPanelWidth: 280,
@@ -73,9 +82,13 @@ export const useUIStore = create<UIState>()(
       isHelpOpen: false,
       tutorialCompleted: false,
       openInEditorAfterGeneration: true,
+      autosaveEnabled: true,
+      autosaveIntervalSeconds: 60,
       recentProjects: [],
+      recentProjectsLimit: 10,
 
       setActiveTab: (tab) => set({ activeTab: tab }),
+      setStartPage: (startPage) => set({ startPage }),
       setTheme: (theme) => {
         document.documentElement.setAttribute('data-theme', theme);
         set({ theme });
@@ -107,6 +120,9 @@ export const useUIStore = create<UIState>()(
       setIsHelpOpen: (isHelpOpen) => set({ isHelpOpen }),
       setTutorialCompleted: (tutorialCompleted) => set({ tutorialCompleted }),
       setOpenInEditorAfterGeneration: (openInEditorAfterGeneration) => set({ openInEditorAfterGeneration }),
+      setAutosaveEnabled: (autosaveEnabled) => set({ autosaveEnabled }),
+      setAutosaveIntervalSeconds: (autosaveIntervalSeconds) => set({ autosaveIntervalSeconds: Math.max(15, Math.min(1800, autosaveIntervalSeconds)) }),
+      setRecentProjectsLimit: (recentProjectsLimit) => set({ recentProjectsLimit: Math.max(5, Math.min(20, recentProjectsLimit)) }),
 
       addRecentProject: (entry) =>
         set((state) => {
@@ -118,7 +134,7 @@ export const useUIStore = create<UIState>()(
             lastOpened: new Date().toISOString(),
           };
           return {
-            recentProjects: [updated, ...filtered].slice(0, 15), // keep up to 15 recent
+             recentProjects: [updated, ...filtered].slice(0, state.recentProjectsLimit),
           };
         }),
 
@@ -139,9 +155,15 @@ export const useUIStore = create<UIState>()(
         inspectorWidth: state.inspectorWidth,
         inspectorTab: state.inspectorTab,
         timelineHeight: state.timelineHeight,
+        focusMode: state.focusMode,
+        openInEditorAfterGeneration: state.openInEditorAfterGeneration,
         tutorialCompleted: state.tutorialCompleted,
-        recentProjects: state.recentProjects,
-        activeTab: state.activeTab,
+         recentProjects: state.recentProjects,
+         recentProjectsLimit: state.recentProjectsLimit,
+         activeTab: state.activeTab,
+        startPage: state.startPage,
+        autosaveEnabled: state.autosaveEnabled,
+        autosaveIntervalSeconds: state.autosaveIntervalSeconds,
       }),
     }
   )

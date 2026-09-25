@@ -20,8 +20,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  X,
 } from 'lucide-react';
+import { Dialog } from './ui/Dialog.js';
 
 interface StyleWorkspaceProps {
   presetManager: PresetManager;
@@ -390,7 +390,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
         {/* Header Bar */}
         <div className="style-presets-topbar">
           <div className="style-presets-header-title">
-            <span>Style Presets</span>
+            <span>Presets</span>
             <span className="style-presets-badge">{presets.length}</span>
           </div>
           <button
@@ -401,7 +401,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
             title="Save current style as a new custom preset"
           >
             <Plus size={12} />
-            <span>New Preset</span>
+            <span>Save preset</span>
           </button>
         </div>
 
@@ -441,20 +441,22 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 p.style.primaryColor === currentStyle.primaryColor);
 
             return (
-              <div
+              <button
+                type="button"
                 key={p.id}
                 className={`style-preset-card-item ${isSelected ? 'active' : ''}`}
+                aria-pressed={isSelected}
                 onClick={() => handleApplyPreset(p)}
                 title={p.description}
               >
-                <div className="style-preset-thumb-box">
-                  <div className="style-preset-thumb-text">{renderThumbnailContent(p)}</div>
-                </div>
-                <div className="style-preset-details">
+                <span className="style-preset-thumb-box">
+                  <span className="style-preset-thumb-text">{renderThumbnailContent(p)}</span>
+                </span>
+                <span className="style-preset-details">
                   <span className="style-preset-name">{getPresetDisplayName(p.name)}</span>
                   <span className="style-preset-desc">{p.description}</span>
-                </div>
-              </div>
+                </span>
+              </button>
             );
           })}
         </div>
@@ -576,6 +578,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 <button
                   type="button"
                   className={`style-aspect-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+                  aria-pressed={aspectRatio === '16:9'}
                   onClick={() => setAspectRatio('16:9')}
                 >
                   16:9
@@ -583,6 +586,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 <button
                   type="button"
                   className={`style-aspect-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+                  aria-pressed={aspectRatio === '9:16'}
                   onClick={() => setAspectRatio('9:16')}
                 >
                   9:16
@@ -590,6 +594,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 <button
                   type="button"
                   className={`style-aspect-btn ${aspectRatio === '1:1' ? 'active' : ''}`}
+                  aria-pressed={aspectRatio === '1:1'}
                   onClick={() => setAspectRatio('1:1')}
                 >
                   1:1
@@ -601,6 +606,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 <button
                   type="button"
                   className={`style-aspect-btn ${previewBackdrop === 'white' ? 'active' : ''}`}
+                  aria-pressed={previewBackdrop === 'white'}
                   onClick={() => setPreviewBackdrop('white')}
                   title="White preview backdrop"
                 >
@@ -609,6 +615,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 <button
                   type="button"
                   className={`style-aspect-btn ${previewBackdrop === 'dark' ? 'active' : ''}`}
+                  aria-pressed={previewBackdrop === 'dark'}
                   onClick={() => setPreviewBackdrop('dark')}
                   title="Dark preview backdrop"
                 >
@@ -617,14 +624,17 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
               </div>
 
               {/* Safe Zones Toggle */}
-              <div
-                className="style-safezones-toggle"
-                onClick={() => setSafeZones(!safeZones)}
-              >
+              <div className="style-safezones-toggle">
                 <span>Safe Zones</span>
-                <div className={`style-toggle-switch ${safeZones ? 'active' : ''}`}>
-                  <div className="style-toggle-thumb" />
-                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={safeZones}
+                  className={`style-toggle-switch ${safeZones ? 'active' : ''}`}
+                  onClick={() => setSafeZones(!safeZones)}
+                >
+                  <span className="style-toggle-thumb" />
+                </button>
               </div>
             </div>
           </div>
@@ -687,10 +697,12 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
          =================================================================== */}
       <aside className="style-inspector-pane">
         {/* Category Tabs Header */}
-        <div className="style-inspector-tabs-header">
+        <div className="style-inspector-tabs-header" role="tablist" aria-label="Style properties">
           <button
             type="button"
             className={`style-tab-nav-btn ${activeInspectorTab === 'typography' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeInspectorTab === 'typography'}
             onClick={() => setActiveInspectorTab('typography')}
           >
             Typography
@@ -698,6 +710,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <button
             type="button"
             className={`style-tab-nav-btn ${activeInspectorTab === 'colors' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeInspectorTab === 'colors'}
             onClick={() => setActiveInspectorTab('colors')}
           >
             Colors &amp; Stroke
@@ -705,6 +719,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <button
             type="button"
             className={`style-tab-nav-btn ${activeInspectorTab === 'background' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeInspectorTab === 'background'}
             onClick={() => setActiveInspectorTab('background')}
           >
             Background
@@ -712,6 +728,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <button
             type="button"
             className={`style-tab-nav-btn ${activeInspectorTab === 'position' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeInspectorTab === 'position'}
             onClick={() => setActiveInspectorTab('position')}
           >
             Position
@@ -719,6 +737,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <button
             type="button"
             className={`style-tab-nav-btn ${activeInspectorTab === 'animation' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeInspectorTab === 'animation'}
             onClick={() => setActiveInspectorTab('animation')}
           >
             Animation
@@ -848,13 +868,15 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
 
             {/* Collapsible Advanced Typography Accordion */}
             <div className="style-accordion-section">
-              <div
+              <button
+                type="button"
                 className="style-accordion-header"
+                aria-expanded={isAdvancedTypographyOpen}
                 onClick={() => setIsAdvancedTypographyOpen(!isAdvancedTypographyOpen)}
               >
                 <span>Advanced Typography</span>
                 {isAdvancedTypographyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </div>
+              </button>
               {isAdvancedTypographyOpen && (
                 <div className="style-accordion-content">
                   {/* Word Highlighting Switch */}
@@ -868,7 +890,10 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                     <label className="style-field-label" style={{ margin: 0 }}>
                       Word Highlighting
                     </label>
-                    <div
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={currentAnimation.activeWordEmphasis !== false}
                       className={`style-toggle-switch ${currentAnimation.activeWordEmphasis !== false ? 'active' : ''}`}
                       onClick={() =>
                         handleAnimationUpdate(
@@ -876,10 +901,9 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                           !currentAnimation.activeWordEmphasis
                         )
                       }
-                      style={{ cursor: 'pointer' }}
                     >
-                      <div className="style-toggle-thumb" />
-                    </div>
+                      <span className="style-toggle-thumb" />
+                    </button>
                   </div>
 
                   {/* Highlight Color */}
@@ -1084,13 +1108,15 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
               <label className="style-field-label" style={{ margin: 0 }}>
                 Background Box
               </label>
-              <div
+              <button
+                type="button"
+                role="switch"
+                aria-checked={currentStyle.hasBackgroundBox}
                 className={`style-toggle-switch ${currentStyle.hasBackgroundBox ? 'active' : ''}`}
                 onClick={() => handleUpdate('hasBackgroundBox', !currentStyle.hasBackgroundBox)}
-                style={{ cursor: 'pointer' }}
               >
-                <div className="style-toggle-thumb" />
-              </div>
+                <span className="style-toggle-thumb" />
+              </button>
             </div>
 
             {/* Box Color */}
@@ -1378,21 +1404,15 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
       {/* ===================================================================
           MODAL: SAVE CUSTOM PRESET
          =================================================================== */}
-      {saveModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-dialog" style={{ maxWidth: '420px' }}>
-            <div className="modal-header">
-              <span className="modal-title">Save Custom Preset</span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-icon"
-                onClick={() => setSaveModalOpen(false)}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCustom}>
+       {saveModalOpen && (
+         <Dialog
+           isOpen={saveModalOpen}
+           onClose={() => setSaveModalOpen(false)}
+           title="Save custom preset"
+           description="Store the current style settings for later use."
+           className="style-preset-dialog"
+         >
+           <form onSubmit={handleSaveCustom} className="style-preset-form">
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="style-input-group">
                   <label className="style-field-label">Preset Name *</label>
@@ -1431,10 +1451,9 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                   Save Preset
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+             </form>
+           </Dialog>
+       )}
     </div>
   );
 };

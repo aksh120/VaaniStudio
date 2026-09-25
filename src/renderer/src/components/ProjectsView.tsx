@@ -3,6 +3,9 @@ import { useProjectStore } from '../store/projectStore.js';
 import { useUIStore, RecentProjectEntry } from '../store/uiStore.js';
 import { formatTimecode } from '../../../shared/utils/timecode.js';
 import { translateError } from '../../../shared/errors/errorTranslator.js';
+import { ProjectData } from '../../../shared/types/models.js';
+import { EmptyState } from './ui/EmptyState.js';
+import { Toolbar } from './ui/Toolbar.js';
 import {
   FileVideo,
   FolderOpen,
@@ -18,27 +21,39 @@ interface ProjectsViewProps {
   onOpenProject: () => void;
   onNewProject: () => void;
   onLoadSample: () => void;
+  onProjectLoaded?: (project: ProjectData, filePath?: string) => void;
 }
+
+const formatModified = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onImportMedia,
   onOpenProject,
   onNewProject,
   onLoadSample,
+  onProjectLoaded,
 }) => {
   const { loadProjectData, setStatusMessage, setActiveError } = useProjectStore();
-  const { recentProjects, removeRecentProject, setActiveTab, addRecentProject, setIsTutorialOpen } = useUIStore();
+  const { recentProjects, recentProjectsLimit, removeRecentProject, setActiveTab, addRecentProject, setIsTutorialOpen } = useUIStore();
 
   const handleOpenRecent = async (entry: RecentProjectEntry) => {
     if (!window.vaaniAPI) return;
     try {
       const res = await window.vaaniAPI.loadProject(entry.filePath);
       if (res.success && res.data) {
-        loadProjectData(res.data, entry.filePath);
+        if (onProjectLoaded) {
+          onProjectLoaded(res.data, res.data.sourceFilePath || entry.filePath);
+        } else {
+          loadProjectData(res.data, entry.filePath);
+        }
         addRecentProject({
           id: res.data.projectId || entry.id,
           name: res.data.projectName,
-          filePath: entry.filePath,
+          filePath: res.data.sourceFilePath || entry.filePath,
           mediaPath: res.data.media?.filePath,
           durationSeconds: res.data.media?.durationSeconds || 0,
           subtitleCount: res.data.events.length,
@@ -54,145 +69,105 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     }
   };
 
+  const visibleRecentProjects = recentProjects.slice(0, recentProjectsLimit);
+
   return (
-    <div className="projects-view">
-      {/* Hero Header */}
-      <div className="projects-hero">
-        <h1 className="projects-title">Projects</h1>
-        <p className="projects-subtitle">
-          Create, edit, and export accurate local subtitles for English, Hindi, and Hinglish media.
-        </p>
-      </div>
+    <div className="projects-view workspace-page">
+      <header className="workspace-page-header">
+        <div>
+          <div className="workspace-eyebrow">Workspace</div>
+          <h1 className="workspace-page-title">Projects</h1>
+          <p className="workspace-page-description">
+            Open a project or bring in media to begin editing subtitles.
+          </p>
+        </div>
+        <Toolbar className="projects-actions-row" aria-label="Project actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={onImportMedia}>
+            <FileVideo size={15} />
+            <span>Import media</span>
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onNewProject}>
+            <Plus size={15} />
+            <span>New project</span>
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenProject}>
+            <FolderOpen size={15} />
+            <span>Open project</span>
+          </button>
+        </Toolbar>
+      </header>
 
-      {/* Primary Action Buttons */}
-      <div className="projects-actions-row">
-        <button className="btn btn-primary" onClick={onImportMedia}>
-          <FileVideo size={16} />
-          <span>Import Media</span>
-        </button>
-        <button className="btn btn-secondary" onClick={onNewProject}>
-          <Plus size={16} />
-          <span>New Project</span>
-        </button>
-        <button className="btn btn-secondary" onClick={onOpenProject}>
-          <FolderOpen size={16} />
-          <span>Open Project File</span>
-        </button>
-        <button className="btn btn-ghost" onClick={onLoadSample}>
-          <Layers size={16} />
-          <span>Explore Sample Project</span>
-        </button>
-        <button
-          className="btn btn-ghost"
-          onClick={() => setIsTutorialOpen(true)}
-          title="Open Interactive Feature Guide & Tour"
-        >
-          <HelpCircle size={16} />
-          <span>App Guide</span>
-        </button>
-      </div>
-
-
-      {/* Recent Projects Table Section */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 'var(--space-2)',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}
-          >
-            Recent Projects ({recentProjects.length})
-          </span>
+      <section className="projects-browser" aria-labelledby="recent-projects-heading">
+        <div className="section-heading-row">
+          <div className="section-heading-main">
+            <h2 id="recent-projects-heading" className="section-title">Recent projects</h2>
+             <span className="section-count">{visibleRecentProjects.length}</span>
+          </div>
+          <div className="section-heading-actions">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onLoadSample}>
+              <Layers size={14} />
+              <span>Open sample</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setIsTutorialOpen(true)}
+              title="Open getting started guide"
+            >
+              <HelpCircle size={14} />
+              <span>Guide</span>
+            </button>
+          </div>
         </div>
 
-        {recentProjects.length > 0 ? (
-          <div className="data-table-container">
-            <table className="data-table">
+         {visibleRecentProjects.length > 0 ? (
+          <div className="data-table-container projects-table-container">
+            <table className="data-table projects-table">
               <thead>
                 <tr>
-                  <th style={{ width: '30%' }}>Project Name</th>
-                  <th style={{ width: '35%' }}>Location</th>
-                  <th style={{ width: '15%' }}>Duration</th>
-                  <th style={{ width: '10%' }}>Subtitles</th>
-                  <th style={{ width: '10%', textAlign: 'right' }}>Actions</th>
+                  <th>Project</th>
+                  <th>Media</th>
+                  <th>Modified</th>
+                  <th>Duration</th>
+                  <th className="numeric-cell">Subtitles</th>
+                  <th className="actions-cell" aria-label="Project actions" />
                 </tr>
               </thead>
               <tbody>
-                {recentProjects.map((entry) => (
+                 {visibleRecentProjects.map((entry) => (
                   <tr key={entry.id || entry.filePath}>
-                    <td style={{ fontWeight: 600 }}>
+                    <td>
                       <button
-                        className="btn-ghost"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-primary)',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          padding: 0,
-                          textAlign: 'left',
-                        }}
+                        type="button"
+                        className="project-name-button"
                         onClick={() => handleOpenRecent(entry)}
                         title={`Open ${entry.name}`}
                       >
-                        {entry.name}
+                        <span className="project-name">{entry.name}</span>
+                        <span className="project-path" title={entry.filePath}>{entry.filePath}</span>
                       </button>
                     </td>
-                    <td
-                      style={{
-                        color: 'var(--text-muted)',
-                        fontSize: 'var(--font-size-xs)',
-                        fontFamily: 'var(--font-mono)',
-                        maxWidth: '240px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={entry.filePath}
-                    >
-                      {entry.filePath}
+                    <td className="muted-cell">{entry.mediaPath ? 'Linked' : 'None'}</td>
+                    <td className="muted-cell">{formatModified(entry.lastOpened)}</td>
+                    <td className="time-cell">
+                      {entry.durationSeconds > 0 ? formatTimecode(entry.durationSeconds) : '--:--'}
                     </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>
-                      {entry.durationSeconds > 0
-                        ? formatTimecode(entry.durationSeconds)
-                        : '--:--:--'}
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          backgroundColor: 'var(--bg-surface-elevated)',
-                          padding: '2px 6px',
-                          borderRadius: 'var(--radius-xs)',
-                          fontSize: 'var(--font-size-xs)',
-                        }}
-                      >
-                        {entry.subtitleCount}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '4px' }}>
+                    <td className="numeric-cell">{entry.subtitleCount}</td>
+                    <td className="actions-cell">
+                      <div className="table-actions">
                         <button
+                          type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleOpenRecent(entry)}
                         >
                           Open
                         </button>
                         <button
-                          className="btn btn-ghost btn-sm"
+                          type="button"
+                          className="btn btn-ghost btn-icon btn-sm"
                           onClick={() => removeRecentProject(entry.id)}
-                          title="Remove from recent list"
-                          style={{ color: 'var(--text-muted)' }}
+                          title="Remove from recent projects"
+                          aria-label={`Remove ${entry.name} from recent projects`}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -204,38 +179,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             </table>
           </div>
         ) : (
-          <div
-            className="empty-state"
-            style={{
-              backgroundColor: 'var(--bg-surface)',
-              border: '1px dashed var(--border-medium)',
-              borderRadius: 'var(--radius-md)',
-              minHeight: '220px',
-            }}
-          >
-            <Clock size={32} className="empty-state-icon" />
-            <h3 className="empty-state-title">No recent projects</h3>
-            <p className="empty-state-description">
-              Import a video or audio file to start generating subtitles, or open an existing
-              project file (.vsp).
-            </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button className="btn btn-primary" onClick={onImportMedia}>
+          <EmptyState
+            icon={<Clock size={22} />}
+            title="No recent projects"
+            description="Import a video or audio file, or open an existing Vaani project."
+            action={
+              <button type="button" className="btn btn-primary btn-sm" onClick={onImportMedia}>
                 <FileVideo size={15} />
-                <span>Import Media to Begin</span>
+                <span>Import media</span>
               </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setIsTutorialOpen(true)}
-                title="Open Interactive Feature Guide & Tour"
-              >
-                <HelpCircle size={15} />
-                <span>Explore App Guide</span>
-              </button>
-            </div>
-          </div>
+            }
+          />
         )}
-      </div>
+      </section>
     </div>
   );
 };

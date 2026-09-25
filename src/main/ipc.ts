@@ -11,8 +11,8 @@ import {
   ThumbnailInfo,
   ModelInfo,
   TranscriptionOptions,
+  TranscriptionResponse,
   SubtitleEvent,
-  WordTiming,
   SubtitleStyle,
   StylePreset,
   SubtitleExportOptions,
@@ -33,19 +33,19 @@ import { detectHardwareProfile } from './hardware.js';
 import { getMemorySnapshot, cleanupApplicationCache } from './hardware/memoryManager.js';
 import { logger } from './logger.js';
 import { probeMediaFile } from './media/probe.js';
-import { extractNormalizedAudio } from './media/audio.js';
+import { extractNormalizedAudio, isNormalizedWav } from './media/audio.js';
 import { generateWaveformData } from './media/waveform.js';
 import { extractFrameThumbnail } from './media/frames.js';
 import { listModels, downloadModel, deleteModel, verifyModelIntegrity, getModelsStorageSummary } from './asr/modelManager.js';
 import { checkOnboardingStatus, completeOnboarding } from './onboarding/onboardingManager.js';
-import { FasterWhisperEngine } from './asr/fasterWhisperEngine.js';
+import { createASREngine } from './asr/engineFactory.js';
 import { exportToSrt, exportToVtt, exportToAss } from '../shared/subtitles/subtitleExporters.js';
 import { exportJobManager } from './media/exportJobManager.js';
 import { fuseVocabularyInEvents } from '../shared/intelligence/fusionEngine.js';
 import { transformScript } from '../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../shared/intelligence/textNormalizer.js';
-import { cleanAndAlignWords } from '../shared/subtitles/wordAlignment.js';
-import { segmentWordsIntoSubtitles } from '../shared/subtitles/segmenter.js';
+import { buildSubtitleEvents } from '../shared/subtitles/transcriptPipeline.js';
+import { resolveSubtitleTimelineOffset } from '../shared/subtitles/timing.js';
 import { validateSubtitles } from '../shared/subtitles/validator.js';
 import { saveProjectAtomic, loadProjectFile } from './persistence/projectPersistence.js';
 import {
@@ -57,7 +57,6 @@ import {
 import { translateError, formatDiagnosticBundle } from '../shared/errors/errorTranslator.js';
 import { CrashRecoveryEntry } from '../shared/types/models.js';
 
-const asrEngine = new FasterWhisperEngine();
 let activeTranscriptionController: AbortController | null = null;
 let activeDownloadController: AbortController | null = null;
 
@@ -180,38 +179,52 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Probe media using FFprobe
-  ipcMain.handle(IPC_CHANNELS.PROBE_MEDIA, async (_event, filePath: string): Promise<IPCResult<MediaInfo>> => {
-    try {
-      const probeRes = await probeMediaFile(filePath);
-      if (!probeRes.success || !probeRes.mediaInfo) {
+  ipcMain.handle(
+    IPC_CHANNELS.PROBE_MEDIA,
+    async (_event, filePath: string, preferredAudioStreamIndex?: number): Promise<IPCResult<MediaInfo>> => {
+      try {
+        const probeRes = await probeMediaFile(filePath, { preferredAudioStreamIndex });
+        if (!probeRes.success || !probeRes.mediaInfo) {
+          return {
+            success: false,
+            error: {
+              code: probeRes.errorCode || 'PROBE_FAILED',
+              message: probeRes.errorMessage || 'Failed to inspect media file.',
+              actionableGuidance: probeRes.actionableGuidance,
+            },
+          };
+        }
+        return { success: true, data: probeRes.mediaInfo };
+      } catch (err: any) {
+        logger.error('IPC', `Media probe exception for ${filePath}: ${err?.message}`);
         return {
           success: false,
-          error: {
-            code: probeRes.errorCode || 'PROBE_FAILED',
-            message: probeRes.errorMessage || 'Failed to inspect media file.',
-            actionableGuidance: probeRes.actionableGuidance,
-          },
+          error: { code: 'PROBE_EXCEPTION', message: err?.message || 'Unexpected failure while probing media.' },
         };
       }
-      return { success: true, data: probeRes.mediaInfo };
-    } catch (err: any) {
-      logger.error('IPC', `Media probe exception for ${filePath}: ${err?.message}`);
-      return {
-        success: false,
-        error: { code: 'PROBE_EXCEPTION', message: err?.message || 'Unexpected failure while probing media.' },
-      };
     }
-  });
+  );
 
   // Extract normalized 16 kHz mono PCM audio
   ipcMain.handle(
     IPC_CHANNELS.EXTRACT_AUDIO,
-    async (_event, filePath: string, options?: { normalize?: boolean; durationSeconds?: number }): Promise<IPCResult<string>> => {
+    async (
+      _event,
+      filePath: string,
+      options?: {
+        normalize?: boolean;
+        durationSeconds?: number;
+        streamIndex?: number;
+        sourceStartSeconds?: number;
+      }
+    ): Promise<IPCResult<string>> => {
       try {
         const result = await extractNormalizedAudio(filePath, {
           normalize: options?.normalize,
-          durationSeconds: options?.durationSeconds,
-          onProgress: (percent) => {
+           durationSeconds: options?.durationSeconds,
+           streamIndex: options?.streamIndex,
+           sourceStartSeconds: options?.sourceStartSeconds,
+           onProgress: (percent) => {
             mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
               stage: 'extracting_audio',
               percent,
@@ -349,17 +362,23 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
       _event,
       mediaOrAudioPath: string,
       options: TranscriptionOptions
-    ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number; classification?: string }>> => {
+    ): Promise<IPCResult<TranscriptionResponse>> => {
+      let controller: AbortController | null = null;
       try {
         if (activeTranscriptionController) {
           activeTranscriptionController.abort();
         }
-        activeTranscriptionController = new AbortController();
-        const signal = activeTranscriptionController.signal;
+        controller = new AbortController();
+        activeTranscriptionController = controller;
+        const signal = controller.signal;
 
         let wavPath = mediaOrAudioPath;
+        let timelineOffsetSeconds = resolveSubtitleTimelineOffset(
+          options.workingAudioOriginSeconds ?? options.audioTimeOffsetSeconds,
+          options.outputOriginSeconds
+        );
         // If not already 16k WAV, extract normalized audio
-        if (!mediaOrAudioPath.toLowerCase().endsWith('.wav')) {
+        if (!mediaOrAudioPath.toLowerCase().endsWith('.wav') || !isNormalizedWav(mediaOrAudioPath)) {
           mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
             stage: 'extracting_audio',
             percent: 0,
@@ -368,6 +387,8 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
 
           const extractResult = await extractNormalizedAudio(mediaOrAudioPath, {
             normalize: true,
+            streamIndex: options.audioStreamIndex,
+             sourceStartSeconds: options.workingAudioOriginSeconds ?? options.audioTimeOffsetSeconds,
             signal,
             onProgress: (percent) => {
               mainWindow.webContents.send(IPC_CHANNELS.PROGRESS_EVENT, {
@@ -382,8 +403,13 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
             throw new Error(extractResult.errorMessage || 'Failed to extract audio track.');
           }
           wavPath = extractResult.outputPath;
+          timelineOffsetSeconds = resolveSubtitleTimelineOffset(
+            options.workingAudioOriginSeconds ?? extractResult.sourceStartSeconds,
+            options.outputOriginSeconds
+          );
         }
 
+        const asrEngine = createASREngine(options.engineId);
         const asrResult = await asrEngine.transcribe(
           wavPath,
           options,
@@ -394,70 +420,53 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
           signal
         );
 
-        // 1. Gather all raw words across ASR segments and align cleanly
-        const allRawWords: WordTiming[] = [];
-        for (const seg of asrResult.segments) {
-          for (const w of (seg.words || [])) {
-            allRawWords.push({
-              id: `w-${allRawWords.length + 1}`,
-              word: w.word,
-              startTime: w.startTime,
-              endTime: w.endTime,
-              confidence: w.confidence,
-            });
-          }
+        let events: SubtitleEvent[] = buildSubtitleEvents(asrResult.segments, {
+          maxCharactersPerLine: 37,
+          maxLinesPerSubtitle: 2,
+          preserveSegmentText: options.scriptMode === 'exact',
+          timeOffsetSeconds: timelineOffsetSeconds,
+        });
+        if (options.scriptMode && options.scriptMode !== 'exact') {
+          events = fuseVocabularyInEvents(events);
         }
-
-        const cleanedWords = cleanAndAlignWords(allRawWords);
-
-        // 2. Run linguistic segmentation with syntax and pause awareness
-        let events: SubtitleEvent[] = cleanedWords.length > 0
-          ? segmentWordsIntoSubtitles(cleanedWords, {
-              maxCharactersPerLine: 37,
-              maxLinesPerSubtitle: 2,
-            })
-          : asrResult.segments.map((seg, idx) => {
-              const duration = Math.max(0.1, seg.endTime - seg.startTime);
-              return {
-                id: seg.id || `sub-${idx + 1}`,
-                index: idx + 1,
-                startTime: seg.startTime,
-                endTime: seg.endTime,
-                text: seg.text,
-                words: [],
-                cps: Math.round((seg.text.length / duration) * 10) / 10,
-                cpl: seg.text.length,
-              };
-            });
-
-        // 3. Vocabulary fusion: Restore English technical terms in code-switched speech
-        events = fuseVocabularyInEvents(events);
 
         // 4. Script transformation if requested by project settings
         if (options.scriptMode && options.scriptMode !== 'exact') {
-          events = events.map((evt) => ({
-            ...evt,
-            text: transformScript(evt.text, options.scriptMode!),
-            words: (evt.words || []).map((w) => ({
-              ...w,
-              word: transformScript(w.word, options.scriptMode!),
-            })),
-          }));
+          events = events.map((evt) => {
+            const transformedText = transformScript(evt.text, options.scriptMode!);
+            const transformedWords = (evt.words || []).map((word) => ({
+              ...word,
+              word: transformScript(word.word, options.scriptMode!),
+            }));
+            return {
+              ...evt,
+              text: transformedText,
+              words: transformedWords,
+              wordTimingState:
+                transformedText === evt.text &&
+                transformedWords.every((word, index) => word.word === evt.words[index]?.word)
+                  ? evt.wordTimingState || 'fresh'
+                  : 'stale' as const,
+            };
+          });
         }
 
         // 5. Indian number and text normalization
         events = events.map((evt) =>
           normalizeSubtitleEvent(evt, {
-            normalizeNumbers: true,
+            normalizeNumbers: options.scriptMode !== 'exact',
             removeFillerWords: options.scriptMode === 'cleaned',
-            formatPunctuation: true,
+            formatPunctuation: options.scriptMode !== 'exact',
+            preserveWordTiming: options.scriptMode !== 'cleaned',
           })
         );
 
         // 6. Validate constraints and log metrics
         const validationReport = validateSubtitles(events);
 
-        activeTranscriptionController = null;
+        if (activeTranscriptionController === controller) {
+          activeTranscriptionController = null;
+        }
         logger.info(
           'IPC',
           `Transcription complete: ${events.length} subtitle events produced (Classification: ${asrResult.classification || 'unknown'}, Issues: ${validationReport.issues.length}, Avg CPS: ${validationReport.averageCps}).`
@@ -470,10 +479,24 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
             language: asrResult.language,
             durationSeconds: asrResult.durationSeconds,
             classification: asrResult.classification,
-          },
+             engineId: options.engineId || 'faster-whisper',
+             modelId: options.modelId,
+             run: {
+               engineId: options.engineId || 'faster-whisper',
+               modelId: options.modelId,
+               language: asrResult.language,
+               scriptMode: options.scriptMode,
+               generatedAt: new Date().toISOString(),
+               audioStreamIndex: options.audioStreamIndex,
+               workingAudioOriginSeconds: options.workingAudioOriginSeconds ?? options.audioTimeOffsetSeconds,
+               outputOriginSeconds: options.outputOriginSeconds,
+             },
+           },
         };
       } catch (err: any) {
-        activeTranscriptionController = null;
+        if (activeTranscriptionController === controller) {
+          activeTranscriptionController = null;
+        }
         logger.error('IPC', `Transcription failed: ${err?.message}`);
         return {
           success: false,
@@ -537,7 +560,7 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
   );
 
   // Load Project (.vsp)
-  ipcMain.handle(IPC_CHANNELS.LOAD_PROJECT, async (_event, filePath?: string): Promise<IPCResult<ProjectData>> => {
+  ipcMain.handle(IPC_CHANNELS.LOAD_PROJECT, async (_event, filePath?: string): Promise<IPCResult<ProjectData & { sourceFilePath?: string }>> => {
     try {
       let openPath = filePath;
       if (!openPath) {
@@ -554,12 +577,29 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
       }
 
       const { project, warnings } = await loadProjectFile(openPath);
+      let loadedProject = project;
+      if (
+        project.media?.filePath &&
+        fs.existsSync(project.media.filePath) &&
+        (project.media.outputOriginSeconds === undefined || project.media.audioStreamStartSeconds === undefined)
+      ) {
+        const mediaProbe = await probeMediaFile(project.media.filePath);
+        if (mediaProbe.success && mediaProbe.mediaInfo) {
+          loadedProject = {
+            ...project,
+            media: {
+              ...project.media,
+              ...mediaProbe.mediaInfo,
+            },
+          };
+        }
+      }
       if (warnings.length > 0) {
         logger.warn('IPC', `Warnings while loading project: ${warnings.join('; ')}`);
       }
 
-      logger.info('IPC', `Loaded project: ${project.projectName} (${project.events.length} subtitle events)`);
-      return { success: true, data: project };
+      logger.info('IPC', `Loaded project: ${loadedProject.projectName} (${loadedProject.events.length} subtitle events)`);
+      return { success: true, data: { ...loadedProject, sourceFilePath: openPath } };
     } catch (err: any) {
       const translated = translateError(err, 'Project Open');
       logger.error('IPC', `Failed to load project: ${err?.message}`);
@@ -979,13 +1019,14 @@ export function registerIPCHandlers(mainWindow: BrowserWindow): void {
     IPC_CHANNELS.DIARIZE_SUBTITLES,
     async (
       _event,
-      payload: { audioPath: string; events: SubtitleEvent[]; numSpeakers?: number }
-    ): Promise<IPCResult<DiarizationResult>> => {
+       payload: { audioPath: string; events: SubtitleEvent[]; numSpeakers?: number; audioOffsetSeconds?: number }
+     ): Promise<IPCResult<DiarizationResult>> => {
       try {
         const diarizer = new AcousticDiarizer();
-        const result = await diarizer.diarize(payload.events, payload.audioPath, {
-          maxSpeakers: payload.numSpeakers || 2,
-        });
+         const result = await diarizer.diarize(payload.events, payload.audioPath, {
+           maxSpeakers: payload.numSpeakers || 2,
+           audioOffsetSeconds: payload.audioOffsetSeconds,
+         });
         return { success: true, data: result };
       } catch (err: any) {
         logger.error('IPC', `Diarization failed: ${err?.message}`);

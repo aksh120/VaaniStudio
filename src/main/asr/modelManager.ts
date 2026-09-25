@@ -4,13 +4,14 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn, ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import { ModelInfo, ModelIntegrityResult, ModelsStorageSummary } from '../../shared/types/models.js';
+import { ASREngineId, ModelInfo, ModelIntegrityResult, ModelsStorageSummary } from '../../shared/types/models.js';
 import { logger } from '../logger.js';
 import { resolvePythonPath } from './pythonResolver.js';
 import { resolveWorkerScriptPath } from './workerResolver.js';
 
 export interface ModelCatalogEntry {
   id: string;
+  engineId: ASREngineId;
   name: string;
   description: string;
   sizeMB: number;
@@ -22,6 +23,7 @@ export interface ModelCatalogEntry {
 export const MODEL_CATALOG: ModelCatalogEntry[] = [
   {
     id: 'whisper-tiny-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Tiny (INT8)',
     description: 'Ultra-fast draft transcription. Lowest memory footprint, recommended for testing and rapid drafting.',
     sizeMB: 42,
@@ -31,6 +33,7 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   },
   {
     id: 'whisper-base-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Base (INT8)',
     description: 'Fast speech recognition. Balanced speed and basic accuracy across English and common Hindi vocabulary.',
     sizeMB: 75,
@@ -40,6 +43,7 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   },
   {
     id: 'whisper-small-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Small (INT8)',
     description: 'Recommended default for English, Hindi, and Hinglish. High accuracy on code-switched conversational speech.',
     sizeMB: 245,
@@ -49,12 +53,23 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
   },
   {
     id: 'whisper-medium-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Medium (INT8)',
     description: 'Highest transcription fidelity for complex multi-speaker audio and subtle Indian English phrasing.',
     sizeMB: 780,
     parameters: '769M',
     isRecommended: false,
     repoId: 'Systran/faster-whisper-medium',
+  },
+  {
+    id: 'whisper-large-v3-ct2-int8',
+    engineId: 'faster-whisper',
+    name: 'Whisper Large v3 (High Accuracy)',
+    description: 'Opt-in high-accuracy multilingual model for demanding speech and code-switched audio.',
+    sizeMB: 3000,
+    parameters: '1.55B',
+    isRecommended: false,
+    repoId: 'Systran/faster-whisper-large-v3',
   },
 ];
 
@@ -123,7 +138,9 @@ function isModelValidAtDir(modelDir: string): boolean {
   const hasModel = fs.existsSync(path.join(modelDir, 'model.bin')) ||
                    fs.existsSync(path.join(modelDir, 'model.safetensors'));
   const hasConfig = fs.existsSync(path.join(modelDir, 'config.json'));
-  return hasModel && hasConfig;
+  const hasTokenizer = fs.existsSync(path.join(modelDir, 'tokenizer.json'));
+  const hasVocabulary = fs.readdirSync(modelDir).some((file) => file.startsWith('vocabulary.'));
+  return hasModel && hasConfig && hasTokenizer && hasVocabulary;
 }
 
 /**
@@ -532,14 +549,31 @@ export async function verifyModelIntegrity(modelId: string): Promise<ModelIntegr
   }
   totalBytes += weightsStat.size;
 
-  // Check vocabulary or tokenizer if present
-  for (const optionalFile of ['vocabulary.json', 'tokenizer.json', 'vocabulary.txt']) {
-    const optPath = path.join(modelDir, optionalFile);
-    if (fs.existsSync(optPath)) {
-      filesChecked.push(optionalFile);
-      totalBytes += fs.statSync(optPath).size;
-    }
+  const tokenizerPath = path.join(modelDir, 'tokenizer.json');
+  if (!fs.existsSync(tokenizerPath)) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: 'Missing required tokenizer file: tokenizer.json',
+    };
   }
+  filesChecked.push('tokenizer.json');
+  totalBytes += fs.statSync(tokenizerPath).size;
+
+  const vocabularyFile = fs.readdirSync(modelDir).find((file) => file.startsWith('vocabulary.'));
+  if (!vocabularyFile) {
+    return {
+      valid: false,
+      modelId,
+      filesChecked,
+      totalBytes,
+      error: 'Missing required vocabulary file',
+    };
+  }
+  filesChecked.push(vocabularyFile);
+  totalBytes += fs.statSync(path.join(modelDir, vocabularyFile)).size;
 
   // Compute fast SHA-256 fingerprint from config + sample of weights
   const hash = crypto.createHash('sha256');

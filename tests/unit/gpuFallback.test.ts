@@ -6,7 +6,7 @@ describe('GPU Fallback and Hardware Probe', () => {
     const resolution = resolveInferenceDevice();
     expect(resolution).toBeDefined();
     expect(['cpu', 'cuda']).toContain(resolution.device);
-    expect(['int8', 'float16', 'float32']).toContain(resolution.computeType);
+    expect(['int8', 'float16', 'float32', 'int8_float16']).toContain(resolution.computeType);
     expect(typeof resolution.reason).toBe('string');
     expect(resolution.reason.length).toBeGreaterThan(0);
   });

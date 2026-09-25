@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process';
+import { ASRComputeType, InferenceDevice } from '../../shared/types/models.js';
 import { logger } from '../logger.js';
 import { resolvePythonPath } from './pythonResolver.js';
 
 export interface DeviceResolution {
-  device: 'cpu' | 'cuda';
-  computeType: 'int8' | 'float16' | 'float32';
+  device: InferenceDevice;
+  computeType: ASRComputeType;
   gpuName?: string;
   reason: string;
 }

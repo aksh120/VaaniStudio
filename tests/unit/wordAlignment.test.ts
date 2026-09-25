@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { cleanAndAlignWords, RawASRWord } from '../../src/shared/subtitles/wordAlignment.js';
+import {
+  cleanAndAlignWords,
+  getWordDisplayText,
+  RawASRWord,
+} from '../../src/shared/subtitles/wordAlignment.js';
 
 describe('Word-Level Timestamp Extraction and Alignment Engine', () => {
   it('enforces strict monotonicity and non-overlapping word timings', () => {
@@ -29,9 +33,9 @@ describe('Word-Level Timestamp Extraction and Alignment Engine', () => {
       }
     }
   });
-
-  it('attaches standalone punctuation tokens to preceding words', () => {
+  it('enforces minimum word duration and handles zero-duration tokens', () => {
     const rawTokens: RawASRWord[] = [
+
       { word: 'Namaste', start: 0.0, end: 0.6, probability: 0.97 },
       { word: ',', start: 0.6, end: 0.65, probability: 0.99 },
       { word: 'doston', start: 0.7, end: 1.2, probability: 0.94 },
@@ -45,6 +49,23 @@ describe('Word-Level Timestamp Extraction and Alignment Engine', () => {
     expect(aligned[0].punctuationFollows).toBe(',');
     expect(aligned[1].word).toBe('doston।');
     expect(aligned[1].punctuationFollows).toBe('।');
+  });
+
+  it('accumulates multiple standalone punctuation tokens and keeps display exact once', () => {
+    const rawTokens: RawASRWord[] = [
+      { word: 'Ready', start: 0.0, end: 0.5, probability: 0.95 },
+      { word: ',', start: 0.5, end: 0.55, probability: 0.99 },
+      { word: ',', start: 0.55, end: 0.6, probability: 0.99 },
+      { word: '!', start: 0.6, end: 0.65, probability: 0.99 },
+    ];
+
+    const aligned = cleanAndAlignWords(rawTokens);
+
+    expect(aligned[0].word).toBe('Ready,,!');
+    expect(aligned[0].punctuationFollows).toBe(',,!');
+    expect(getWordDisplayText(aligned[0])).toBe('Ready,,!');
+    expect(getWordDisplayText({ word: 'Ready', punctuationFollows: ',,!' })).toBe('Ready,,!');
+    expect(getWordDisplayText({ word: 'Ready,', punctuationFollows: ',,!' })).toBe('Ready,,!');
   });
 
   it('enforces minimum word duration and handles zero-duration tokens', () => {

@@ -10,8 +10,9 @@ import { logger } from '../logger.js';
 
 export interface DiarizationOptions {
   maxSpeakers?: number;
-  minSilenceTurnMs?: number; // Inter-segment silence gap threshold (default: 650ms)
-  sensitivity?: number; // 0.0 to 1.0
+  minSilenceTurnMs?: number;
+  sensitivity?: number;
+  audioOffsetSeconds?: number;
 }
 
 export interface DiarizationResult {
@@ -81,7 +82,13 @@ export class AcousticDiarizer implements DiarizationEngine {
       let zcr = 0.5;
 
       if (audioBuffer && audioBuffer.length > 44) {
-        const acoustic = this.extractAcousticFeatures(audioBuffer, sampleRate, evt.startTime, evt.endTime);
+        const audioOffsetSeconds = options?.audioOffsetSeconds ?? 0;
+        const acoustic = this.extractAcousticFeatures(
+          audioBuffer,
+          sampleRate,
+          evt.startTime - audioOffsetSeconds,
+          evt.endTime - audioOffsetSeconds
+        );
         energy = acoustic.energy;
         zcr = acoustic.zcr;
       }

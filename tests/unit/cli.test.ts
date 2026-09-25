@@ -10,6 +10,7 @@ import {
   exportToAss,
   diarizeEvents,
   MODEL_CATALOG,
+  parseWorkerOutput,
 } from '../../bin/vaani-cli.js';
 
 describe('Headless Command-Line Interface (Phase 14: TASK-062)', () => {
@@ -176,14 +177,30 @@ describe('Headless Command-Line Interface (Phase 14: TASK-062)', () => {
     });
   });
 
+  describe('Worker protocol', () => {
+    it('parses JSON-lines segments and surfaces worker errors', () => {
+      const output = [
+        JSON.stringify({ type: 'info', language: 'hi', duration: 2.5 }),
+        JSON.stringify({ type: 'segment', id: 's1', startTime: 0, endTime: 1, text: 'नमस्ते', words: [] }),
+        JSON.stringify({ type: 'done', language: 'hi', duration: 2.5 }),
+      ].join('\n');
+      const parsed = parseWorkerOutput(output);
+      expect(parsed.language).toBe('hi');
+      expect(parsed.segments).toHaveLength(1);
+      expect(parsed.segments[0].text).toBe('नमस्ते');
+      expect(() => parseWorkerOutput(JSON.stringify({ type: 'error', message: 'model failed' }))).toThrow('model failed');
+    });
+  });
+
   describe('Model Catalog Sanity', () => {
-    it('should contain all four supported Whisper model entries', () => {
-      expect(MODEL_CATALOG).toHaveLength(4);
+    it('should contain all five supported Whisper model entries', () => {
+      expect(MODEL_CATALOG).toHaveLength(5);
       const ids = MODEL_CATALOG.map((m: any) => m.id);
       expect(ids).toContain('whisper-tiny-ct2-int8');
       expect(ids).toContain('whisper-base-ct2-int8');
       expect(ids).toContain('whisper-small-ct2-int8');
       expect(ids).toContain('whisper-medium-ct2-int8');
+      expect(ids).toContain('whisper-large-v3-ct2-int8');
 
       MODEL_CATALOG.forEach((m: any) => {
         expect(m.sizeMB).toBeGreaterThan(0);

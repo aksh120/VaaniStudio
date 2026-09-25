@@ -36,6 +36,7 @@ export function detectHardwareProfile(): HardwareProfile {
     hasCudaSupport: gpuResolution.device === 'cuda',
     recommendedMode,
     inferenceDevice: gpuResolution.device,
+    inferenceComputeType: gpuResolution.computeType,
     allocatedThreads: threadConfig,
     memoryStats,
   };

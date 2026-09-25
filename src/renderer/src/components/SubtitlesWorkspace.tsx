@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { useProjectStore } from '../store/projectStore.js';
 import { ScriptMode } from '../../../shared/types/models.js';
 import { SearchReplaceOptions } from '../editor/editorOperations.js';
+import { EmptyState } from './ui/EmptyState.js';
+import { Captions } from 'lucide-react';
+
+const matchesSearch = (text: string, query: string, matchCase: boolean, wholeWord: boolean): boolean => {
+  const source = matchCase ? text : text.toLowerCase();
+  const needle = matchCase ? query : query.toLowerCase();
+  if (!wholeWord) return source.includes(needle);
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`, matchCase ? '' : 'i').test(source);
+};
 
 interface SubtitlesWorkspaceProps {
   onInsertSubtitle: () => void;
@@ -60,11 +70,8 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
   const filteredEvents = React.useMemo(() => {
     if (!searchQuery) return project.events;
     const query = matchCase ? searchQuery : searchQuery.toLowerCase();
-    return project.events.filter((e) => {
-      const target = matchCase ? e.text : e.text.toLowerCase();
-      return target.includes(query);
-    });
-  }, [project.events, searchQuery, matchCase]);
+    return project.events.filter((event) => matchesSearch(event.text, query, matchCase, wholeWord));
+  }, [project.events, searchQuery, matchCase, wholeWord]);
 
   const totalDuration = project.events.reduce(
     (acc, e) => acc + (e.endTime - e.startTime),
@@ -72,10 +79,17 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
   );
 
   return (
-    <div className="subtitles-workspace">
+    <div className="subtitles-workspace workspace-page">
+      <header className="workspace-page-header">
+        <div>
+          <div className="workspace-eyebrow">Caption editor</div>
+          <h1 className="workspace-page-title">Subtitles</h1>
+          <p className="workspace-page-description">Review and edit the transcript, timing, and speaker assignments.</p>
+        </div>
+      </header>
       {/* Top Dedicated Subtitle Management Toolbar */}
       <div className="subtitles-toolbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="subtitle-toolbar-primary">
           <button className="btn btn-secondary btn-sm" onClick={onInsertSubtitle} title="Add Subtitle Event">
             + Add Subtitle
           </button>
@@ -131,7 +145,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="subtitle-toolbar-secondary">
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Script:</span>
             <select
@@ -173,16 +187,18 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             type="text"
             className="input-text"
             style={{ maxWidth: '220px', fontSize: '12px', padding: '4px 8px' }}
-            placeholder="Find text..."
-            value={searchQuery}
+             aria-label="Find subtitle text"
+             placeholder="Find text..."
+             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <input
             type="text"
             className="input-text"
             style={{ maxWidth: '220px', fontSize: '12px', padding: '4px 8px' }}
-            placeholder="Replace with..."
-            value={replaceQuery}
+             aria-label="Replacement text"
+             placeholder="Replace with..."
+             value={replaceQuery}
             onChange={(e) => setReplaceQuery(e.target.value)}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -209,23 +225,21 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
 
       {/* Subtitles Main Table or Empty State */}
       {project.events.length === 0 ? (
-        <div className="empty-state">
-          <svg className="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M4 6h16M4 12h16M4 18h10" />
-          </svg>
-          <h2 className="empty-state-title">No subtitles in this project</h2>
-          <p className="empty-state-description">
-            Generate subtitles automatically from your media audio track, or add subtitle lines manually.
-          </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-primary" onClick={onOpenGenerateModal} disabled={!project.media}>
-              Generate Subtitles
-            </button>
-            <button className="btn btn-secondary" onClick={onInsertSubtitle}>
-              + Add First Subtitle
-            </button>
-          </div>
-        </div>
+        <EmptyState
+          icon={<Captions size={22} />}
+          title="No subtitles in this project"
+          description="Generate subtitles from the active media track, or add the first line manually."
+          action={
+            <>
+              <button className="btn btn-primary" onClick={onOpenGenerateModal} disabled={!project.media}>
+                Generate Subtitles
+              </button>
+              <button className="btn btn-secondary" onClick={onInsertSubtitle}>
+                Add First Subtitle
+              </button>
+            </>
+          }
+        />
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
           <div className="data-table-container">
@@ -242,7 +256,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredEvents.map((evt, idx) => {
+                {filteredEvents.map((evt) => {
                   const isSelected = evt.id === selectedEventId;
                   const durationSec = evt.endTime - evt.startTime;
                   const isExpanded = expandedWordEventId === evt.id;
@@ -252,10 +266,19 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                       <tr
                         className={isSelected ? 'selected' : ''}
                         onClick={() => selectEvent(evt.id)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectEvent(evt.id);
+                          }
+                        }}
+                        tabIndex={0}
+                        aria-selected={isSelected}
                         style={{ cursor: 'pointer' }}
                       >
                         <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
-                          {idx + 1}
+                           {evt.index}
                         </td>
                         <td>
                           <input

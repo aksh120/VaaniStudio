@@ -9,6 +9,7 @@ import {
   ThumbnailInfo,
   ModelInfo,
   TranscriptionOptions,
+  TranscriptionResponse,
   SubtitleEvent,
   SubtitleStyle,
   ProgressUpdate,
@@ -49,13 +50,18 @@ export const vaaniAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.SELECT_MEDIA_FILE);
   },
 
-  probeMedia: (filePath: string): Promise<IPCResult<MediaInfo>> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.PROBE_MEDIA, filePath);
+  probeMedia: (filePath: string, preferredAudioStreamIndex?: number): Promise<IPCResult<MediaInfo>> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.PROBE_MEDIA, filePath, preferredAudioStreamIndex);
   },
 
   extractAudio: (
     filePath: string,
-    options?: { normalize?: boolean; durationSeconds?: number }
+     options?: {
+       normalize?: boolean;
+       durationSeconds?: number;
+       streamIndex?: number;
+       sourceStartSeconds?: number;
+     }
   ): Promise<IPCResult<string>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.EXTRACT_AUDIO, filePath, options);
   },
@@ -94,7 +100,7 @@ export const vaaniAPI = {
   startTranscription: (
     mediaOrAudioPath: string,
     options: TranscriptionOptions
-  ): Promise<IPCResult<{ events: SubtitleEvent[]; language: string; durationSeconds: number; classification?: string }>> => {
+  ): Promise<IPCResult<TranscriptionResponse>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.START_TRANSCRIPTION, mediaOrAudioPath, options);
   },
 
@@ -114,7 +120,7 @@ export const vaaniAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.SAVE_PROJECT, projectData, targetPath);
   },
 
-  loadProject: (filePath?: string): Promise<IPCResult<ProjectData>> => {
+  loadProject: (filePath?: string): Promise<IPCResult<ProjectData & { sourceFilePath?: string }>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.LOAD_PROJECT, filePath);
   },
 
@@ -211,8 +217,9 @@ export const vaaniAPI = {
   diarizeSubtitles: (payload: {
     audioPath: string;
     events: SubtitleEvent[];
-    numSpeakers?: number;
-  }): Promise<IPCResult<{ events: SubtitleEvent[]; speakers: SpeakerProfile[] }>> => {
+     numSpeakers?: number;
+     audioOffsetSeconds?: number;
+   }): Promise<IPCResult<{ events: SubtitleEvent[]; speakers: SpeakerProfile[] }>> => {
     return ipcRenderer.invoke(IPC_CHANNELS.DIARIZE_SUBTITLES, payload);
   },
 

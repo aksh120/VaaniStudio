@@ -13,8 +13,9 @@ describe('UI Redesign Architecture and State Management', () => {
       inspectorTab: 'subtitle',
       inspectorWidth: 320,
       timelineHeight: 160,
-      focusMode: false,
-    });
+       focusMode: false,
+       recentProjectsLimit: 10,
+     });
   });
 
   describe('3-Column Workspace State', () => {
@@ -80,6 +81,14 @@ describe('UI Redesign Architecture and State Management', () => {
 
       setOpenInEditorAfterGeneration(true);
       expect(useUIStore.getState().openInEditorAfterGeneration).toBe(true);
+    });
+
+    it('persists the recent-project display limit', () => {
+      const { setRecentProjectsLimit } = useUIStore.getState();
+      setRecentProjectsLimit(20);
+      expect(useUIStore.getState().recentProjectsLimit).toBe(20);
+      setRecentProjectsLimit(50);
+      expect(useUIStore.getState().recentProjectsLimit).toBe(20);
     });
   });
 

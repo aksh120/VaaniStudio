@@ -2,8 +2,10 @@ import fs from 'node:fs';
 import { spawn, ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import {
+  ASRComputeType,
   ASRSegment,
   ASRTranscriptionResult,
+  InferenceDevice,
   TranscriptionOptions,
 } from '../../shared/types/models.js';
 import { logger } from '../logger.js';
@@ -11,11 +13,9 @@ import { IASREngine, EngineInitOptions, ProgressCallback, SegmentCallback } from
 import { resolvePythonPath } from './pythonResolver.js';
 import { resolveInferenceDevice } from './gpuFallback.js';
 import { getModelPath, isModelDownloaded, MODEL_CATALOG } from './modelManager.js';
-import { buildHinglishPrompt } from '../../shared/intelligence/fusionEngine.js';
 import { classifyLanguage } from '../../shared/intelligence/languageClassifier.js';
 import { getOptimalASRThreads, applyWorkerProcessPriority } from '../hardware/cpuAllocation.js';
 import {
-  cleanHallucinations,
   filterHallucinatedSegments,
   isHallucinatorySegment,
 } from '../../shared/intelligence/hallucinationDetector.js';
@@ -27,8 +27,8 @@ export class FasterWhisperEngine implements IASREngine {
 
   private pythonPath: string | null = null;
   private workerScriptPath: string;
-  private defaultDevice: 'cpu' | 'cuda' = 'cpu';
-  private defaultComputeType: 'int8' | 'float16' | 'float32' = 'int8';
+  private defaultDevice: InferenceDevice = 'cpu';
+  private defaultComputeType: ASRComputeType = 'int8';
 
   constructor() {
     this.workerScriptPath = resolveWorkerScriptPath();
@@ -62,23 +62,33 @@ export class FasterWhisperEngine implements IASREngine {
       throw new Error(`Audio file does not exist: ${audioPath}`);
     }
 
-    // Resolve model path
-    let modelTarget = options.modelId;
-    if (isModelDownloaded(options.modelId)) {
+    const catalogEntry = MODEL_CATALOG.find((entry) => entry.id === options.modelId);
+    let modelTarget: string;
+    if (fs.existsSync(options.modelId) && fs.statSync(options.modelId).isDirectory()) {
+      modelTarget = options.modelId;
+    } else if (catalogEntry && isModelDownloaded(options.modelId)) {
       modelTarget = getModelPath(options.modelId);
+    } else if (!catalogEntry) {
+      throw new Error(`Unknown speech model: ${options.modelId}`);
     } else {
-      const entry = MODEL_CATALOG.find((m) => m.id === options.modelId);
-      if (entry) {
-        modelTarget = entry.repoId;
+      throw new Error(`Speech model is not downloaded: ${catalogEntry.name}. Download it from Settings before starting transcription.`);
+    }
+
+    if (fs.existsSync(modelTarget)) {
+      const modelFiles = fs.readdirSync(modelTarget);
+      const hasTokenizer = modelFiles.includes('tokenizer.json');
+      const hasVocabulary = modelFiles.some((file) => file.startsWith('vocabulary.'));
+      if (!hasTokenizer || !hasVocabulary) {
+        throw new Error(`Speech model is incomplete: ${catalogEntry?.name || options.modelId}. Required tokenizer and vocabulary files are missing.`);
       }
     }
 
-    const device = this.defaultDevice;
-    const computeType = this.defaultComputeType;
-    const threads = getOptimalASRThreads(); // Dynamically allocated to physical cores
+    const device = options.device || this.defaultDevice;
+    const computeType = options.computeType || this.defaultComputeType;
+    const threads = options.cpuThreads || getOptimalASRThreads();
 
     const effectiveLanguage = options.language === 'hinglish' ? 'auto' : (options.language || 'auto');
-    const initialPrompt = options.initialPrompt || (options.language === 'hinglish' ? buildHinglishPrompt('tech') : undefined);
+    const initialPrompt = options.initialPrompt;
 
     this.workerScriptPath = resolveWorkerScriptPath();
     const args = [
@@ -209,16 +219,14 @@ export class FasterWhisperEngine implements IASREngine {
                 endTime: msg.endTime,
                 text: msg.text,
                 words: msg.words || [],
+                avgLogprob: msg.avgLogprob,
+                noSpeechProbability: msg.noSpeechProbability,
+                compressionRatio: msg.compressionRatio,
               };
-              if (!isHallucinatorySegment(rawSeg)) {
-                const cleaned = cleanHallucinations(rawSeg.text);
-                const seg: ASRSegment = {
-                  ...rawSeg,
-                  text: cleaned.cleanedText || rawSeg.text,
-                };
-                accumulatedSegments.push(seg);
-                onSegment?.(seg);
-              }
+               if (options.scriptMode === 'exact' || !isHallucinatorySegment(rawSeg)) {
+                 accumulatedSegments.push(rawSeg);
+                 onSegment?.(rawSeg);
+               }
               break;
             }
 
@@ -265,7 +273,9 @@ export class FasterWhisperEngine implements IASREngine {
             message: 'Transcription complete.',
           });
 
-          const finalSegments = filterHallucinatedSegments(accumulatedSegments);
+           const finalSegments = options.scriptMode === 'exact'
+             ? accumulatedSegments
+             : filterHallucinatedSegments(accumulatedSegments);
           const fullText = finalSegments.map((s) => s.text).join(' ');
           const classificationResult = classifyLanguage(fullText);
 

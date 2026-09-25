@@ -7,6 +7,7 @@ import {
   exportToAss,
 } from '../../src/shared/subtitles/subtitleExporters.js';
 import { generateAssScript } from '../../src/shared/subtitles/assScriptGenerator.js';
+import { mapSubtitleTime } from '../../src/shared/subtitles/timing.js';
 import { SubtitleEvent, SubtitleStyle } from '../../src/shared/types/models.js';
 
 describe('Subtitle File Exporters (Phase 9: TASK-043, TASK-044)', () => {
@@ -73,6 +74,19 @@ describe('Subtitle File Exporters (Phase 9: TASK-043, TASK-044)', () => {
       verticalPercent: 85,
     },
   };
+
+  describe('Shared timing context', () => {
+    it('applies output origin and global offset before serialization', () => {
+      const timing = { outputOriginSeconds: 2, globalSubtitleOffsetMs: 250 };
+      expect(mapSubtitleTime(1.25, timing)).toBe(3.5);
+      const srt = exportToSrt(mockEvents, { timing });
+      expect(srt).toContain('00:00:03,500 --> 00:00:05,750');
+    });
+
+    it('keeps pre-roll timestamps non-negative', () => {
+      expect(mapSubtitleTime(-1, { outputOriginSeconds: 0.5 })).toBe(0);
+    });
+  });
 
   describe('Timestamp Formatters', () => {
     it('formats SubRip timestamps (HH:MM:SS,mmm)', () => {

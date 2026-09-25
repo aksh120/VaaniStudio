@@ -1,15 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyProject, DEFAULT_STYLE, DEFAULT_SETTINGS } from '../../src/shared/defaults.js';
 import { SubtitleEvent, WordTiming } from '../../src/shared/types/models.js';
+import { CURRENT_PROJECT_VERSION } from '../../src/shared/types/models.js';
 
 describe('Domain Models and Serialization', () => {
   it('creates an empty project with valid schema version and defaults', () => {
     const project = createEmptyProject('Test Project');
-    expect(project.projectVersion).toBe(1);
+     expect(project.projectVersion).toBe(CURRENT_PROJECT_VERSION);
     expect(project.projectName).toBe('Test Project');
     expect(project.events).toHaveLength(0);
     expect(project.media).toBeNull();
     expect(project.settings.languageMode).toBe(DEFAULT_SETTINGS.languageMode);
+    expect(project.settings.performanceMode).toBe('balanced');
+    expect(project.settings.modelId).toBe('whisper-small-ct2-int8');
+    expect(project.settings.modelSelectionSource).toBe('profile');
     expect(project.style.primaryColor).toBe(DEFAULT_STYLE.primaryColor);
   });
 
@@ -37,7 +41,7 @@ describe('Domain Models and Serialization', () => {
     const serialized = JSON.stringify(project);
     const parsed = JSON.parse(serialized);
 
-    expect(parsed.projectVersion).toBe(1);
+     expect(parsed.projectVersion).toBe(CURRENT_PROJECT_VERSION);
     expect(parsed.events).toHaveLength(1);
     expect(parsed.events[0].words[0].word).toBe('Hinglish');
     expect(parsed.events[0].words[0].confidence).toBe(0.98);

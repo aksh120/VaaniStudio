@@ -53,18 +53,33 @@ export class SubtitleDataStore {
 
     let low = 0;
     let high = this.events.length - 1;
-
+    let candidateIndex = -1;
     while (low <= high) {
       const mid = (low + high) >> 1;
-      const event = this.events[mid];
-
-      if (timeSeconds >= event.startTime && timeSeconds <= event.endTime) {
-        return event;
-      } else if (timeSeconds < event.startTime) {
-        high = mid - 1;
-      } else {
+      if (this.events[mid].startTime <= timeSeconds) {
+        candidateIndex = mid;
         low = mid + 1;
+      } else {
+        high = mid - 1;
       }
+    }
+
+    if (candidateIndex < 0) return null;
+    const candidate = this.events[candidateIndex];
+    if (timeSeconds < candidate.endTime) {
+      return candidate;
+    }
+
+    for (let index = candidateIndex - 1; index >= 0; index--) {
+      const event = this.events[index];
+      if (event.endTime <= timeSeconds) break;
+      if (timeSeconds >= event.startTime && timeSeconds < event.endTime) {
+        return event;
+      }
+    }
+
+    if (Math.abs(candidate.endTime - timeSeconds) <= 0.0005) {
+      return candidate;
     }
 
     return null;

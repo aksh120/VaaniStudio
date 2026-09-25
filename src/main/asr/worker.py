@@ -241,6 +241,9 @@ def run_transcription(args: argparse.Namespace) -> None:
                 "endTime": round(segment.end, 3),
                 "text": segment.text.strip(),
                 "words": words_data,
+                "avgLogprob": round(getattr(segment, "avg_logprob", 0.0), 6),
+                "noSpeechProbability": round(getattr(segment, "no_speech_prob", 0.0), 6),
+                "compressionRatio": round(getattr(segment, "compression_ratio", 0.0), 6),
             })
 
             # Calculate and emit progress

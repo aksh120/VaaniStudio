@@ -27,6 +27,22 @@ const DEFAULT_OPTIONS: Required<WordAlignmentOptions> = {
 
 const PUNCTUATION_REGEX = /^[.,?!:;\u0964\u0965\-–—'"()\[\]{}]+$/;
 
+export function getWordDisplayText(
+  word: Pick<WordTiming, 'word' | 'punctuationFollows'>
+): string {
+  const text = word.word;
+  const punctuation = word.punctuationFollows || '';
+  if (!punctuation || text.endsWith(punctuation)) {
+    return text;
+  }
+
+  let overlap = Math.min(text.length, punctuation.length);
+  while (overlap > 0 && text.slice(-overlap) !== punctuation.slice(0, overlap)) {
+    overlap -= 1;
+  }
+  return `${text}${punctuation.slice(overlap)}`;
+}
+
 /**
  * Cleans and aligns a sequence of raw ASR word tokens.
  * Enforces monotonic timestamps, removes negative durations, resolves overlaps,
@@ -62,7 +78,7 @@ export function cleanAndAlignWords(
       if (intermediateWords.length > 0) {
         const prev = intermediateWords[intermediateWords.length - 1];
         prev.word = `${prev.word}${trimmedWord}`;
-        prev.punctuationFollows = trimmedWord;
+        prev.punctuationFollows = `${prev.punctuationFollows || ''}${trimmedWord}`;
         // Slightly extend previous word end time to include punctuation boundary if valid
         if (rawEnd > prev.endTime) {
           prev.endTime = Number(Math.max(prev.endTime, rawEnd).toFixed(3));
@@ -84,7 +100,7 @@ export function cleanAndAlignWords(
     const confidence = Number(Math.max(0.0, Math.min(1.0, rawConf)).toFixed(3));
 
     intermediateWords.push({
-      id: `w-${i + 1}-${Math.random().toString(36).substring(2, 7)}`,
+       id: `w-${i + 1}`,
       word: trimmedWord,
       startTime: start,
       endTime: end,

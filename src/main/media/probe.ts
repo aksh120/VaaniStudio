@@ -12,10 +12,23 @@ export interface ProbeResult {
   actionableGuidance?: string;
 }
 
+export interface ProbeOptions {
+  signal?: AbortSignal;
+  preferredAudioStreamIndex?: number;
+}
+
 /**
  * Inspects a media file using FFprobe and returns comprehensive container and stream metadata.
  */
-export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
+export async function probeMediaFile(filePath: string, options: ProbeOptions = {}): Promise<ProbeResult> {
+  if (options.signal?.aborted) {
+    return {
+      success: false,
+      errorCode: 'PROBE_CANCELLED',
+      errorMessage: 'Media probing was cancelled.',
+    };
+  }
+
   if (!fs.existsSync(filePath)) {
     return {
       success: false,
@@ -44,7 +57,7 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
   ];
 
   try {
-    const result = await runFFprobe(args, { timeoutMs: 15000 });
+    const result = await runFFprobe(args, { timeoutMs: 15000, signal: options.signal });
     if (result.exitCode !== 0) {
       return {
         success: false,
@@ -59,7 +72,11 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
     const streams = (data.streams || []) as Array<Record<string, any>>;
 
     // Parse audio stream
-    const audioStream = streams.find((s) => s.codec_type === 'audio');
+    const audioStreams = streams.filter((s) => s.codec_type === 'audio');
+    const requestedAudioStream = options.preferredAudioStreamIndex !== undefined
+      ? audioStreams.find((s) => Number(s.index) === options.preferredAudioStreamIndex)
+      : undefined;
+    const audioStream = requestedAudioStream || audioStreams.find((s) => s.disposition?.default) || audioStreams[0];
     if (!audioStream) {
       return {
         success: false,
@@ -70,7 +87,8 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
     }
 
     // Parse video stream (optional, for video files)
-    const videoStream = streams.find((s) => s.codec_type === 'video');
+    const videoStreams = streams.filter((s) => s.codec_type === 'video');
+    const videoStream = videoStreams.find((s) => s.disposition?.default) || videoStreams[0];
 
     // Parse duration: prioritize format.duration, fallback to audioStream.duration
     let durationSeconds = 0;
@@ -91,6 +109,36 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
       }
     }
 
+    const parseOptionalNumber = (value: unknown): number | undefined => {
+      if (value === undefined || value === null || value === 'N/A') return undefined;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
+    const toStreamInfo = (stream: Record<string, any>, type: 'audio' | 'video') => ({
+      index: Number(stream.index),
+      type,
+      codec: stream.codec_name,
+      channels: stream.channels ? parseInt(stream.channels, 10) : undefined,
+      sampleRate: stream.sample_rate ? parseInt(stream.sample_rate, 10) : undefined,
+      width: stream.width ? parseInt(stream.width, 10) : undefined,
+      height: stream.height ? parseInt(stream.height, 10) : undefined,
+      language: stream.tags?.language || stream.tags?.lang || undefined,
+       disposition: stream.disposition?.default ? 'default' : 'alternate',
+      startTimeSeconds: parseOptionalNumber(stream.start_time),
+      timeBase: stream.time_base,
+      isDefault: Boolean(stream.disposition?.default),
+    });
+
+    const audioStartSeconds = parseOptionalNumber(audioStream.start_time);
+    const videoStartSeconds = parseOptionalNumber(videoStream?.start_time);
+    const workingAudioOriginSeconds = audioStartSeconds ?? 0;
+    const earliestRetainedStart = Math.min(
+      workingAudioOriginSeconds,
+      ...(videoStartSeconds !== undefined ? [videoStartSeconds] : [])
+    );
+    const outputOriginSeconds = Math.max(0, -earliestRetainedStart);
+
     const mediaInfo: MediaInfo = {
       filePath,
       fileName: path.basename(filePath),
@@ -104,6 +152,19 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
       videoCodec: videoStream?.codec_name,
       bitrate: format.bit_rate ? parseInt(format.bit_rate, 10) : undefined,
       fileSizeBytes: stat.size,
+      audioStreamIndex: parseOptionalNumber(audioStream.index),
+      videoStreamIndex: parseOptionalNumber(videoStream?.index),
+      audioStreamStartSeconds: audioStartSeconds,
+      workingAudioOriginSeconds,
+      videoStreamStartSeconds: videoStartSeconds,
+      outputOriginSeconds,
+      audioStreamLanguage:
+        audioStream.tags?.language || audioStream.tags?.lang || undefined,
+       audioStreamDisposition: audioStream.disposition?.default ? 'default' : 'alternate',
+      audioStreams: audioStreams.map((stream) => toStreamInfo(stream, 'audio')),
+      videoStreams: streams
+        .filter((stream) => stream.codec_type === 'video')
+        .map((stream) => toStreamInfo(stream, 'video')),
     };
 
     logger.info(
@@ -118,6 +179,13 @@ export async function probeMediaFile(filePath: string): Promise<ProbeResult> {
       mediaInfo,
     };
   } catch (err: any) {
+    if (options.signal?.aborted) {
+      return {
+        success: false,
+        errorCode: 'PROBE_CANCELLED',
+        errorMessage: 'Media probing was cancelled.',
+      };
+    }
     logger.error('MEDIA', `Error probing media file ${filePath}: ${err?.message}`);
     return {
       success: false,

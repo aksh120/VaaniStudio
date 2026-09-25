@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn, execSync } from 'node:child_process';
+import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 const VERSION = '0.1.0';
@@ -20,6 +21,7 @@ const VERSION = '0.1.0';
 export const MODEL_CATALOG = [
   {
     id: 'whisper-tiny-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Tiny (INT8)',
     description: 'Ultra-fast draft transcription. Lowest memory footprint.',
     sizeMB: 42,
@@ -28,6 +30,7 @@ export const MODEL_CATALOG = [
   },
   {
     id: 'whisper-base-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Base (INT8)',
     description: 'Fast speech recognition. Balanced speed and basic accuracy.',
     sizeMB: 75,
@@ -36,6 +39,7 @@ export const MODEL_CATALOG = [
   },
   {
     id: 'whisper-small-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Small (INT8)',
     description: 'Recommended default for English, Hindi, and Hinglish.',
     sizeMB: 245,
@@ -44,11 +48,21 @@ export const MODEL_CATALOG = [
   },
   {
     id: 'whisper-medium-ct2-int8',
+    engineId: 'faster-whisper',
     name: 'Whisper Medium (INT8)',
     description: 'Highest transcription fidelity for complex multi-speaker audio.',
     sizeMB: 780,
     parameters: '769M',
     repoId: 'Systran/faster-whisper-medium',
+  },
+  {
+    id: 'whisper-large-v3-ct2-int8',
+    engineId: 'faster-whisper',
+    name: 'Whisper Large v3 (High Accuracy)',
+    description: 'Opt-in high-accuracy multilingual model for demanding speech and code-switched audio.',
+    sizeMB: 3000,
+    parameters: '1.55B',
+    repoId: 'Systran/faster-whisper-large-v3',
   },
 ];
 
@@ -71,7 +85,53 @@ export function isModelDownloaded(modelId) {
   const hasWeights = fs.existsSync(path.join(modelDir, 'model.bin')) ||
                     fs.existsSync(path.join(modelDir, 'model.safetensors'));
   const hasConfig = fs.existsSync(path.join(modelDir, 'config.json'));
-  return hasWeights && hasConfig;
+  const hasTokenizer = fs.existsSync(path.join(modelDir, 'tokenizer.json'));
+  const hasVocabulary = fs.readdirSync(modelDir).some((file) => file.startsWith('vocabulary.'));
+  return hasWeights && hasConfig && hasTokenizer && hasVocabulary;
+}
+
+export function resolveLocalModelPath(modelId) {
+  const entry = MODEL_CATALOG.find((model) => model.id === modelId);
+  if (!entry) {
+    throw new Error(`Unknown speech model: ${modelId}`);
+  }
+  if (!isModelDownloaded(modelId)) {
+    throw new Error(`Speech model is not downloaded: ${entry.name}`);
+  }
+  return path.join(getModelsDir(), modelId);
+}
+
+export function parseWorkerOutput(output) {
+  const segments = [];
+  let language = 'auto';
+  let durationSeconds = 0;
+  for (const line of String(output || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    let message;
+    try {
+      message = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (message.type === 'error') {
+      throw new Error(message.message || 'ASR worker failed.');
+    }
+    if (message.type === 'info' || message.type === 'done') {
+      language = message.language || language;
+      durationSeconds = message.duration || durationSeconds;
+    }
+    if (message.type === 'segment') {
+      segments.push({
+        id: message.id,
+        startTime: message.startTime,
+        endTime: message.endTime,
+        text: message.text,
+        words: message.words || [],
+      });
+    }
+  }
+  return { segments, language, durationSeconds };
 }
 
 export function resolvePythonPath() {
@@ -472,10 +532,15 @@ async function handleTranscribeCommand(parsed) {
   }
 
   const modelId = parsed.options.m || parsed.options.model || 'whisper-small-ct2-int8';
-  const language = parsed.options.l || parsed.options.language || 'auto';
+  const requestedLanguage = parsed.options.l || parsed.options.language || 'auto';
+  const language = requestedLanguage === 'hinglish' ? 'auto' : requestedLanguage;
   const format = (parsed.options.f || parsed.options.format || 'srt').toLowerCase();
   const outDir = path.resolve(parsed.options.o || parsed.options.output || path.dirname(resolvedInput));
   const shouldDiarize = Boolean(parsed.options.diarize);
+  const device = parsed.options.device || 'cpu';
+  const computeType = parsed.options['compute-type'] || parsed.options.computeType || 'int8';
+  const beamSize = Number(parsed.options['beam-size'] || parsed.options.beamSize || 5);
+  const threads = Math.max(1, Number(parsed.options.threads || os.cpus().length || 1));
 
   if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
@@ -491,59 +556,66 @@ async function handleTranscribeCommand(parsed) {
   const tempWav = path.join(os.tmpdir(), `vaani_cli_${Date.now()}.wav`);
 
   try {
-    execSync(`"${ffmpegPath}" -y -i "${resolvedInput}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${tempWav}"`, {
+     execSync(`"${ffmpegPath}" -y -i "${resolvedInput}" -vn -acodec pcm_s16le -ar 16000 -ac 1 -af asetpts=PTS-STARTPTS "${tempWav}"`, {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
   } catch (err) {
     throw new Error(`FFmpeg audio extraction failed: ${err.message}`);
   }
 
-  // 2. Transcription Execution via Python Worker
   const pythonPath = resolvePythonPath();
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const workerScript = path.resolve(scriptDir, '..', 'src', 'main', 'asr', 'worker.py');
-
-  let rawEvents = [];
-  let detectedLang = language;
-
-  if (fs.existsSync(workerScript)) {
-    try {
-      const workerCmd = `"${pythonPath}" "${workerScript}" transcribe --model "${modelId}" --audio "${tempWav}" --language "${language}"`;
-      const out = execSync(workerCmd, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 10 * 1024 * 1024 }).toString();
-      const parsedOut = JSON.parse(out);
-      rawEvents = parsedOut.events || [];
-      detectedLang = parsedOut.language || language;
-    } catch {
-      // Fallback synthetic event for headless testing environments without full python faster-whisper
-      rawEvents = [
-        {
-          id: 'cli_event_1',
-          startTime: 0.0,
-          endTime: 2.5,
-          text: 'Transcribed audio content from media stream.',
-          words: [
-            { word: 'Transcribed', startTime: 0.0, endTime: 0.8 },
-            { word: 'audio', startTime: 0.8, endTime: 1.4 },
-            { word: 'content', startTime: 1.4, endTime: 2.5 },
-          ],
-        },
-      ];
-    }
-  } else {
-    rawEvents = [
-      {
-        id: 'cli_event_1',
-        startTime: 0.0,
-        endTime: 2.5,
-        text: 'Transcribed audio content from media stream.',
-        words: [
-          { word: 'Transcribed', startTime: 0.0, endTime: 0.8 },
-          { word: 'audio', startTime: 0.8, endTime: 1.4 },
-          { word: 'content', startTime: 1.4, endTime: 2.5 },
-        ],
-      },
-    ];
+  if (!fs.existsSync(workerScript)) {
+    throw new Error(`ASR worker not found: ${workerScript}`);
   }
+
+  const modelPath = resolveLocalModelPath(modelId);
+  const workerArgs = [
+    workerScript,
+    'transcribe',
+    tempWav,
+    '--model',
+    modelPath,
+    '--device',
+    device,
+    '--compute-type',
+    computeType,
+    '--threads',
+    String(threads),
+    '--language',
+    language,
+    '--beam-size',
+    String(beamSize),
+  ];
+
+  const workerOutput = await new Promise((resolve, reject) => {
+    const child = spawn(pythonPath, workerArgs, {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    let stderr = '';
+    const lines = readline.createInterface({ input: child.stdout, terminal: false });
+    lines.on('line', (line) => {
+      output += `${line}\n`;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(stderr.trim() || `ASR worker exited with code ${code}`));
+      }
+    });
+  });
+
+  const workerResult = parseWorkerOutput(workerOutput);
+  const rawEvents = workerResult.segments;
+  const detectedLang = workerResult.language || language;
 
   // 3. Optional Diarization
   let finalEvents = rawEvents;
@@ -573,8 +645,12 @@ async function handleTranscribeCommand(parsed) {
   } else if (format === 'json') {
     content = JSON.stringify({
       media: resolvedInput,
-      model: modelId,
-      language: detectedLang,
+       model: modelId,
+       engine: 'faster-whisper',
+       device,
+       computeType,
+       beamSize,
+       language: detectedLang,
       speakers,
       events: finalEvents,
     }, null, 2);
@@ -590,8 +666,13 @@ async function handleTranscribeCommand(parsed) {
       input: resolvedInput,
       output: outPath,
       format,
-      language: detectedLang,
-      eventsCount: finalEvents.length,
+       language: detectedLang,
+       model: modelId,
+       engine: 'faster-whisper',
+       device,
+       computeType,
+       beamSize,
+       eventsCount: finalEvents.length,
       speakersCount: speakers.length,
     }));
   } else {

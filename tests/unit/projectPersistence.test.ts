@@ -138,6 +138,41 @@ describe('Phase 12: Project File Schema & Atomic Persistence (TASK-053)', () => 
     expect(migrated.exportHistory).toEqual([]);
   });
 
+  it('normalizes missing model selection metadata for current-version projects', () => {
+    const legacyProject = {
+      projectVersion: CURRENT_PROJECT_VERSION,
+      projectId: 'legacy-settings',
+      projectName: 'Legacy Settings',
+      media: null,
+      settings: {
+        languageMode: 'hinglish',
+        scriptMode: 'roman',
+        performanceMode: 'balanced',
+        modelId: 'whisper-medium-ct2-int8',
+        maxCharactersPerLine: 37,
+        maxLinesPerSubtitle: 2,
+        targetReadingSpeedCPS: 19,
+      },
+      events: [],
+    };
+
+    const validated = validateProjectSchema(legacyProject);
+    expect(validated.isValid).toBe(true);
+     expect(validated.migratedProject?.settings.modelSelectionSource).toBe('user');
+    expect(validated.migratedProject?.settings.modelId).toBe('whisper-medium-ct2-int8');
+  });
+
+  it('rejects project schemas newer than the supported version', () => {
+    const result = validateProjectSchema({
+      projectId: 'future-project',
+      projectName: 'Future Project',
+      projectVersion: CURRENT_PROJECT_VERSION + 1,
+      events: [],
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0]).toContain('newer than supported');
+  });
+
   it('throws descriptive error on corrupted non-JSON project files', async () => {
     const corruptPath = path.join(tempDir, 'corrupt.vsp');
     fs.writeFileSync(corruptPath, '{ this is not valid json : [ }');

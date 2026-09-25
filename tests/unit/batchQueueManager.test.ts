@@ -11,7 +11,7 @@ vi.mock('../../src/main/media/audio.js', () => ({
     if (filePath.includes('corrupt')) {
       throw new Error('Corrupted container or missing audio track');
     }
-    return 'mock_audio.wav';
+     return { success: true, outputPath: 'mock_audio.wav' };
   }),
 }));
 
@@ -23,8 +23,8 @@ vi.mock('../../src/main/asr/fasterWhisperEngine.js', () => ({
         {
           id: 1,
           seek: 0,
-          start: 0.0,
-          end: 2.0,
+           startTime: 0.0,
+           endTime: 2.0,
           text: 'Batch test transcript.',
           tokens: [],
           temperature: 0,
@@ -32,9 +32,9 @@ vi.mock('../../src/main/asr/fasterWhisperEngine.js', () => ({
           compressionRatio: 1.2,
           noSpeechProb: 0.01,
           words: [
-            { word: 'Batch', start: 0.0, end: 0.5, probability: 0.95 },
-            { word: 'test', start: 0.5, end: 1.2, probability: 0.96 },
-            { word: 'transcript.', start: 1.2, end: 2.0, probability: 0.98 },
+             { word: 'Batch', startTime: 0.0, endTime: 0.5, confidence: 0.95 },
+             { word: 'test', startTime: 0.5, endTime: 1.2, confidence: 0.96 },
+             { word: 'transcript.', startTime: 1.2, endTime: 2.0, confidence: 0.98 },
           ],
         },
       ],

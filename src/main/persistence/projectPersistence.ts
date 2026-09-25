@@ -11,7 +11,7 @@ import {
   CURRENT_PROJECT_VERSION,
   SubtitleEvent,
 } from '../../shared/types/models.js';
-import { DEFAULT_SETTINGS, DEFAULT_STYLE, DEFAULT_ANIMATION } from '../../shared/defaults.js';
+import { DEFAULT_STYLE, DEFAULT_ANIMATION, normalizeProjectSettings } from '../../shared/defaults.js';
 import { logger } from '../logger.js';
 
 export interface ProjectLoadResult {
@@ -23,6 +23,53 @@ export interface SchemaValidationResult {
   isValid: boolean;
   errors: string[];
   migratedProject?: ProjectData;
+}
+
+function normalizeEventTiming(event: any, index: number, legacy: boolean): SubtitleEvent {
+  const rawStart = Number(event?.startTime);
+  const rawEnd = Number(event?.endTime);
+  const startTime = Number.isFinite(rawStart) ? Math.max(0, rawStart) : 0;
+  const endTime = Number.isFinite(rawEnd) ? Math.max(startTime, rawEnd) : startTime + 0.1;
+  const words = Array.isArray(event?.words)
+    ? event.words
+        .map((word: any, wordIndex: number) => {
+          const rawWordStart = Number(word?.startTime ?? word?.start);
+          const rawWordEnd = Number(word?.endTime ?? word?.end);
+          const wordStart = Number.isFinite(rawWordStart)
+            ? Math.min(endTime, Math.max(startTime, rawWordStart))
+            : startTime;
+          const wordEnd = Number.isFinite(rawWordEnd) ? Math.max(wordStart, Math.min(endTime, rawWordEnd)) : wordStart;
+          const confidence = Number(word?.confidence ?? word?.probability);
+          return {
+            id: typeof word?.id === 'string' ? word.id : `sub-${index + 1}-w-${wordIndex + 1}`,
+            word: typeof word?.word === 'string' ? word.word : '',
+            startTime: wordStart,
+            endTime: wordEnd,
+            confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0.9,
+            punctuationFollows: typeof word?.punctuationFollows === 'string' ? word.punctuationFollows : undefined,
+            speakerId: typeof word?.speakerId === 'string' ? word.speakerId : undefined,
+          };
+        })
+        .filter((word: any) => word.word.length > 0)
+    : [];
+
+  return {
+    id: typeof event?.id === 'string' ? event.id : `sub-${index + 1}`,
+    index: typeof event?.index === 'number' ? event.index : index + 1,
+    startTime,
+    endTime,
+    text: typeof event?.text === 'string' ? event.text : '',
+    words,
+    speakerId: event?.speakerId,
+    speakerLabel: event?.speakerLabel,
+    cps: typeof event?.cps === 'number' ? event.cps : undefined,
+    cpl: typeof event?.cpl === 'number' ? event.cpl : undefined,
+    wordTimingState: legacy
+      ? 'legacy-unverified'
+      : words.length === 0
+      ? 'stale'
+      : event?.wordTimingState || 'fresh',
+  };
 }
 
 /**
@@ -56,12 +103,29 @@ export function validateProjectSchema(raw: unknown): SchemaValidationResult {
 
   // Schema version check and migration
   const version = typeof obj.projectVersion === 'number' ? obj.projectVersion : 0;
+  if (version > CURRENT_PROJECT_VERSION) {
+    return {
+      isValid: false,
+      errors: [`Project schema v${version} is newer than supported schema v${CURRENT_PROJECT_VERSION}.`],
+    };
+  }
+
   if (version < CURRENT_PROJECT_VERSION) {
     const migrated = migrateProjectSchema(obj);
     return { isValid: true, errors: [], migratedProject: migrated };
   }
 
-  return { isValid: true, errors: [], migratedProject: obj as ProjectData };
+  return {
+    isValid: true,
+    errors: [],
+    migratedProject: {
+      ...obj,
+      settings: normalizeProjectSettings(obj.settings),
+      events: Array.isArray(obj.events)
+        ? obj.events.map((event: any, index: number) => normalizeEventTiming(event, index, false))
+        : [],
+    } as ProjectData,
+  };
 }
 
 /**
@@ -78,23 +142,9 @@ export function migrateProjectSchema(data: Record<string, any>): ProjectData {
     media: data.media || null,
     relativeMediaPath: data.relativeMediaPath,
     mediaHash: data.mediaHash,
-    settings: {
-      ...DEFAULT_SETTINGS,
-      ...(data.settings || {}),
-    },
+    settings: normalizeProjectSettings(data.settings),
     events: Array.isArray(data.events)
-      ? data.events.map((evt: any, idx: number): SubtitleEvent => ({
-          id: evt.id || `sub-${idx + 1}`,
-          index: typeof evt.index === 'number' ? evt.index : idx + 1,
-          startTime: typeof evt.startTime === 'number' ? evt.startTime : 0,
-          endTime: typeof evt.endTime === 'number' ? evt.endTime : 1,
-          text: typeof evt.text === 'string' ? evt.text : '',
-          words: Array.isArray(evt.words) ? evt.words : [],
-          speakerId: evt.speakerId,
-          speakerLabel: evt.speakerLabel,
-          cps: evt.cps,
-          cpl: evt.cpl,
-        }))
+      ? data.events.map((event: any, index: number) => normalizeEventTiming(event, index, version < 2))
       : [],
     style: {
       ...DEFAULT_STYLE,
@@ -104,7 +154,8 @@ export function migrateProjectSchema(data: Record<string, any>): ProjectData {
       ...DEFAULT_ANIMATION,
       ...(data.animation || {}),
     },
-    exportHistory: Array.isArray(data.exportHistory) ? data.exportHistory : [],
+     exportHistory: Array.isArray(data.exportHistory) ? data.exportHistory : [],
+     lastTranscriptionRun: data.lastTranscriptionRun,
   };
 
   logger.info('PERSISTENCE', `Migrated project "${migrated.projectName}" from schema v${version} to v${CURRENT_PROJECT_VERSION}.`);
@@ -127,7 +178,9 @@ export async function saveProjectAtomic(targetPath: string, projectData: Project
   // Clone project data to prevent mutating caller reference
   const cloned: ProjectData = JSON.parse(JSON.stringify(projectData));
   cloned.projectVersion = CURRENT_PROJECT_VERSION;
+  delete cloned.sourceFilePath;
   cloned.modifiedAt = new Date().toISOString();
+  cloned.settings = normalizeProjectSettings(cloned.settings);
 
   // Compute relative media path if media exists
   if (cloned.media?.filePath) {

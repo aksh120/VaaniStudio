@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  X,
   MessageSquare,
   Type,
   Cpu,
@@ -9,11 +8,13 @@ import {
   Download,
   CheckCircle2,
   Info,
-  Sparkles,
+  Captions,
   Play,
 } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore.js';
 import { useUIStore } from '../store/uiStore.js';
+import { ProgressBar } from './ui/ProgressBar.js';
+import { Dialog } from './ui/Dialog.js';
 import { LanguageMode, ScriptMode, PerformanceMode, ModelInfo } from '../../../shared/types/models.js';
 
 interface GenerateSubtitlesDialogProps {
@@ -55,7 +56,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
     return models.find((m) => m.id === selectedModelId) || models[0];
   }, [models, selectedModelId]);
 
-  const isModelReady = currentModel?.isDownloaded ?? true;
+  const isModelReady = Boolean(currentModel?.isDownloaded);
 
   if (!isOpen) return null;
 
@@ -63,40 +64,54 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
   const durationSec = media?.durationSeconds || 0;
   const fileSizeMB = media?.fileSizeBytes
     ? Math.round(media.fileSizeBytes / (1024 * 1024))
-    : 245;
+    : 0;
+  const selectedAudioStream = media?.audioStreams?.find(
+    (stream) => stream.index === (media.audioStreamIndex ?? media.audioStreams?.[0]?.index)
+  );
+
+  const footer = !isTranscribing ? (
+    <>
+      <label className="gen-footer-checkbox-label">
+        <input
+          type="checkbox"
+          className="gen-checkbox"
+          checked={openInEditorAfterGeneration}
+          onChange={(e) => setOpenInEditorAfterGeneration(e.target.checked)}
+        />
+        <span className="gen-checkbox-text">
+          <span className="gen-checkbox-title">Open in editor after generation</span>
+          <span className="gen-checkbox-desc">Edit the generated subtitles when processing finishes.</span>
+        </span>
+      </label>
+      <div className="gen-footer-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary gen-submit-btn"
+          disabled={!media || !isModelReady}
+          onClick={onStartTranscription}
+        >
+          <Captions size={14} />
+          <span>Generate Subtitles</span>
+        </button>
+      </div>
+    </>
+  ) : undefined;
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-dialog gen-subtitles-modal">
-        {/* Header */}
-        <div className="gen-modal-header">
-          <div className="gen-header-left">
-            <div className="gen-header-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 10v4" />
-                <path d="M6 6v12" />
-                <path d="M10 3v18" />
-                <path d="M14 7v10" />
-                <path d="M18 5v14" />
-                <path d="M22 10v4" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="gen-modal-title">Generate Subtitles</h3>
-              <p className="gen-modal-subtitle">
-                Convert speech in your video to accurate subtitles using local AI models.
-              </p>
-            </div>
-          </div>
-          {!isTranscribing && (
-            <button className="gen-close-btn" onClick={onClose} title="Close (Esc)">
-              <X size={18} />
-            </button>
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="gen-modal-body">
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Generate Subtitles"
+      description="Transcribe speech from the active media with a local model."
+      className="gen-subtitles-modal"
+      dismissible={!isTranscribing}
+      hideClose={isTranscribing}
+      footer={footer}
+    >
+      <div className="gen-modal-body">
           {/* Media Info Card */}
           <div className="gen-media-card">
             <div className="gen-media-thumb">
@@ -119,11 +134,17 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                 <div className="gen-media-specs">
                   <span>Duration: {durationSec.toFixed(1)}s</span>
                   <span className="spec-divider">|</span>
-                  <span>{media.width && media.height ? `${media.width}×${media.height}` : '1920×1080'}</span>
+                   <span>{media.width && media.height ? `${media.width}×${media.height}` : 'Audio only'}</span>
                   <span className="spec-divider">|</span>
-                  <span>{media.fps ? `${Math.round(media.fps)} FPS` : '30 FPS'}</span>
+                   <span>{media.fps ? `${Math.round(media.fps)} FPS` : 'FPS unavailable'}</span>
                   <span className="spec-divider">|</span>
-                  <span>{fileSizeMB} MB</span>
+                    {selectedAudioStream && (
+                      <>
+                        <span className="spec-divider">|</span>
+                        <span>Audio: {selectedAudioStream.language || selectedAudioStream.codec || `Track ${selectedAudioStream.index}`}</span>
+                      </>
+                    )}
+                    {fileSizeMB > 0 && <span>{fileSizeMB} MB</span>}
                 </div>
               )}
             </div>
@@ -152,24 +173,22 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                   : 'Aligning word timestamps and finalizing subtitle blocks...'}
               </div>
 
-              <div className="gen-transcribing-percent">
-                {transcriptionProgress.toFixed(1)}% complete
-              </div>
+               <ProgressBar
+                 value={transcriptionProgress}
+                 label="Transcription"
+                 detail={`${transcriptionProgress.toFixed(1)}% complete`}
+                 className="gen-transcription-progress"
+               />
 
-              <div className="gen-progress-track">
-                <div
-                  className="gen-progress-fill"
-                  style={{ width: `${Math.max(4, transcriptionProgress)}%` }}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-danger btn-sm"
-                onClick={onCancelTranscription}
-              >
-                Cancel Generation
-              </button>
+               <div className="gen-transcribing-actions">
+                 <button
+                   type="button"
+                   className="btn btn-danger btn-sm"
+                   onClick={onCancelTranscription}
+                 >
+                   Cancel Generation
+                 </button>
+               </div>
             </div>
           ) : (
             /* 4-Step Form Rows */
@@ -231,7 +250,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                     <Cpu size={16} />
                   </div>
                   <div>
-                    <div className="gen-row-title">3. AI Model</div>
+                     <div className="gen-row-title">3. Model</div>
                     <div className="gen-row-desc">Select a speech-to-text model for transcription.</div>
                   </div>
                 </div>
@@ -242,10 +261,9 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                     onChange={(e) => onSelectModelId(e.target.value)}
                   >
                     {models.map((m) => {
-                      const isRecommended = m.id.includes('small') || m.id.includes('tiny');
                       return (
                         <option key={m.id} value={m.id}>
-                          {m.name} {isRecommended ? '★ Recommended' : ''} ({m.sizeMB} MB)
+                           {m.name} {m.isRecommended ? '(recommended)' : ''} ({m.sizeMB} MB)
                           {m.isDownloaded ? ' • Downloaded' : ' • Needs Download'}
                         </option>
                       );
@@ -262,7 +280,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                     ) : (
                       <>
                         <Download size={13} className="status-icon-download" />
-                        <span className="status-text-download">Model not found. Download will start automatically.</span>
+                         <span className="status-text-download">Download this model from Settings before starting.</span>
                       </>
                     )}
                   </div>
@@ -310,40 +328,6 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        {!isTranscribing && (
-          <div className="gen-modal-footer">
-            <label className="gen-footer-checkbox-label">
-              <input
-                type="checkbox"
-                className="gen-checkbox"
-                checked={openInEditorAfterGeneration}
-                onChange={(e) => setOpenInEditorAfterGeneration(e.target.checked)}
-              />
-              <div className="gen-checkbox-text">
-                <span className="gen-checkbox-title">Open in editor after generation</span>
-                <span className="gen-checkbox-desc">Add, edit, and refine subtitles once they're generated.</span>
-              </div>
-            </label>
-
-            <div className="gen-footer-actions">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary gen-submit-btn"
-                disabled={!media}
-                onClick={onStartTranscription}
-              >
-                <Sparkles size={14} />
-                <span>Generate Subtitles</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </Dialog>
   );
 };

@@ -10,6 +10,7 @@ export interface NormalizationOptions {
   normalizeNumbers?: boolean;
   removeFillerWords?: boolean;
   formatPunctuation?: boolean;
+  preserveWordTiming?: boolean;
 }
 
 const DEFAULT_OPTIONS: NormalizationOptions = {
@@ -259,6 +260,10 @@ export function normalizeSubtitleEvent(
     text: newText,
     words: newWords,
     cps,
-    cpl: newText.length,
+    cpl: Math.max(...newText.split('\n').map((line) => line.length), 0),
+    wordTimingState:
+      (options.preserveWordTiming || (newText === event.text && newWords.length === (event.words?.length || 0)))
+        ? event.wordTimingState || 'fresh'
+        : 'stale',
   };
 }

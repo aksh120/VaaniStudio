@@ -8,6 +8,7 @@ import {
   MediaInfo,
   WaveformData,
   CrashRecoveryEntry,
+  TranscriptionRunMetadata,
 } from '../../../shared/types/models.js';
 import { createEmptyProject } from '../../../shared/defaults.js';
 import { ActionableError } from '../../../shared/errors/errorTranslator.js';
@@ -37,6 +38,7 @@ interface ProjectState {
   updateSettings: (settings: Partial<ProjectSettings>) => void;
   updateStyle: (style: Partial<SubtitleStyle>) => void;
   setEvents: (events: SubtitleEvent[]) => void;
+  setLastTranscriptionRun: (run: TranscriptionRunMetadata) => void;
   addEvent: (event: SubtitleEvent) => void;
   selectEvent: (id: string | null) => void;
   setCurrentTime: (time: number) => void;
@@ -114,6 +116,16 @@ export const useProjectStore = create<ProjectState>((set) => ({
       },
     })),
 
+  setLastTranscriptionRun: (run) =>
+    set((state) => ({
+      isDirty: true,
+      project: {
+        ...state.project,
+        lastTranscriptionRun: run,
+        modifiedAt: new Date().toISOString(),
+      },
+    })),
+
   addEvent: (event) =>
     set((state) => ({
       isDirty: true,
@@ -132,15 +144,21 @@ export const useProjectStore = create<ProjectState>((set) => ({
   loadProjectData: (project, filePath) =>
     set({
       project,
+      audioWavPath: null,
+      waveformData: null,
+      currentTime: 0,
       selectedEventId: null,
       isDirty: false,
       currentProjectFilePath: filePath || null,
-      lastSavedAt: project.modifiedAt || new Date().toISOString(),
+      lastSavedAt: filePath ? project.modifiedAt || new Date().toISOString() : null,
     }),
 
   resetProject: () =>
     set({
       project: createEmptyProject(),
+      audioWavPath: null,
+      waveformData: null,
+      currentTime: 0,
       selectedEventId: null,
       isDirty: false,
       currentProjectFilePath: null,

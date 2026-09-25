@@ -72,8 +72,13 @@ describe('Media Engine Subsystem (FFmpeg & FFprobe)', () => {
     expect(info.durationSeconds).toBeCloseTo(2.0, 1);
     expect(info.audioSampleRate).toBe(44100);
     expect(info.audioChannels).toBe(2);
-    expect(info.audioCodec).toBe('pcm_s16le');
-    expect(info.width).toBeUndefined();
+     expect(info.audioCodec).toBe('pcm_s16le');
+     expect(info.audioStreamIndex).toBe(0);
+     expect(info.workingAudioOriginSeconds).toBe(0);
+     expect(info.outputOriginSeconds).toBe(0);
+     expect(info.audioStreams).toHaveLength(1);
+     expect(info.audioStreams?.[0].type).toBe('audio');
+     expect(info.width).toBeUndefined();
   });
 
   it('probes video media file and extracts video geometry and audio streams', async () => {

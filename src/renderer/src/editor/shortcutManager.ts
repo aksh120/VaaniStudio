@@ -69,6 +69,14 @@ export class ShortcutManager {
       }
     }
 
+    if (inputActive) {
+      if (e.key === 'Escape' && this.handlers.onEscape) {
+        this.handlers.onEscape();
+        return true;
+      }
+      return false;
+    }
+
     // 2. Split at Playhead (Ctrl+K or 'S' when not editing text)
     if ((isCtrlOrCmd && key === 'k') || (!isCtrlOrCmd && !isShift && !inputActive && key === 's')) {
       if (this.handlers.onSplit) {
@@ -87,16 +95,7 @@ export class ShortcutManager {
       }
     }
 
-    // Below shortcuts ONLY trigger when NOT typing inside an input/textarea
-    if (inputActive) {
-      if (e.key === 'Escape' && this.handlers.onEscape) {
-        this.handlers.onEscape();
-        return true;
-      }
-      return false;
-    }
-
-    // 4. Play / Pause (Space)
+    // 3. Play / Pause (Space)
     if (e.code === 'Space' || e.key === ' ') {
       if (this.handlers.onTogglePlayPause) {
         e.preventDefault();
@@ -114,13 +113,12 @@ export class ShortcutManager {
       }
     }
 
-    // 6. Navigate Subtitles (Tab / Shift+Tab)
-    if (e.key === 'Tab') {
+    if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault();
-      if (isShift) {
-        this.handlers.onPrevSubtitle?.();
-      } else {
+      if (e.key === 'ArrowDown') {
         this.handlers.onNextSubtitle?.();
+      } else {
+        this.handlers.onPrevSubtitle?.();
       }
       return true;
     }

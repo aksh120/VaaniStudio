@@ -6,7 +6,7 @@ import { WaveformTimeline } from './WaveformTimeline.js';
 import { SubtitleBrowserPanel } from './SubtitleBrowserPanel.js';
 import { ContextualInspector } from './ContextualInspector.js';
 import { ScriptMode } from '../../../shared/types/models.js';
-import { SearchReplaceOptions } from '../editor/editorOperations.js';
+import { PanelLeft, PanelRight, Maximize2, Captions } from 'lucide-react';
 
 
 export interface EditorWorkspaceProps {
@@ -27,7 +27,6 @@ export interface EditorWorkspaceProps {
   onDeleteSelected: () => void;
   onUpdateText: (id: string, text: string) => void;
   onUpdateTiming: (id: string, start: number, end: number) => void;
-  onSearchReplace: (search: string, replace: string, options: SearchReplaceOptions) => void;
   onUpdateSpeaker: (id: string, speaker: string) => void;
   onDiarizeSpeakers: () => void;
   isDiarizing: boolean;
@@ -56,7 +55,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   onUpdateSpeaker,
   onDiarizeSpeakers,
   isDiarizing,
-  onOpenGenerateModal: _onOpenGenerateModal,
+  onOpenGenerateModal,
   onScriptModeChange,
 }) => {
   const {
@@ -81,8 +80,9 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     toggleInspector,
     timelineHeight,
     setTimelineHeight,
-    focusMode,
-  } = useUIStore();
+     focusMode,
+     toggleFocusMode,
+   } = useUIStore();
 
   const duration = Math.max(
     project.media?.durationSeconds || 0,
@@ -199,9 +199,22 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             />
           </aside>
           <div
-            className="panel-resizer-x"
-            onMouseDown={handleLeftResizeMouseDown}
-            title="Drag to resize subtitle panel"
+             className="panel-resizer-x"
+             role="separator"
+             tabIndex={0}
+             aria-orientation="vertical"
+             aria-label="Resize subtitle panel"
+             aria-valuemin={200}
+             aria-valuemax={460}
+             aria-valuenow={leftPanelWidth}
+             onKeyDown={(event) => {
+               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+               event.preventDefault();
+               const delta = event.key === 'ArrowRight' ? 10 : -10;
+               setLeftPanelWidth(Math.max(200, Math.min(460, leftPanelWidth + delta)));
+             }}
+             onMouseDown={handleLeftResizeMouseDown}
+             title="Drag to resize subtitle panel"
           />
         </>
       )}
@@ -218,8 +231,55 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             display: 'flex',
             flexDirection: 'column',
           }}
-        >
-          <VideoPlayerPreview
+         >
+           <div className="editor-stage-toolbar">
+             <div className="editor-stage-context">
+               <span className="editor-stage-title">Preview</span>
+               <span className="editor-stage-separator">/</span>
+               <span className="editor-stage-meta">
+                 {project.media?.fileName || 'No media loaded'}
+               </span>
+             </div>
+             <div className="editor-stage-actions">
+               <button
+                 type="button"
+                 className="editor-tool-button"
+                 onClick={onOpenGenerateModal}
+                 title="Generate subtitles"
+                 aria-label="Generate subtitles"
+               >
+                 <Captions size={14} />
+               </button>
+               <button
+                 type="button"
+                 className={`editor-tool-button ${leftPanelVisible ? 'active' : ''}`}
+                 onClick={toggleLeftPanel}
+                 title="Toggle subtitle list"
+                 aria-label="Toggle subtitle list"
+               >
+                 <PanelLeft size={14} />
+               </button>
+               <button
+                 type="button"
+                 className={`editor-tool-button ${inspectorVisible ? 'active' : ''}`}
+                 onClick={toggleInspector}
+                 title="Toggle inspector"
+                 aria-label="Toggle inspector"
+               >
+                 <PanelRight size={14} />
+               </button>
+               <button
+                 type="button"
+                 className={`editor-tool-button ${focusMode ? 'active' : ''}`}
+                 onClick={toggleFocusMode}
+                 title="Focus preview"
+                 aria-label="Focus preview"
+               >
+                 <Maximize2 size={14} />
+               </button>
+             </div>
+           </div>
+           <VideoPlayerPreview
             mediaPath={project.media?.filePath || null}
             duration={duration}
             currentTime={currentTime}
@@ -232,8 +292,9 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             onAspectRatioChange={onAspectRatioChange}
             playbackRate={playbackRate}
             onPlaybackRateChange={onPlaybackRateChange}
+            frameRate={project.media?.fps}
             onStepFrame={(dir) => {
-              const step = dir * (1 / 30);
+              const step = dir * (1 / Math.max(1, project.media?.fps || 30));
               const maxDur = duration > 0 ? duration : 3600;
               setCurrentTime(Math.max(0, Math.min(maxDur, currentTime + step)));
             }}
@@ -247,9 +308,22 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
 
         {/* Horizontal Splitter Handle for Timeline Resizing */}
         <div
-          className={`center-stage-splitter ${isDraggingTimeline ? 'dragging' : ''}`}
-          onMouseDown={handleTimelineResizeMouseDown}
-          title="Drag to resize timeline height"
+           className={`center-stage-splitter ${isDraggingTimeline ? 'dragging' : ''}`}
+           role="separator"
+           tabIndex={0}
+           aria-orientation="horizontal"
+           aria-label="Resize timeline"
+           aria-valuemin={110}
+           aria-valuemax={500}
+           aria-valuenow={timelineHeight}
+           onKeyDown={(event) => {
+             if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+             event.preventDefault();
+             const delta = event.key === 'ArrowUp' ? 10 : -10;
+             setTimelineHeight(Math.max(110, Math.min(500, timelineHeight + delta)));
+           }}
+           onMouseDown={handleTimelineResizeMouseDown}
+           title="Drag to resize timeline height"
         >
           <div className="splitter-grip-bar" />
         </div>
@@ -280,8 +354,9 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             onRedo={onRedo}
             onInsertSubtitle={onInsertSubtitle}
             onMergeWithNext={onMergeWithNext}
-            onDeleteSelected={onDeleteSelected}
-          />
+             onDeleteSelected={onDeleteSelected}
+             audioOffsetSeconds={project.media?.workingAudioOriginSeconds ?? project.media?.audioStreamStartSeconds ?? project.media?.outputOriginSeconds ?? 0}
+           />
         </div>
       </div>
 
@@ -289,9 +364,22 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
       {!focusMode && inspectorVisible && (
         <>
           <div
-            className="panel-resizer-x"
-            onMouseDown={handleRightResizeMouseDown}
-            title="Drag to resize inspector"
+             className="panel-resizer-x"
+             role="separator"
+             tabIndex={0}
+             aria-orientation="vertical"
+             aria-label="Resize inspector"
+             aria-valuemin={260}
+             aria-valuemax={500}
+             aria-valuenow={inspectorWidth}
+             onKeyDown={(event) => {
+               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+               event.preventDefault();
+               const delta = event.key === 'ArrowLeft' ? 10 : -10;
+               setInspectorWidth(Math.max(260, Math.min(500, inspectorWidth + delta)));
+             }}
+             onMouseDown={handleRightResizeMouseDown}
+             title="Drag to resize inspector"
           />
           <aside
             className="editor-right-inspector"

@@ -48,4 +48,28 @@ describe('Transcription Fusion Engine', () => {
     expect(loginWord?.startTime).toBe(1.6);
     expect(loginWord?.endTime).toBe(2.1);
   });
+
+  it('preserves attached punctuation when replacing a loanword', () => {
+    const event: SubtitleEvent = {
+      id: 'sub-punctuation',
+      index: 1,
+      startTime: 0.0,
+      endTime: 1.0,
+      text: 'लॉगिन,,!',
+      words: [
+        {
+          id: 'w-1',
+          word: 'लॉगिन,,!',
+          startTime: 0.0,
+          endTime: 1.0,
+          confidence: 0.9,
+          punctuationFollows: ',,!',
+        },
+      ],
+    };
+
+    const fused = fuseVocabularyInEvents([event]);
+    expect(fused[0].words[0].word).toBe('login,,!');
+    expect(fused[0].words[0].punctuationFollows).toBe(',,!');
+  });
 });

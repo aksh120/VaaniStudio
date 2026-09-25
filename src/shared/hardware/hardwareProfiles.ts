@@ -7,10 +7,11 @@
  * for the host hardware profile.
  */
 
-import { PerformanceMode } from '../types/models.js';
+import { ASREngineId, PerformanceMode } from '../types/models.js';
 
 export interface PerformanceProfileConfig {
   mode: PerformanceMode;
+  engineId: ASREngineId;
   name: string;
   description: string;
   modelId: string;
@@ -52,6 +53,7 @@ export function calculateThreadAllocation(cpu?: CPUCoreInfo): { asrThreads: numb
 export const PERFORMANCE_PROFILES: Record<PerformanceMode, Omit<PerformanceProfileConfig, 'asrThreads' | 'ffmpegThreads'>> = {
   fast: {
     mode: 'fast',
+    engineId: 'faster-whisper',
     name: 'Fast Mode',
     description: 'Greedy decoding with fast preset. Maximum throughput for quick drafts and lower-spec machines.',
     modelId: 'whisper-tiny-ct2-int8',
@@ -66,6 +68,7 @@ export const PERFORMANCE_PROFILES: Record<PerformanceMode, Omit<PerformanceProfi
   },
   balanced: {
     mode: 'balanced',
+    engineId: 'faster-whisper',
     name: 'Balanced Mode',
     description: 'Quantized INT8 model with beam search. Optimal balance of transcription accuracy and speed.',
     modelId: 'whisper-small-ct2-int8',
@@ -80,6 +83,7 @@ export const PERFORMANCE_PROFILES: Record<PerformanceMode, Omit<PerformanceProfi
   },
   quality: {
     mode: 'quality',
+    engineId: 'faster-whisper',
     name: 'Maximum Quality',
     description: 'Medium model with deep beam search (5) and higher-grade video encoding for pristine results.',
     modelId: 'whisper-medium-ct2-int8',

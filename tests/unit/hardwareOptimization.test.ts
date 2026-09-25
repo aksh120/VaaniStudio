@@ -46,6 +46,7 @@ describe('Phase 10: Hardware Optimization & Performance Profiling', () => {
       // Quality mode
       expect(PERFORMANCE_PROFILES.quality.beamSize).toBe(5);
       expect(PERFORMANCE_PROFILES.quality.crf).toBe(18);
+      expect(PERFORMANCE_PROFILES.quality.modelId).toBe('whisper-medium-ct2-int8');
       expect(PERFORMANCE_PROFILES.quality.modelSize).toBe('medium');
       expect(PERFORMANCE_PROFILES.quality.ffmpegPreset).toBe('slow');
     });

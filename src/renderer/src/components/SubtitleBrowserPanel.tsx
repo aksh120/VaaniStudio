@@ -70,22 +70,28 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
           <span className="sub-browser-counter">{events.length}</span>
         </div>
         <div className="sub-browser-actions">
-          <button
-            className={`sub-header-btn-icon ${isSearchOpen || searchQuery ? 'active' : ''}`}
+           <button
+             type="button"
+             aria-label="Search subtitles"
+             className={`sub-header-btn-icon ${isSearchOpen || searchQuery ? 'active' : ''}`}
             onClick={() => setIsSearchOpen((prev) => !prev)}
             title="Search Subtitles"
           >
             <Search size={13} />
           </button>
-          <button
-            className={`sub-header-btn-icon ${filterWarningsOnly ? 'active' : ''}`}
+           <button
+             type="button"
+             aria-label="Filter subtitle warnings"
+             className={`sub-header-btn-icon ${filterWarningsOnly ? 'active' : ''}`}
             onClick={() => setFilterWarningsOnly((prev) => !prev)}
             title={filterWarningsOnly ? 'Show All Subtitles' : 'Filter High CPS/CPL Warnings'}
           >
             <Filter size={13} />
           </button>
-          <button
-            className="sub-header-btn-add"
+           <button
+             type="button"
+             aria-label="Add subtitle at playhead"
+             className="sub-header-btn-add"
             onClick={onInsertSubtitle}
             title="Add Subtitle at Playhead (+)"
           >
@@ -100,15 +106,17 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
           <Search size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             type="text"
-            className="sub-browser-search-input"
+             aria-label="Filter subtitle list"
+             className="sub-browser-search-input"
             placeholder="Filter subtitles..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus={isSearchOpen}
           />
           {searchQuery && (
-            <button
-              className="btn btn-ghost btn-sm"
+             <button
+               type="button"
+               className="btn btn-ghost btn-sm"
               onClick={() => setSearchQuery('')}
               style={{ padding: '0 4px', height: '20px', color: 'var(--text-muted)' }}
               title="Clear search"
@@ -169,8 +177,19 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
                 className={`sub-browser-card ${isSelected ? 'selected' : ''} ${
                   isActive ? 'active-playhead' : ''
                 }`}
-                onClick={() => onSelectEvent(evt.id)}
-              >
+                 onClick={() => onSelectEvent(evt.id)}
+                 onKeyDown={(event) => {
+                   if (event.target !== event.currentTarget) return;
+                   if (event.key === 'Enter' || event.key === ' ') {
+                     event.preventDefault();
+                     onSelectEvent(evt.id);
+                   }
+                 }}
+                 role="button"
+                 tabIndex={0}
+                 aria-label={`Subtitle ${evt.index}: ${evt.text}`}
+                 aria-pressed={isSelected}
+               >
                 <div className="sub-browser-card-top">
                   <span className="sub-browser-card-index">#{evt.index}</span>
                   <span className="sub-browser-card-time">
@@ -178,15 +197,9 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
                   </span>
                   <span className="sub-browser-card-dur">{duration}s</span>
                   {hasWarning && (
-                    <span
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--color-warning)',
-                        display: 'inline-block',
-                      }}
-                      title="Reading speed or line length threshold exceeded"
+                     <span
+                       className="sub-browser-warning-dot"
+                       title="Reading speed or line length threshold exceeded"
                     />
                   )}
                 </div>
@@ -195,18 +208,11 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
                   const spk = speakers?.find((s) => s.name === evt.speakerLabel || s.id === evt.speakerLabel);
                   const color = spk?.color || 'var(--accent-active)';
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span
-                        style={{
-                          fontSize: '9px',
-                          fontWeight: 700,
-                          padding: '0 4px',
-                          borderRadius: '3px',
-                          backgroundColor: 'var(--bg-surface-elevated)',
-                          color,
-                          border: `1px solid ${color}40`,
-                        }}
-                      >
+                     <div className="sub-browser-speaker">
+                       <span
+                         className="sub-browser-speaker-label"
+                         style={{ color }}
+                       >
                         {evt.speakerLabel}
                       </span>
                     </div>

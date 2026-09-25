@@ -4,12 +4,16 @@ import { useUIStore } from './store/uiStore.js';
 import {
   ScriptMode,
   ModelInfo,
+  MediaInfo,
   SubtitleEvent,
+  ProjectData,
   CrashRecoveryEntry,
 } from '../../shared/types/models.js';
 import { transformScript } from '../../shared/intelligence/transliteration.js';
 import { normalizeSubtitleEvent } from '../../shared/intelligence/textNormalizer.js';
 import { createEmptyProject } from '../../shared/defaults.js';
+import { resolveTranscriptionRequest } from '../../shared/resolveTranscriptionRequest.js';
+import { findActiveSubtitleEvent } from '../../shared/subtitles/timing.js';
 import { AspectRatioMode } from './components/VideoPlayerPreview.js';
 import { HistoryManager } from './editor/historyManager.js';
 import { ShortcutManager } from './editor/shortcutManager.js';
@@ -36,8 +40,6 @@ import {
   Palette,
   FileUp,
   Settings as SettingsIcon,
-  Sparkles,
-  ChevronDown,
   Keyboard,
   BookOpen,
   Moon,
@@ -70,8 +72,9 @@ export const App: React.FC = () => {
     setMedia,
     setAudioWavPath,
     setWaveformData,
-    setEvents,
-    selectEvent,
+     setEvents,
+     setLastTranscriptionRun,
+     selectEvent,
     setCurrentTime,
     updateSettings,
     statusMessage,
@@ -91,14 +94,17 @@ export const App: React.FC = () => {
   } = useProjectStore();
 
   const {
-    activeTab,
-    theme,
+     activeTab,
+     startPage,
+     theme,
     isGenerateModalOpen,
     isTutorialOpen,
     isHelpOpen,
     tutorialCompleted,
-    openInEditorAfterGeneration,
-    setActiveTab,
+     openInEditorAfterGeneration,
+     autosaveEnabled,
+     autosaveIntervalSeconds,
+     setActiveTab,
     toggleTheme,
     setIsGenerateModalOpen,
     setIsTutorialOpen,
@@ -107,14 +113,25 @@ export const App: React.FC = () => {
   } = useUIStore();
 
   const [models, setModels] = useState<ModelInfo[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState<string>('whisper-small-ct2-int8');
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
+  const resolvedTranscriptionRequest = useMemo(
+    () => resolveTranscriptionRequest({ settings: project.settings, hardware: hardware ?? undefined }),
+    [hardware, project.settings]
+  );
+  const selectedModelId = resolvedTranscriptionRequest.modelId;
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('original');
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+
+  const hasInitializedStartPageRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (hasInitializedStartPageRef.current) return;
+    hasInitializedStartPageRef.current = true;
+    setActiveTab(startPage);
+  }, [setActiveTab, startPage]);
 
   // First-run automatic tutorial trigger
   const hasCheckedTutorialRef = useRef<boolean>(false);
@@ -128,6 +145,7 @@ export const App: React.FC = () => {
   }, [tutorialCompleted, setIsTutorialOpen]);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isDiarizing, setIsDiarizing] = useState<boolean>(false);
+  const mediaPreparationRef = useRef<number>(0);
 
   // Preset Manager instance
   const presetManager = useMemo(() => new PresetManager(), []);
@@ -138,11 +156,20 @@ export const App: React.FC = () => {
   );
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
+  const loadedProjectKeyRef = useRef<string>(`${project.projectId}:${currentProjectFilePath || ''}`);
 
   const syncHistoryState = useCallback(() => {
     setCanUndo(historyRef.current.canUndo());
     setCanRedo(historyRef.current.canRedo());
   }, []);
+
+  useEffect(() => {
+    const nextKey = `${project.projectId}:${currentProjectFilePath || ''}`;
+    if (nextKey === loadedProjectKeyRef.current) return;
+    loadedProjectKeyRef.current = nextKey;
+    historyRef.current.clear(project.events);
+    syncHistoryState();
+  }, [currentProjectFilePath, project.events, project.projectId, syncHistoryState]);
 
   const commitEvents = useCallback(
     (newEvents: SubtitleEvent[]) => {
@@ -178,13 +205,10 @@ export const App: React.FC = () => {
   );
 
   // Active subtitle helper
-  const activeSubtitle = useMemo(() => {
-    return (
-      project.events.find(
-        (e) => currentTime >= e.startTime && currentTime <= e.endTime
-      ) || null
-    );
-  }, [project.events, currentTime]);
+  const activeSubtitle = useMemo(
+    () => findActiveSubtitleEvent(project.events, currentTime),
+    [project.events, currentTime]
+  );
 
   // Window Caption Controls
   const handleMinimize = useCallback(() => {
@@ -209,51 +233,102 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Initial Hardware & Setup inspection
-  useEffect(() => {
-    // Sync data-theme on mount
-    document.documentElement.setAttribute('data-theme', theme);
+  const prepareMediaAudio = useCallback(async (mediaInfo: MediaInfo) => {
+    const preparationToken = ++mediaPreparationRef.current;
+    setAudioWavPath(null);
+    setWaveformData(null);
+    if (!mediaInfo.filePath || !window.vaaniAPI) return;
 
-    if (window.vaaniAPI) {
-      window.vaaniAPI.getHardwareProfile().then((res) => {
-        if (res.success && res.data) {
-          setHardware(res.data);
-        }
-      });
-      refreshModels();
-
-      if (window.vaaniAPI.checkOnboardingStatus) {
-        window.vaaniAPI.checkOnboardingStatus().then((res) => {
-          if (res.success && res.data) {
-            if (res.data.recommendedModelId) {
-              setSelectedModelId(res.data.recommendedModelId);
-            }
-          }
-        });
-      }
-
-      if (window.vaaniAPI.getCustomPresets) {
-        window.vaaniAPI.getCustomPresets().then((res) => {
-          if (res.success && res.data) {
-            for (const p of res.data) {
-              if (!presetManager.getPresetById(p.id)) {
-                presetManager.saveCustomPreset(p.name, p.description, p.style);
-              }
-            }
-          }
-        });
-      }
-
-      const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
-        setStatusMessage(prog.message);
-        if (prog.stage === 'transcribing') {
-          setTranscriptionProgress(prog.percent);
-        }
-      });
-
-      return () => cleanupProgress();
+    setStatusMessage(`Extracting audio from ${mediaInfo.fileName}...`);
+    const extractRes = await window.vaaniAPI.extractAudio(mediaInfo.filePath, {
+      normalize: true,
+      durationSeconds: mediaInfo.durationSeconds,
+      streamIndex: mediaInfo.audioStreamIndex,
+      sourceStartSeconds: mediaInfo.audioStreamStartSeconds,
+    });
+     if (preparationToken !== mediaPreparationRef.current) return;
+     if (!extractRes.success || !extractRes.data) {
+       setStatusMessage(extractRes.error?.message || 'Audio extraction failed.');
+      return;
     }
-  }, [setHardware, setStatusMessage, refreshModels, presetManager, theme, tutorialCompleted, setIsTutorialOpen]);
+
+     if (preparationToken !== mediaPreparationRef.current) return;
+     setAudioWavPath(extractRes.data);
+     setStatusMessage('Computing audio waveform peaks...');
+     const waveRes = await window.vaaniAPI.generateWaveform(extractRes.data, { bucketsPerSecond: 50 });
+     if (preparationToken !== mediaPreparationRef.current) return;
+     if (waveRes.success && waveRes.data) {
+      setWaveformData(waveRes.data);
+      setStatusMessage(`Media ready: ${mediaInfo.fileName}`);
+    } else {
+      setStatusMessage('Audio extracted.');
+    }
+  }, [setAudioWavPath, setStatusMessage, setWaveformData]);
+
+  const handleExternalProjectLoaded = useCallback(
+    (loadedProject: ProjectData, filePath?: string) => {
+      loadProjectData(loadedProject, filePath);
+      historyRef.current.clear(loadedProject.events);
+      syncHistoryState();
+      if (loadedProject.media) {
+        void prepareMediaAudio(loadedProject.media);
+      }
+    },
+    [loadProjectData, prepareMediaAudio, syncHistoryState]
+  );
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (!window.vaaniAPI) return;
+
+    window.vaaniAPI.getHardwareProfile().then((res) => {
+      if (res.success && res.data) {
+        setHardware(res.data);
+      }
+    });
+    refreshModels();
+
+    if (window.vaaniAPI.getCustomPresets) {
+      window.vaaniAPI.getCustomPresets().then((res) => {
+        if (res.success && res.data) {
+          for (const p of res.data) {
+            if (!presetManager.getPresetById(p.id)) {
+              presetManager.saveCustomPreset(p.name, p.description, p.style);
+            }
+          }
+        }
+      });
+    }
+
+    const cleanupProgress = window.vaaniAPI.onProgress((prog) => {
+      setStatusMessage(prog.message);
+      if (prog.stage === 'transcribing') {
+        setTranscriptionProgress(prog.percent);
+      }
+    });
+
+    return () => cleanupProgress();
+  }, [setHardware, setStatusMessage, refreshModels, presetManager]);
+
+  useEffect(() => {
+    if (!window.vaaniAPI?.checkOnboardingStatus) return;
+    window.vaaniAPI.checkOnboardingStatus().then((res) => {
+      const recommendedModelId = res.success && res.data ? res.data.recommendedModelId : undefined;
+      if (
+        recommendedModelId &&
+        project.settings.modelSelectionSource !== 'user' &&
+        project.settings.modelId !== recommendedModelId
+      ) {
+        updateSettings({
+          modelId: recommendedModelId,
+          modelSelectionSource: 'profile',
+        });
+      }
+    });
+  }, [project.settings.modelId, project.settings.modelSelectionSource, updateSettings]);
 
   // Editor operations
   const handleSplitAtPlayhead = useCallback(() => {
@@ -357,8 +432,9 @@ export const App: React.FC = () => {
     setStatusMessage('Diarizing speakers from audio track...');
     try {
       const res = await window.vaaniAPI.diarizeSubtitles({
-        audioPath: audioWavPath,
-        events: project.events,
+         audioPath: audioWavPath,
+         events: project.events,
+         audioOffsetSeconds: project.media?.workingAudioOriginSeconds ?? project.media?.audioStreamStartSeconds ?? project.media?.outputOriginSeconds ?? 0,
       });
       if (res.success && res.data) {
         commitEvents(res.data.events);
@@ -386,8 +462,8 @@ export const App: React.FC = () => {
       onMerge: handleMergeWithNext,
       onDelete: handleDeleteSelected,
       onStepFrame: (dir) => {
-        const step = dir * (1 / 30);
-        setCurrentTime(Math.max(0, Math.min(duration, currentTime + step)));
+        const frameDuration = 1 / Math.max(1, project.media?.fps || 30);
+        setCurrentTime(Math.max(0, Math.min(duration, currentTime + dir * frameDuration)));
       },
       onStepSecond: (dir) => {
         const step = dir * 1.0;
@@ -411,11 +487,24 @@ export const App: React.FC = () => {
         selectEvent(null);
       },
     });
+    shortcutManager.setEnabled(
+       (activeTab === 'editor' || activeTab === 'subtitles') &&
+      !isGenerateModalOpen &&
+      !isTutorialOpen &&
+      !isHelpOpen &&
+      !isBatchModalOpen
+    );
 
     const cleanup = shortcutManager.attach();
     return () => cleanup();
   }, [
     project.events,
+    project.media?.fps,
+    activeTab,
+    isGenerateModalOpen,
+    isTutorialOpen,
+    isHelpOpen,
+    isBatchModalOpen,
     selectedEventId,
     currentTime,
     duration,
@@ -428,8 +517,9 @@ export const App: React.FC = () => {
     setCurrentTime,
   ]);
 
-  // Autosave interval (60s snapshot)
+  // Autosave snapshot
   useEffect(() => {
+    if (!autosaveEnabled) return undefined;
     const timer = setInterval(async () => {
       if (isDirty && (project.events.length > 0 || project.media) && window.vaaniAPI) {
         try {
@@ -438,9 +528,9 @@ export const App: React.FC = () => {
           // Silent
         }
       }
-    }, 60000);
+    }, autosaveIntervalSeconds * 1000);
     return () => clearInterval(timer);
-  }, [isDirty, project, currentProjectFilePath]);
+  }, [autosaveEnabled, autosaveIntervalSeconds, isDirty, project, currentProjectFilePath]);
 
   // Crash Recovery Check
   useEffect(() => {
@@ -462,11 +552,9 @@ export const App: React.FC = () => {
     if (!window.vaaniAPI) return;
     setStatusMessage(`Restoring autosaved project "${entry.projectName}"...`);
     const res = await window.vaaniAPI.loadProject(entry.autosavePath);
-    if (res.success && res.data) {
-      loadProjectData(res.data, entry.originalFilePath);
-      historyRef.current.clear(res.data.events);
-      syncHistoryState();
-      dismissCrashRecovery(entry.projectId);
+     if (res.success && res.data) {
+       handleExternalProjectLoaded(res.data, entry.originalFilePath);
+       dismissCrashRecovery(entry.projectId);
       setStatusMessage(`Restored project from autosave snapshot.`);
       setActiveTab('editor');
     }
@@ -485,61 +573,79 @@ export const App: React.FC = () => {
     const res = await window.vaaniAPI.selectMediaFile();
     if (res.success && res.data) {
       const filePath = res.data;
+      setAudioWavPath(null);
+      setWaveformData(null);
+      setEvents([]);
+      setCurrentTime(0);
+      selectEvent(null);
       setStatusMessage('Probing media container...');
-      const probeRes = await window.vaaniAPI.probeMedia(filePath);
+       const probeRes = await window.vaaniAPI.probeMedia(
+         filePath,
+         project.settings.selectedAudioStreamIndex
+       );
 
       if (probeRes.success && probeRes.data) {
         const mediaInfo = probeRes.data;
-        setMedia(mediaInfo);
-        setStatusMessage(`Extracting audio from ${mediaInfo.fileName}...`);
-        setActiveTab('editor');
-
-        const extractRes = await window.vaaniAPI.extractAudio(filePath, {
-          normalize: true,
-          durationSeconds: mediaInfo.durationSeconds,
-        });
-
-        if (extractRes.success && extractRes.data) {
-          const wavPath = extractRes.data;
-          setAudioWavPath(wavPath);
-          setStatusMessage('Computing audio waveform peaks...');
-
-          const waveRes = await window.vaaniAPI.generateWaveform(wavPath, { bucketsPerSecond: 50 });
-          if (waveRes.success && waveRes.data) {
-            setWaveformData(waveRes.data);
-            setStatusMessage(`Media loaded: ${mediaInfo.fileName}`);
-          } else {
-            setStatusMessage('Audio extracted.');
-          }
-        }
+         setMedia(mediaInfo);
+         if (mediaInfo.audioStreamIndex !== undefined && project.settings.selectedAudioStreamIndex !== mediaInfo.audioStreamIndex) {
+           updateSettings({ selectedAudioStreamIndex: mediaInfo.audioStreamIndex });
+         }
+         setActiveTab('editor');
+        await prepareMediaAudio(mediaInfo);
       }
     }
+  };
+
+  const handleSelectAudioStream = async (streamIndex: number) => {
+    if (!window.vaaniAPI || !project.media?.filePath) return;
+    updateSettings({ selectedAudioStreamIndex: streamIndex });
+    setStatusMessage('Switching audio track...');
+    const probeRes = await window.vaaniAPI.probeMedia(project.media.filePath, streamIndex);
+    if (!probeRes.success || !probeRes.data) {
+      setStatusMessage(probeRes.error?.message || 'Could not select audio track.');
+      return;
+    }
+     setMedia(probeRes.data);
+     if (probeRes.data.audioStreamIndex !== undefined && probeRes.data.audioStreamIndex !== streamIndex) {
+       updateSettings({ selectedAudioStreamIndex: probeRes.data.audioStreamIndex });
+     }
+     await prepareMediaAudio(probeRes.data);
   };
 
   const handleScriptModeChange = (newMode: ScriptMode) => {
     updateSettings({ scriptMode: newMode });
     if (project.events.length > 0) {
-      const transformed = project.events.map((evt) => {
-        const scriptTransformed = transformScript(evt.text, newMode);
+      const transformed = project.events.map((event) => {
+        const text = transformScript(event.text, newMode);
+        const words = (event.words || []).map((word) => ({
+          ...word,
+          word: transformScript(word.word, newMode),
+        }));
         return normalizeSubtitleEvent(
           {
-            ...evt,
-            text: scriptTransformed,
-            words: (evt.words || []).map((w) => ({
-              ...w,
-              word: transformScript(w.word, newMode),
-            })),
+            ...event,
+            text,
+            words,
+            wordTimingState:
+              text === event.text && words.every((word, index) => word.word === event.words[index]?.word)
+                ? event.wordTimingState || 'fresh'
+                : 'stale',
           },
-          {
-            normalizeNumbers: true,
-            removeFillerWords: newMode === 'cleaned',
-            formatPunctuation: true,
-          }
+           {
+             normalizeNumbers: newMode !== 'exact',
+             removeFillerWords: newMode === 'cleaned',
+             formatPunctuation: newMode !== 'exact',
+             preserveWordTiming: newMode !== 'cleaned',
+           }
         );
       });
       commitEvents(transformed);
       setStatusMessage(`Transformed subtitles to ${newMode} script mode.`);
     }
+  };
+
+  const handleSelectModelId = (modelId: string) => {
+    updateSettings({ modelId, modelSelectionSource: 'user' });
   };
 
   const handleStartTranscription = async () => {
@@ -550,33 +656,32 @@ export const App: React.FC = () => {
     setTranscriptionProgress(0);
     setStatusMessage('Starting speech recognition...');
 
-    const langParam =
-      project.settings.languageMode === 'auto'
-        ? 'auto'
-        : project.settings.languageMode === 'hindi'
-        ? 'hi'
-        : project.settings.languageMode === 'hinglish'
-        ? 'hinglish'
-        : 'en';
-
-    const res = await window.vaaniAPI.startTranscription(targetAudio, {
-      modelId: selectedModelId,
-      language: langParam,
-      scriptMode: project.settings.scriptMode,
-      vadFilter: true,
-      beamSize: 5,
-    });
+    const res = await window.vaaniAPI.startTranscription(
+      targetAudio,
+       {
+         ...resolvedTranscriptionRequest,
+         audioStreamIndex: project.media.audioStreamIndex,
+         audioTimeOffsetSeconds: project.media.audioStreamStartSeconds,
+         workingAudioOriginSeconds: project.media.workingAudioOriginSeconds ?? project.media.audioStreamStartSeconds,
+         outputOriginSeconds: project.media.outputOriginSeconds,
+       }
+    );
 
     setIsTranscribing(false);
     setIsGenerateModalOpen(false);
 
     if (res.success && res.data) {
-      historyRef.current.clear(res.data.events);
-      setEvents(res.data.events);
-      syncHistoryState();
-      setStatusMessage(
-        `Generated ${res.data.events.length} subtitles (${res.data.language.toUpperCase()}).`
-      );
+      const data = res.data;
+       historyRef.current.clear(data.events);
+       setEvents(data.events);
+       if (data.run) {
+         setLastTranscriptionRun(data.run);
+       }
+       syncHistoryState();
+      const effectiveModel = models.find((model) => model.id === data.modelId)?.name || data.modelId;
+       setStatusMessage(
+         `Generated ${data.events.length} subtitles with ${effectiveModel} (${data.language.toUpperCase()}).`
+       );
       if (openInEditorAfterGeneration) {
         setActiveTab('editor');
       }
@@ -619,9 +724,21 @@ export const App: React.FC = () => {
     if (!window.vaaniAPI) return;
     const res = await window.vaaniAPI.loadProject();
     if (res.success && res.data) {
-      loadProjectData(res.data);
-      historyRef.current.clear(res.data.events);
+       const openedPath = res.data.sourceFilePath;
+       loadProjectData(res.data, openedPath);
+       addRecentProject({
+         id: res.data.projectId,
+         name: res.data.projectName,
+         filePath: openedPath || '',
+         mediaPath: res.data.media?.filePath,
+         durationSeconds: res.data.media?.durationSeconds || 0,
+         subtitleCount: res.data.events.length,
+       });
+       historyRef.current.clear(res.data.events);
       syncHistoryState();
+      if (res.data.media) {
+        await prepareMediaAudio(res.data.media);
+      }
       setStatusMessage(`Opened project: ${res.data.projectName}`);
       setActiveTab('editor');
     }
@@ -630,8 +747,6 @@ export const App: React.FC = () => {
   const handleNewProject = () => {
     const empty = createEmptyProject('Untitled Project');
     loadProjectData(empty);
-    setAudioWavPath(null);
-    setWaveformData(null);
     setProjectFilePath(null);
     setIsDirty(false);
     historyRef.current.clear([]);
@@ -755,104 +870,99 @@ export const App: React.FC = () => {
       <header className="desktop-titlebar">
         <div className="titlebar-left">
           <div className="titlebar-brand-mark">
-            <svg
-              width="34"
-              height="18"
-              viewBox="0 0 120 64"
-              fill="none"
-              className="titlebar-brand-icon"
-              aria-label="Vaani Studio Logo"
-            >
-              <defs>
-                <linearGradient id="header-wave-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#38BDF8" />
-                  <stop offset="50%" stopColor="#3B82F6" />
-                  <stop offset="100%" stopColor="#6366F1" />
-                </linearGradient>
-                <linearGradient id="header-sub-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#6366F1" />
-                  <stop offset="100%" stopColor="#38BDF8" />
-                </linearGradient>
-              </defs>
-              {/* Vertical Soundwave Bars */}
-              <rect x="8" y="21" width="6.5" height="22" rx="3.25" fill="#38BDF8" />
-              <rect x="18" y="14" width="6.5" height="36" rx="3.25" fill="#3B82F6" />
-              <rect x="28" y="7" width="6.5" height="50" rx="3.25" fill="url(#header-wave-grad)" />
-              <rect x="38" y="14" width="6.5" height="36" rx="3.25" fill="#6366F1" />
-              <rect x="48" y="21" width="6.5" height="22" rx="3.25" fill="#818CF8" />
-              {/* Horizontal Subtitle Lines */}
-              <rect x="63" y="17" width="46" height="6.5" rx="3.25" fill="url(#header-sub-grad)" />
-              <rect x="63" y="29" width="46" height="6.5" rx="3.25" fill="url(#header-wave-grad)" />
-              <rect x="63" y="41" width="32" height="6.5" rx="3.25" fill="#818CF8" />
-            </svg>
+             <svg
+               width="24"
+               height="18"
+               viewBox="0 0 96 48"
+               fill="none"
+               className="titlebar-brand-icon"
+               aria-label="Vaani Studio Logo"
+             >
+               <rect x="8" y="18" width="6" height="12" rx="1" fill="currentColor" />
+               <rect x="20" y="10" width="6" height="28" rx="1" fill="currentColor" />
+               <rect x="32" y="4" width="6" height="40" rx="1" fill="currentColor" />
+               <rect x="44" y="14" width="6" height="20" rx="1" fill="currentColor" />
+               <rect x="60" y="12" width="28" height="5" rx="1" fill="currentColor" opacity=".72" />
+               <rect x="60" y="22" width="28" height="5" rx="1" fill="currentColor" opacity=".52" />
+               <rect x="60" y="32" width="20" height="5" rx="1" fill="currentColor" opacity=".36" />
+             </svg>
             <span className="titlebar-app-name">Vaani Studio</span>
             <span className="titlebar-app-tag">v0.1.0</span>
           </div>
 
-          <div
-            className="titlebar-project-pill"
-            onClick={handleSaveProject}
-            style={{ cursor: 'pointer' }}
-            title="Click to Save Project (Ctrl+S)"
-          >
-            <span className="titlebar-pill-dot">•</span>
+           <button
+              type="button"
+              className="titlebar-project-button"
+              onClick={handleSaveProject}
+              aria-label={`Save ${project.projectName || 'project'}`}
+              title="Save project"
+           >
             <span
               className="titlebar-pill-title"
               title={currentProjectFilePath || project.projectName}
             >
               {project.projectName || (project.media ? project.media.fileName : 'Untitled Project')}
+             </span>
+             <span className="titlebar-pill-status">
+               {isDirty ? 'Unsaved changes' : currentProjectFilePath ? 'Saved' : 'Not saved'}
             </span>
-            <span className="titlebar-pill-dot">•</span>
-            <span className="titlebar-pill-status">
-              {isDirty ? 'Unsaved' : 'Saved'}
-            </span>
-          </div>
-        </div>
+           </button>
+         </div>
 
-        <div className="titlebar-right">
-          <button
-            className="titlebar-action-btn"
-            onClick={() => setIsHelpOpen(true)}
-            title="Keyboard Shortcuts (Ctrl+/)"
-          >
+         <div className="titlebar-right">
+           <button
+             type="button"
+             className="titlebar-action-btn"
+             onClick={() => setIsHelpOpen(true)}
+             title="Help and keyboard shortcuts (Ctrl+/)"
+           >
             <Keyboard size={14} />
             <span>Shortcuts</span>
           </button>
-          <button
-            className="titlebar-action-btn"
-            onClick={() => setIsTutorialOpen(true)}
-            title="Open Interactive Feature Guide & Tour"
-          >
+           <button
+             type="button"
+             className="titlebar-action-btn"
+             onClick={() => setIsTutorialOpen(true)}
+             title="Open getting started guide"
+           >
             <BookOpen size={14} />
             <span>Guide</span>
           </button>
           <div className="titlebar-divider" />
-          <button
-            className="titlebar-icon-btn"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+           <button
+             type="button"
+             className="titlebar-icon-btn"
+             onClick={toggleTheme}
+             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
             {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
           </button>
           <div className="titlebar-window-controls">
-            <button
-              className="window-ctrl-btn"
-              onClick={handleMinimize}
-              title="Minimize"
+             <button
+               type="button"
+               className="window-ctrl-btn"
+               onClick={handleMinimize}
+               aria-label="Minimize window"
+               title="Minimize"
             >
               <Minus size={14} />
             </button>
-            <button
-              className="window-ctrl-btn"
-              onClick={handleMaximize}
-              title="Maximize / Restore"
+             <button
+               type="button"
+               className="window-ctrl-btn"
+               onClick={handleMaximize}
+               aria-label="Maximize or restore window"
+               title="Maximize / Restore"
             >
               <Square size={12} />
             </button>
-            <button
-              className="window-ctrl-btn close-btn"
-              onClick={handleClose}
-              title="Close"
+             <button
+               type="button"
+               className="window-ctrl-btn close-btn"
+               onClick={handleClose}
+               aria-label="Close window"
+               title="Close"
             >
               <CloseIcon size={14} />
             </button>
@@ -868,40 +978,55 @@ export const App: React.FC = () => {
       />
 
       {/* 2. Main Navigation Bar (Image 0 Target UI) */}
-      <nav className="main-nav-bar">
+      <nav className="main-nav-bar" aria-label="Workspace navigation" role="tablist">
         <div className="nav-tabs-group">
-          <button
-            className={`nav-tab-item ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => setActiveTab('projects')}
-          >
+           <button
+             type="button"
+             role="tab"
+             aria-selected={activeTab === 'projects'}
+             className={`nav-tab-item ${activeTab === 'projects' ? 'active' : ''}`}
+             onClick={() => setActiveTab('projects')}
+           >
             <Folder size={15} />
             <span>Projects</span>
           </button>
-          <button
-            className={`nav-tab-item ${activeTab === 'editor' ? 'active' : ''}`}
-            onClick={() => setActiveTab('editor')}
-          >
+           <button
+             type="button"
+             role="tab"
+             aria-selected={activeTab === 'editor'}
+             className={`nav-tab-item ${activeTab === 'editor' ? 'active' : ''}`}
+             onClick={() => setActiveTab('editor')}
+           >
             <Edit3 size={15} />
             <span>Editor</span>
           </button>
-          <button
-            className={`nav-tab-item ${activeTab === 'subtitles' ? 'active' : ''}`}
-            onClick={() => setActiveTab('subtitles')}
-          >
+           <button
+             type="button"
+             role="tab"
+             aria-selected={activeTab === 'subtitles'}
+             className={`nav-tab-item ${activeTab === 'subtitles' ? 'active' : ''}`}
+             onClick={() => setActiveTab('subtitles')}
+           >
             <Captions size={15} />
             <span>Subtitles</span>
           </button>
-          <button
-            className={`nav-tab-item ${activeTab === 'style' ? 'active' : ''}`}
-            onClick={() => setActiveTab('style')}
-          >
+           <button
+             type="button"
+             role="tab"
+             aria-selected={activeTab === 'style'}
+             className={`nav-tab-item ${activeTab === 'style' ? 'active' : ''}`}
+             onClick={() => setActiveTab('style')}
+           >
             <Palette size={15} />
             <span>Style</span>
           </button>
-          <button
-            className={`nav-tab-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
+           <button
+             type="button"
+             role="tab"
+             aria-selected={activeTab === 'settings'}
+             className={`nav-tab-item ${activeTab === 'settings' ? 'active' : ''}`}
+             onClick={() => setActiveTab('settings')}
+           >
             <SettingsIcon size={15} />
             <span>Settings</span>
           </button>
@@ -919,22 +1044,24 @@ export const App: React.FC = () => {
               <span>Import Media</span>
             </button>
           )}
-          <button
-            className="nav-btn-generate"
+           <button
+             type="button"
+             className="nav-btn-generate"
             onClick={() => setIsGenerateModalOpen(true)}
             title="Generate AI Subtitles (Ctrl+G)"
           >
-            <Sparkles size={14} />
-            <span>Generate Subtitles</span>
+             <Captions size={14} />
+             <span>Generate</span>
           </button>
-          <button
-            className="nav-btn-export"
+           <button
+             type="button"
+             className="nav-btn-export"
             onClick={() => setActiveTab('export')}
-            title="Export Subtitles or Video (Ctrl+E)"
+             title="Open export workspace (Ctrl+E)"
           >
             <FileUp size={14} />
-            <span>Export</span>
-            <ChevronDown size={12} />
+             <span>Export</span>
+
           </button>
         </div>
       </nav>
@@ -947,8 +1074,9 @@ export const App: React.FC = () => {
             onImportMedia={handleSelectMedia}
             onOpenProject={handleOpenProject}
             onNewProject={handleNewProject}
-            onLoadSample={handleLoadSampleProject}
-          />
+             onLoadSample={handleLoadSampleProject}
+             onProjectLoaded={handleExternalProjectLoaded}
+           />
         )}
 
         {activeTab === 'editor' && (
@@ -968,13 +1096,12 @@ export const App: React.FC = () => {
             onMergeWithNext={handleMergeWithNext}
             onDuplicateSelected={handleDuplicateSelected}
             onDeleteSelected={handleDeleteSelected}
-            onUpdateText={handleUpdateText}
-            onUpdateTiming={handleUpdateTiming}
-            onSearchReplace={handleSearchReplace}
-            onUpdateSpeaker={handleUpdateSpeaker}
-            onDiarizeSpeakers={handleDiarizeSpeakers}
-            isDiarizing={isDiarizing}
-            onOpenGenerateModal={() => setIsGenerateModalOpen(true)}
+             onUpdateText={handleUpdateText}
+             onUpdateTiming={handleUpdateTiming}
+             onUpdateSpeaker={handleUpdateSpeaker}
+             onDiarizeSpeakers={handleDiarizeSpeakers}
+             isDiarizing={isDiarizing}
+             onOpenGenerateModal={() => setIsGenerateModalOpen(true)}
             onScriptModeChange={handleScriptModeChange}
           />
         )}
@@ -1008,8 +1135,9 @@ export const App: React.FC = () => {
         {activeTab === 'settings' && (
           <SettingsWorkspace
             models={models}
-            hardware={hardware}
-            onRefreshModels={refreshModels}
+             hardware={hardware}
+             onRefreshModels={refreshModels}
+             onSelectAudioStream={handleSelectAudioStream}
           />
         )}
       </main>
@@ -1058,14 +1186,14 @@ export const App: React.FC = () => {
               </button>
               <span style={{ opacity: 0.4 }}>|</span>
               <div className="statusbar-item">
-                <span>{project.events.length > 0 ? `${project.events.length} subtitles` : '40 subtitles'}</span>
+                 <span>{project.events.length} subtitles</span>
               </div>
               <span style={{ opacity: 0.4 }}>|</span>
               <div className="statusbar-item">
                 <span>
                   {project.media
                     ? `${Math.floor(project.media.durationSeconds / 60).toString().padStart(2, '0')}:${Math.floor(project.media.durationSeconds % 60).toString().padStart(2, '0')}`
-                    : '00:02:26'}
+                     : 'No media'}
                 </span>
               </div>
             </>
@@ -1074,19 +1202,25 @@ export const App: React.FC = () => {
               <div className="statusbar-item">
                 <span>
                   {project.media && project.media.width && project.media.height
-                    ? `Video: ${project.media.width}x${project.media.height} ${project.media.fps ? `${project.media.fps} fps` : '30 fps'}`
-                    : 'Video: 1920x1080 30 fps'}
+                     ? `Video: ${project.media.width}x${project.media.height} ${project.media.fps ? `${project.media.fps} fps` : 'FPS unavailable'}`
+                     : project.media
+                     ? 'Audio only'
+                     : 'No media'}
                 </span>
               </div>
               <span style={{ opacity: 0.4 }}>|</span>
               <div className="statusbar-item">
-                <span>{project.events.length > 0 ? `${project.events.length} subtitles` : '40 subtitles'}</span>
+                 <span>{project.events.length} subtitles</span>
               </div>
               <span style={{ opacity: 0.4 }}>|</span>
-              <div className="statusbar-item">
-                <span>Style: Clean</span>
-              </div>
-              <span style={{ opacity: 0.4 }}>|</span>
+               <div className="statusbar-item">
+                  <span>Style: {project.style.name || 'Custom'}</span>
+               </div>
+               <span style={{ opacity: 0.4 }}>|</span>
+               <div className="statusbar-item">
+                 <span>Model: {models.find((model) => model.id === selectedModelId)?.name || selectedModelId}</span>
+               </div>
+               <span style={{ opacity: 0.4 }}>|</span>
               <button
                 className="statusbar-btn"
                 onClick={() => setActiveTab('settings')}
@@ -1105,7 +1239,7 @@ export const App: React.FC = () => {
         onClose={() => setIsGenerateModalOpen(false)}
         models={models}
         selectedModelId={selectedModelId}
-        onSelectModelId={setSelectedModelId}
+        onSelectModelId={handleSelectModelId}
         isTranscribing={isTranscribing}
         transcriptionProgress={transcriptionProgress}
         onStartTranscription={handleStartTranscription}
@@ -1116,9 +1250,12 @@ export const App: React.FC = () => {
       <TutorialDialog
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
-        onSelectMedia={handleSelectMedia}
-        onExploreSample={handleLoadSampleProject}
-      />
+         onSelectMedia={handleSelectMedia}
+         onExploreSample={handleLoadSampleProject}
+         onComplete={() => {
+           void window.vaaniAPI?.completeOnboarding(project.settings.modelId);
+         }}
+       />
 
       <HelpDialog
         isOpen={isHelpOpen}

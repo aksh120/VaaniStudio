@@ -16,6 +16,14 @@ import {
 
 export type AspectRatioMode = 'original' | '16:9' | '9:16' | '1:1' | '4:5';
 
+type VideoFrameMetadata = { mediaTime?: number };
+type FrameCallbackVideo = HTMLVideoElement & {
+  requestVideoFrameCallback?: (
+    callback: (now: number, metadata: VideoFrameMetadata) => void
+  ) => number;
+  cancelVideoFrameCallback?: (handle: number) => void;
+};
+
 export interface VideoPlayerPreviewProps {
   mediaPath: string | null;
   duration: number;
@@ -31,6 +39,7 @@ export interface VideoPlayerPreviewProps {
   onPlaybackRateChange: (rate: number) => void;
   onStepFrame: (direction: 1 | -1) => void;
   onStepSecond: (direction: 1 | -1) => void;
+  frameRate?: number;
 }
 
 export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
@@ -48,10 +57,14 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
   onPlaybackRateChange,
   onStepFrame,
   onStepSecond,
+  frameRate,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const isInternalTimeUpdateRef = useRef<boolean>(false);
+  const internalTimeRef = useRef<number | null>(null);
+  const virtualTimeRef = useRef<number>(currentTime);
+  const frameCallbackRef = useRef<number | null>(null);
+  const frameDrivenRef = useRef<boolean>(false);
 
   const [volume, setVolume] = useState<number>(1.0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -108,22 +121,32 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
     }
   }, [isPlaying]);
 
-  // Virtual playback fallback when playing without video media (e.g. sample demo or audio-only)
+  useEffect(() => {
+    if (!isPlaying) {
+      virtualTimeRef.current = currentTime;
+    } else if (!mediaUrl && Math.abs(virtualTimeRef.current - currentTime) > 0.25) {
+      virtualTimeRef.current = currentTime;
+    }
+  }, [currentTime, isPlaying, mediaUrl]);
+
   useEffect(() => {
     if (mediaUrl || !isPlaying || duration <= 0) return;
 
     let lastTime = performance.now();
     let animId: number;
+    virtualTimeRef.current = currentTime;
 
     const tick = (now: number) => {
       const deltaSec = (now - lastTime) / 1000;
       lastTime = now;
-      const nextTime = currentTime + deltaSec * playbackRate;
+      const nextTime = virtualTimeRef.current + deltaSec * playbackRate;
 
       if (nextTime >= duration) {
+        virtualTimeRef.current = duration;
         onTimeUpdate(duration);
         onTogglePlayPause();
       } else {
+        virtualTimeRef.current = nextTime;
         onTimeUpdate(nextTime);
         animId = requestAnimationFrame(tick);
       }
@@ -131,32 +154,34 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [mediaUrl, isPlaying, duration, currentTime, playbackRate, onTimeUpdate, onTogglePlayPause]);
+  }, [mediaUrl, isPlaying, duration, playbackRate, onTimeUpdate, onTogglePlayPause]);
 
-  // Sync external currentTime changes while avoiding feedback seek-loops
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoRef.current as FrameCallbackVideo | null;
     if (!video) return;
 
-    if (isInternalTimeUpdateRef.current) {
-      isInternalTimeUpdateRef.current = false;
-      return;
-    }
+     if (
+       internalTimeRef.current !== null &&
+       Math.abs(currentTime - internalTimeRef.current) <= 0.01
+     ) {
+       internalTimeRef.current = null;
+       return;
+     }
 
     if (video.readyState < 1) return;
 
+    const frameDuration = 1 / Math.max(1, frameRate || 30);
     const diff = Math.abs(video.currentTime - currentTime);
-    // While actively playing, seek if user explicitly dragged/clicked (>0.15s away)
-    // When paused, seek if drift is > 0.005s (allowing 1f stepping of ~0.033s to seek accurately)
-    const threshold = isPlaying ? 0.15 : 0.005;
+    const threshold = isPlaying ? frameDuration : 0.005;
     if (diff > threshold) {
       try {
+        internalTimeRef.current = null;
         video.currentTime = currentTime;
       } catch (err) {
         console.warn('Video seek error:', err);
       }
     }
-  }, [currentTime, isPlaying]);
+  }, [currentTime, isPlaying, frameRate]);
 
   // Sync playback rate
   useEffect(() => {
@@ -173,10 +198,52 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
     }
   }, [volume, isMuted]);
 
+  useEffect(() => {
+    const video = videoRef.current as FrameCallbackVideo | null;
+    if (!mediaUrl || !video || !isPlaying) return;
+
+    const emitVideoTime = (time: number) => {
+      if (!Number.isFinite(time)) return;
+      internalTimeRef.current = time;
+      onTimeUpdate(time);
+    };
+
+    const hasVideoTrack = video.videoWidth > 0 && video.videoHeight > 0;
+    if (hasVideoTrack && typeof video.requestVideoFrameCallback === 'function') {
+      frameDrivenRef.current = true;
+      const onFrame = (_now: number, metadata: VideoFrameMetadata) => {
+        emitVideoTime(metadata.mediaTime ?? video.currentTime);
+        if (isPlaying) {
+          frameCallbackRef.current = video.requestVideoFrameCallback?.(onFrame) ?? null;
+        }
+      };
+      frameCallbackRef.current = video.requestVideoFrameCallback(onFrame);
+      return () => {
+        frameDrivenRef.current = false;
+        if (frameCallbackRef.current !== null) {
+          video.cancelVideoFrameCallback?.(frameCallbackRef.current);
+          frameCallbackRef.current = null;
+        }
+      };
+    }
+
+    let animationId = 0;
+    const tick = () => {
+      emitVideoTime(video.currentTime);
+      animationId = requestAnimationFrame(tick);
+    };
+    animationId = requestAnimationFrame(tick);
+    return () => {
+      frameDrivenRef.current = false;
+      cancelAnimationFrame(animationId);
+    };
+  }, [mediaUrl, isPlaying, onTimeUpdate, videoDimensions]);
+
   const handleVideoTimeUpdate = () => {
-    if (videoRef.current) {
-      isInternalTimeUpdateRef.current = true;
-      onTimeUpdate(videoRef.current.currentTime);
+    if (videoRef.current && !frameDrivenRef.current) {
+      const time = videoRef.current.currentTime;
+      internalTimeRef.current = time;
+      onTimeUpdate(time);
     }
   };
 
@@ -242,10 +309,18 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
             height: `${frameSize.height}px`,
             cursor: canControl ? 'pointer' : 'default',
           }}
-          onClick={() => {
-            if (canControl) onTogglePlayPause();
-          }}
-          title={canControl ? (isPlaying ? 'Click to Pause' : 'Click to Play') : undefined}
+           onClick={() => {
+             if (canControl) onTogglePlayPause();
+           }}
+           onKeyDown={(event) => {
+             if (!canControl || (event.key !== 'Enter' && event.key !== ' ')) return;
+             event.preventDefault();
+             onTogglePlayPause();
+           }}
+           role="button"
+           tabIndex={canControl ? 0 : -1}
+           aria-label={canControl ? (isPlaying ? 'Pause preview' : 'Play preview') : 'No media loaded'}
+           title={canControl ? (isPlaying ? 'Click to Pause' : 'Click to Play') : undefined}
         >
           {mediaUrl ? (
             <video
@@ -295,9 +370,11 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
       <div className="video-controls-bar">
         {/* Play/Pause & Stepping */}
         <div className="controls-left">
-          <button
-            className="ctrl-btn ctrl-btn-primary"
-            onClick={onTogglePlayPause}
+           <button
+             type="button"
+             className="ctrl-btn ctrl-btn-primary"
+             onClick={onTogglePlayPause}
+             aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
             disabled={!canControl}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
@@ -306,33 +383,41 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
 
           {/* Frame Stepping */}
           <div className="btn-group">
-            <button
-              className="ctrl-btn"
-              onClick={() => onStepSecond(-1)}
+             <button
+               type="button"
+               className="ctrl-btn"
+               aria-label="Step backward one second"
+               onClick={() => onStepSecond(-1)}
               disabled={!canControl}
               title="Step -1s (Shift+Left)"
             >
               -1s
             </button>
-            <button
-              className="ctrl-btn"
-              onClick={() => onStepFrame(-1)}
+             <button
+               type="button"
+               className="ctrl-btn"
+               aria-label="Step backward one frame"
+               onClick={() => onStepFrame(-1)}
               disabled={!canControl}
               title="Step -1 frame (Left)"
             >
               <SkipBack size={11} /> 1f
             </button>
-            <button
-              className="ctrl-btn"
-              onClick={() => onStepFrame(1)}
+             <button
+               type="button"
+               className="ctrl-btn"
+               aria-label="Step forward one frame"
+               onClick={() => onStepFrame(1)}
               disabled={!canControl}
               title="Step +1 frame (Right)"
             >
               1f <SkipForward size={11} />
             </button>
-            <button
-              className="ctrl-btn"
-              onClick={() => onStepSecond(1)}
+             <button
+               type="button"
+               className="ctrl-btn"
+               aria-label="Step forward one second"
+               onClick={() => onStepSecond(1)}
               disabled={!canControl}
               title="Step +1s (Shift+Right)"
             >
@@ -353,9 +438,10 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
           {/* Aspect Ratio Switcher */}
           <div className="ctrl-select-wrapper" title="Preview Aspect Ratio Frame">
             <Sliders size={12} style={{ color: 'var(--text-muted)' }} />
-            <select
-              className="ctrl-select"
-              value={aspectRatio}
+             <select
+               aria-label="Preview aspect ratio"
+               className="ctrl-select"
+               value={aspectRatio}
               onChange={(e) => onAspectRatioChange(e.target.value as AspectRatioMode)}
             >
               <option value="original">Original (Video Native)</option>
@@ -369,9 +455,10 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
           {/* Playback Speed */}
           <div className="ctrl-select-wrapper" title="Playback Speed">
             <Zap size={12} style={{ color: 'var(--text-muted)' }} />
-            <select
-              className="ctrl-select"
-              value={playbackRate}
+             <select
+               aria-label="Playback speed"
+               className="ctrl-select"
+               value={playbackRate}
               onChange={(e) => onPlaybackRateChange(parseFloat(e.target.value))}
             >
               <option value="0.5">0.5x</option>
@@ -385,15 +472,18 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
 
           {/* Volume / Mute */}
           <div className="volume-control">
-            <button
-              className="ctrl-btn ctrl-btn-sm"
-              onClick={() => setIsMuted(!isMuted)}
+             <button
+               type="button"
+               className="ctrl-btn ctrl-btn-sm"
+               aria-label={isMuted ? 'Unmute preview' : 'Mute preview'}
+               onClick={() => setIsMuted(!isMuted)}
               title={isMuted ? 'Unmute' : 'Mute'}
             >
               {isMuted || volume === 0 ? <VolumeX size={12} /> : <Volume2 size={12} />}
             </button>
-            <input
-              type="range"
+             <input
+               aria-label="Preview volume"
+               type="range"
               min="0"
               max="1"
               step="0.05"

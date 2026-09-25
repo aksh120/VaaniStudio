@@ -12,6 +12,54 @@ export interface FusionOptions {
   domainContext?: 'tech' | 'general' | 'business';
 }
 
+const TRAILING_PUNCTUATION_REGEX = /[.,?!:;\u0964\u0965\-–—'"()[\]{}]+$/;
+
+function splitWordPunctuation(word: WordTiming): { baseWord: string; punctuation: string } {
+  const trimmedWord = word.word.trim();
+  const metadataPunctuation = word.punctuationFollows || '';
+  const match = trimmedWord.match(TRAILING_PUNCTUATION_REGEX);
+  const trailingPunctuation = match?.[0] || '';
+
+  if (trailingPunctuation && metadataPunctuation) {
+    if (metadataPunctuation.startsWith(trailingPunctuation)) {
+      return {
+        baseWord: trimmedWord.slice(0, match?.index ?? trimmedWord.length),
+        punctuation: metadataPunctuation,
+      };
+    }
+    if (trailingPunctuation.startsWith(metadataPunctuation)) {
+      return {
+        baseWord: trimmedWord.slice(0, match?.index ?? trimmedWord.length),
+        punctuation: trailingPunctuation,
+      };
+    }
+    if (metadataPunctuation.endsWith(trailingPunctuation)) {
+      return {
+        baseWord: trimmedWord.slice(0, match?.index ?? trimmedWord.length),
+        punctuation: metadataPunctuation,
+      };
+    }
+    if (trailingPunctuation.endsWith(metadataPunctuation)) {
+      return {
+        baseWord: trimmedWord.slice(0, match?.index ?? trimmedWord.length),
+        punctuation: trailingPunctuation,
+      };
+    }
+  }
+
+  if (trailingPunctuation) {
+    return {
+      baseWord: trimmedWord.slice(0, match?.index ?? trimmedWord.length),
+      punctuation: trailingPunctuation,
+    };
+  }
+
+  return {
+    baseWord: trimmedWord,
+    punctuation: metadataPunctuation,
+  };
+}
+
 /**
  * Builds an optimal prompt priming string to guide the Whisper ASR decoder
  * towards keeping code-switched technical loanwords in standard English.
@@ -46,13 +94,15 @@ export function fuseVocabularyInEvents(
 
     // Process individual word timings
     const newWords: WordTiming[] = (event.words || []).map((w) => {
-      const cleanWord = w.word.trim().replace(/[^\u0900-\u097F]/g, '');
+      const { baseWord, punctuation } = splitWordPunctuation(w);
+      const cleanWord = baseWord.replace(/[^\u0900-\u097F]/g, '');
       if (ENGLISH_LOANWORD_MAP[cleanWord]) {
         const replacement = ENGLISH_LOANWORD_MAP[cleanWord];
         textModified = true;
         return {
           ...w,
-          word: replacement,
+          word: `${replacement}${punctuation}`,
+          punctuationFollows: punctuation || w.punctuationFollows,
         };
       }
       return w;
