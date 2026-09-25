@@ -19,8 +19,6 @@ win:
   icon: assets/icons/icon.ico
   legalTrademarks: Vaani Studio
   requestedExecutionLevel: asInvoker
-  cscLink: ***REMOVED-PATH***
-  cscKeyPassword: ***REMOVED-SECRET***
   target:
     - target: nsis
       arch:

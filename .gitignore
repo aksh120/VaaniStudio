@@ -46,6 +46,12 @@ scratch/
 tests/fixtures_temp/
 tests/fixtures_waveform/
 
+# Code-signing material
+# The public certificate (*.cer) may be committed; private keys must never be.
+certs/*.pfx
+certs/*.p12
+certs/*.key
+
 /dev_files/
 /release-temp/
 /.opencode
