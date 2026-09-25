@@ -201,5 +201,20 @@ describe('Subtitle File Exporters (Phase 9: TASK-043, TASK-044)', () => {
       expect(ass).toContain('Hello');
       expect(ass).toContain('Studio!');
     });
+
+    it('keeps already-spoken words in the highlight color when burnIn is true', () => {
+      const ass = generateAssScript([mockEvents[0]], mockStyle, { burnIn: true, includeKaraoke: true });
+      const dialogueLines = ass
+        .split('\n')
+        .filter((line) => line.startsWith('Dialogue:'));
+
+      const lastWordLine = dialogueLines.find((line) => line.startsWith('Dialogue: 0,0:00:03.20'));
+      expect(lastWordLine).toBeDefined();
+
+      // Words spoken before the active one must already be in the highlight color
+      const spokenSegments = lastWordLine!.split('Studio!')[0];
+      expect(spokenSegments).toContain('{\\c&H00D7FF&');
+      expect(spokenSegments).not.toContain('\\c&HFFFFFF&');
+    });
   });
 });

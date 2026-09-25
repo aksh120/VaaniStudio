@@ -174,6 +174,7 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
             const state = wordStates[idx] || 'future';
             const isWordActive = state === 'active';
             const isWordPast = state === 'past';
+            const isWordSpoken = isWordActive || isWordPast;
 
             // Active word scaling emphasis
             const wordScale =
@@ -182,71 +183,15 @@ export const KineticSubtitleRenderer: React.FC<KineticSubtitleRendererProps> = (
                 : 1.0;
 
             const wordText = getWordDisplayText(w);
+            const spokenColor = styleConfig.activeWordColor || '#FFD700';
+            const unspokenColor = styleConfig.primaryColor || '#FFFFFF';
 
-            // Render Sweep Karaoke Mode
-            if (animConfig.karaokeMode === 'sweep') {
-              const wordDuration = Math.max(0.001, w.endTime - w.startTime);
-              const sweepProgress = isWordPast
-                ? 1.0
-                : isWordActive
-                ? Math.max(0, Math.min(1, (currentTime - w.startTime) / wordDuration))
-                : 0.0;
-
-              return (
-                <span
-                  key={w.id || idx}
-                  className={`kinetic-word kinetic-word-sweep ${state}`}
-                  style={{
-                    position: 'relative',
-                    display: 'inline-block',
-                    marginRight: '0.25em',
-                    transform: `scale(${wordScale})`,
-                    transformOrigin: 'center bottom',
-                    transition: 'transform 80ms ease-out',
-                    willChange: 'transform',
-                  }}
-                >
-                  {/* Base Layer: Un-highlighted word text */}
-                  <span
-                    style={{
-                      color: styleConfig.primaryColor || '#FFFFFF',
-                      opacity: isWordActive ? 0.9 : 1.0,
-                    }}
-                  >
-                    {wordText}
-                  </span>
-
-                  {/* Sweep Fill Layer: Clips over the base layer from left to right */}
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: `${sweepProgress * 100}%`,
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      color: styleConfig.activeWordColor || '#FFD700',
-                      fontWeight: isWordActive ? 800 : styleConfig.fontWeight,
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                    }}
-                  >
-                    {wordText}
-                  </span>
-                </span>
-              );
-            }
-
-            // Render Step Jump Karaoke Mode (Default)
             return (
               <span
                 key={w.id || idx}
-                className={`kinetic-word kinetic-word-step ${state}`}
+                className={`kinetic-word kinetic-word-${animConfig.karaokeMode === 'sweep' ? 'sweep' : 'step'} ${state}`}
                 style={{
-                  color: isWordActive
-                    ? styleConfig.activeWordColor || '#FFD700'
-                    : styleConfig.primaryColor || '#FFFFFF',
+                  color: isWordSpoken ? spokenColor : unspokenColor,
                   fontWeight: isWordActive ? 800 : styleConfig.fontWeight,
                   display: 'inline-block',
                   marginRight: '0.25em',

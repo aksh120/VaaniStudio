@@ -156,8 +156,8 @@ export function generateAssScript(
     const isKaraoke = includeKaraoke && hasWords;
 
     // For video burn-in (or step karaoke mode when requested), slice dialogue lines
-    // so only the currently spoken word is highlighted in activeWordColor,
-    // matching KineticSubtitleRenderer precisely.
+    // so spoken words stay in activeWordColor and the currently spoken word adds
+    // the scale emphasis, matching KineticSubtitleRenderer precisely.
     if (options.burnIn && isKaraoke && animConfig?.karaokeMode !== 'sweep') {
       const words = synchronizeWordTimingsToEvent(ev);
       const activeColorTag = colorToAssOverrideTag(style.activeWordColor || '#FACC15', 1.0);
@@ -167,7 +167,7 @@ export function generateAssScript(
         : '';
       const baseScaleTag = animConfig?.activeWordEmphasis ? '\\fscx100\\fscy100' : '';
 
-      const formatLineWords = (activeIdx: number): string => {
+      const formatLineWords = (activeIdx: number, spokenUpTo: number): string => {
         return words
           .map((w, idx) => {
             let wordText = getWordDisplayText(w);
@@ -177,8 +177,9 @@ export function generateAssScript(
               wordText = wordText.toLowerCase();
             }
 
-            if (idx === activeIdx) {
-              return `{${activeColorTag}${scaleTag}}${wordText}`;
+            if (idx <= spokenUpTo) {
+              const spokenTags = idx === activeIdx ? `${activeColorTag}${scaleTag}` : `${activeColorTag}${baseScaleTag}`;
+              return `{${spokenTags}}${wordText}`;
             } else {
               return `{${baseColorTag}${baseScaleTag}}${wordText}`;
             }
@@ -190,25 +191,26 @@ export function generateAssScript(
         start: number;
         end: number;
         activeIdx: number;
+        spokenUpTo: number;
       }
       const slices: Slice[] = [];
 
       // Pre-gap before first word
       if (words[0].startTime > ev.startTime + 0.01) {
-        slices.push({ start: ev.startTime, end: words[0].startTime, activeIdx: -1 });
+        slices.push({ start: ev.startTime, end: words[0].startTime, activeIdx: -1, spokenUpTo: -1 });
       }
 
       // Each word interval
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
         if (w.endTime > w.startTime) {
-          slices.push({ start: w.startTime, end: w.endTime, activeIdx: i });
+          slices.push({ start: w.startTime, end: w.endTime, activeIdx: i, spokenUpTo: i });
         }
 
         if (i < words.length - 1) {
           const nextW = words[i + 1];
           if (nextW.startTime > w.endTime + 0.02) {
-            slices.push({ start: w.endTime, end: nextW.startTime, activeIdx: -1 });
+            slices.push({ start: w.endTime, end: nextW.startTime, activeIdx: -1, spokenUpTo: i });
           }
         }
       }
@@ -216,11 +218,16 @@ export function generateAssScript(
       // Post-gap after last word
       const lastWord = words[words.length - 1];
       if (ev.endTime > lastWord.endTime + 0.01) {
-        slices.push({ start: lastWord.endTime, end: ev.endTime, activeIdx: -1 });
+        slices.push({
+          start: lastWord.endTime,
+          end: ev.endTime,
+          activeIdx: -1,
+          spokenUpTo: words.length - 1,
+        });
       }
 
       if (slices.length === 0) {
-        slices.push({ start: ev.startTime, end: ev.endTime, activeIdx: -1 });
+        slices.push({ start: ev.startTime, end: ev.endTime, activeIdx: -1, spokenUpTo: -1 });
       }
 
       for (let sIdx = 0; sIdx < slices.length; sIdx++) {
@@ -240,7 +247,7 @@ export function generateAssScript(
         }
 
         const transTags = compileAssTransitionTags(animConfig, phase);
-        const lineText = formatLineWords(slice.activeIdx);
+        const lineText = formatLineWords(slice.activeIdx, slice.spokenUpTo);
         eventsLines.push(`Dialogue: 0,${segStart},${segEnd},Default,,0,0,0,,${transTags}${lineText}`);
       }
     } else {
