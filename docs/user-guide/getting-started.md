@@ -19,15 +19,40 @@ Vaani Studio is engineered to operate on standard consumer hardware:
 ## 2. Installation
 
 ### Option A: Windows Installer (.exe)
-1. Download `VaaniStudio-Setup-0.1.1.exe` from the official repository releases.
+1. Download `VaaniStudio-Setup-0.1.2.exe` from the official repository releases.
 2. Run the installer and choose whether to install for current user or all users.
 3. Select your desired destination directory (defaults to `%LOCALAPPDATA%/Programs/VaaniStudio`).
 4. The installer creates desktop and Start Menu shortcuts and registers `.vsp` project file associations.
 
 ### Option B: Standalone Portable Package (.exe)
-1. Download `VaaniStudio-Portable-0.1.1.exe`.
+1. Download `VaaniStudio-Portable-0.1.2.exe`.
 2. Place the executable in any directory (such as a USB drive or local folder).
 3. Double-click to launch without registry changes or installation steps.
+
+### Verifying the Publisher
+
+Every Windows build is Authenticode-signed. Confirm the signer before you run a
+downloaded file:
+
+1. Right-click the `.exe` and choose **Properties**.
+2. Open the **Digital Signatures** tab and select the signature.
+3. Click **Details** to view the signer certificate.
+
+The signer subject is `CN=Vaani Studio, O=Akshat Apoorv, C=IN`. If the subject does
+not match, do not run the file.
+
+Vaani Studio is currently signed with a **self-signed** certificate that is
+published in this repository as `certs/vaani-studio.cer`. Windows therefore reports
+the publisher as **Unknown publisher** until you install that certificate once:
+
+1. Double-click `certs/vaani-studio.cer`.
+2. Choose **Install Certificate**.
+3. Select **Local Machine** (requires administrator rights) or **Current User**.
+4. Place it in the **Trusted Root Certification Authorities** store.
+
+A certificate issued by a commercial CA removes this step and lets Windows
+SmartScreen evaluate the publisher reputation normally. See
+[docs/code-signing.md](../code-signing.md) for how signing is configured.
 
 ---
 
