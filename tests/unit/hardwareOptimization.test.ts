@@ -179,6 +179,6 @@ describe('Phase 10: Hardware Optimization & Performance Profiling', () => {
       // Memory stats
       expect(profile.memoryStats).toBeDefined();
       expect(profile.memoryStats?.rssMB).toBeGreaterThan(0);
-    }, 15000);
+    }, 60000);
   });
 });

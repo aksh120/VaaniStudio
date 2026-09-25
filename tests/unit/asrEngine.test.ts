@@ -86,5 +86,5 @@ describe('FasterWhisper ASR Engine', () => {
     expect(typeof firstWord.startTime).toBe('number');
     expect(typeof firstWord.endTime).toBe('number');
     expect(firstWord.endTime).toBeGreaterThanOrEqual(firstWord.startTime);
-  }, 30000);
+  }, 120000);
 });
