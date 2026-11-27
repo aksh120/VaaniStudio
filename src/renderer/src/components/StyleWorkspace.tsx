@@ -397,21 +397,20 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={() => setSaveModalOpen(true)}
-            style={{ padding: '3px 8px', height: '26px', fontSize: '11px', gap: '4px' }}
             title="Save current style as a new custom preset"
           >
-            <Plus size={12} />
+            <Plus size={13} strokeWidth={1.5} />
             <span>Save preset</span>
           </button>
         </div>
 
         {/* Search Input */}
         <div className="style-search-container">
-          <Search size={13} className="style-search-icon" />
+          <Search size={13} strokeWidth={1.5} className="style-search-icon" />
           <input
             type="text"
             className="style-search-input"
-            placeholder="Search presets..."
+            placeholder="Search presets"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -419,15 +418,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
 
         {/* Feedback Banner */}
         {feedback && (
-          <div
-            style={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(37, 99, 235, 0.15)',
-              color: '#60A5FA',
-              fontSize: '11px',
-              borderBottom: '1px solid rgba(37, 99, 235, 0.3)',
-            }}
-          >
+          <div className="style-feedback-banner">
             {feedback}
           </div>
         )}
@@ -488,7 +479,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
               onClick={() => setShowSubtitles(!showSubtitles)}
               title="Toggle Subtitle Visibility on Video"
             >
-              {showSubtitles ? <Eye size={13} /> : <EyeOff size={13} />}
+              {showSubtitles ? <Eye size={13} strokeWidth={1.5} /> : <EyeOff size={13} strokeWidth={1.5} />}
               <span>Show Subtitles</span>
             </button>
           </div>
@@ -500,8 +491,7 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
               onDragStart={(e) => e.preventDefault()}
               style={{
                 ...canvasDimensions,
-                borderRadius: aspectRatio === '16:9' ? '0' : '6px',
-                boxShadow: aspectRatio === '16:9' ? 'none' : '0 4px 20px rgba(0, 0, 0, 0.65)',
+                borderRadius: aspectRatio === '16:9' ? '0' : 'var(--radius-sm)',
                 userSelect: 'none',
               }}
             >
@@ -643,8 +633,8 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
           <div
             className="style-live-preview-box"
             style={{
-              backgroundColor: previewBackdrop === 'white' ? '#FFFFFF' : '#080C16',
-              borderColor: previewBackdrop === 'white' ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: previewBackdrop === 'white' ? '#F4F4F6' : '#0E0F11',
+              borderColor: previewBackdrop === 'white' ? 'rgba(17, 18, 20, 0.14)' : 'var(--border-subtle)',
             }}
           >
             {safeZones && (
@@ -848,9 +838,9 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
               <div
                 className="style-text-preview-card"
                 style={{
-                  backgroundColor: isTextDark ? '#FFFFFF' : '#080C16',
-                  borderColor: isTextDark ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.08)',
-                  transition: 'background-color 0.2s ease, border-color 0.2s ease',
+                  backgroundColor: isTextDark ? '#F4F4F6' : '#0E0F11',
+                  borderColor: isTextDark ? 'rgba(17, 18, 20, 0.14)' : 'var(--border-subtle)',
+                  transition: 'background-color var(--motion-fast), border-color var(--motion-fast)',
                 }}
               >
                 <div style={inspectorSubtitleStyles.capsuleStyle}>
@@ -875,18 +865,12 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 onClick={() => setIsAdvancedTypographyOpen(!isAdvancedTypographyOpen)}
               >
                 <span>Advanced Typography</span>
-                {isAdvancedTypographyOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                {isAdvancedTypographyOpen ? <ChevronDown size={14} strokeWidth={1.5} /> : <ChevronRight size={14} strokeWidth={1.5} />}
               </button>
               {isAdvancedTypographyOpen && (
                 <div className="style-accordion-content">
                   {/* Word Highlighting Switch */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
+                  <div className="style-accordion-row">
                     <label className="style-field-label" style={{ margin: 0 }}>
                       Word Highlighting
                     </label>
@@ -907,35 +891,14 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                   </div>
 
                   {/* Highlight Color */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: '12px',
-                    }}
-                  >
+                  <div className="style-accordion-row">
                     <label className="style-field-label" style={{ margin: 0 }}>
                       Highlight Color
                     </label>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <div className="style-inline-color-picker">
                       <div
-                        className="style-color-swatch"
-                        style={{
-                          width: '24px',
-                          height: '16px',
-                          borderRadius: '3px',
-                          backgroundColor: currentStyle.activeWordColor || '#FACC15',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          position: 'relative',
-                        }}
+                        className="style-color-swatch style-color-swatch-sm"
+                        style={{ backgroundColor: currentStyle.activeWordColor || '#FACC15' }}
                       >
                         <input
                           type="color"
@@ -944,25 +907,17 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                           onChange={(e) => handleUpdate('activeWordColor', e.target.value)}
                         />
                       </div>
-                      <ChevronDown size={13} color="#94A3B8" />
+                      <ChevronDown size={13} strokeWidth={1.5} className="style-inline-chevron" />
                     </div>
                   </div>
 
                   {/* Highlight Weight */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: '12px',
-                    }}
-                  >
+                  <div className="style-accordion-row">
                     <label className="style-field-label" style={{ margin: 0 }}>
                       Highlight Weight
                     </label>
                     <select
-                      className="style-select-box"
-                      style={{ width: '110px', height: '28px', padding: '0 8px' }}
+                      className="style-select-box style-select-compact"
                       value={currentAnimation.activeWordEmphasis ? 'Bold' : 'Normal'}
                       onChange={(e) =>
                         handleAnimationUpdate('activeWordEmphasis', e.target.value === 'Bold')
@@ -1409,17 +1364,17 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
            isOpen={saveModalOpen}
            onClose={() => setSaveModalOpen(false)}
            title="Save custom preset"
-           description="Store the current style settings for later use."
+           description="Store the current style settings for later use"
            className="style-preset-dialog"
          >
            <form onSubmit={handleSaveCustom} className="style-preset-form">
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="style-input-group">
-                  <label className="style-field-label">Preset Name *</label>
+                  <label className="style-field-label">Preset name</label>
                   <input
                     type="text"
                     className="style-number-input"
-                    placeholder="e.g. My Reels Style"
+                    placeholder="My reels style"
                     value={newPresetName}
                     onChange={(e) => setNewPresetName(e.target.value)}
                     required
@@ -1428,11 +1383,11 @@ export const StyleWorkspace: React.FC<StyleWorkspaceProps> = ({ presetManager })
                 </div>
 
                 <div className="style-input-group">
-                  <label className="style-field-label">Description (Optional)</label>
+                  <label className="style-field-label">Description</label>
                   <input
                     type="text"
                     className="style-number-input"
-                    placeholder="e.g. Bold punch style with yellow highlight"
+                    placeholder="Bold punch style with yellow highlight"
                     value={newPresetDesc}
                     onChange={(e) => setNewPresetDesc(e.target.value)}
                   />

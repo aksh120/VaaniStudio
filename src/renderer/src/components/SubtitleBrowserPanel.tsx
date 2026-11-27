@@ -75,27 +75,27 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
              aria-label="Search subtitles"
              className={`sub-header-btn-icon ${isSearchOpen || searchQuery ? 'active' : ''}`}
             onClick={() => setIsSearchOpen((prev) => !prev)}
-            title="Search Subtitles"
+            title="Search subtitles"
           >
-            <Search size={13} />
+            <Search size={14} strokeWidth={1.5} />
           </button>
            <button
              type="button"
              aria-label="Filter subtitle warnings"
              className={`sub-header-btn-icon ${filterWarningsOnly ? 'active' : ''}`}
             onClick={() => setFilterWarningsOnly((prev) => !prev)}
-            title={filterWarningsOnly ? 'Show All Subtitles' : 'Filter High CPS/CPL Warnings'}
+            title={filterWarningsOnly ? 'Show all subtitles' : 'Filter speed or length warnings'}
           >
-            <Filter size={13} />
+            <Filter size={14} strokeWidth={1.5} />
           </button>
            <button
              type="button"
              aria-label="Add subtitle at playhead"
              className="sub-header-btn-add"
             onClick={onInsertSubtitle}
-            title="Add Subtitle at Playhead (+)"
+            title="Add subtitle at playhead"
           >
-            <Plus size={14} />
+            <Plus size={14} strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -103,12 +103,12 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
       {/* Search & Filter Bar (Expandable or visible when active/query present) */}
       {(isSearchOpen || searchQuery || filterWarningsOnly) && (
         <div className="sub-browser-search-wrap">
-          <Search size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <Search size={14} strokeWidth={1.5} className="sub-browser-search-icon" />
           <input
             type="text"
              aria-label="Filter subtitle list"
              className="sub-browser-search-input"
-            placeholder="Filter subtitles..."
+            placeholder="Filter subtitles"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus={isSearchOpen}
@@ -116,26 +116,16 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
           {searchQuery && (
              <button
                type="button"
-               className="btn btn-ghost btn-sm"
+               className="btn btn-ghost btn-sm sub-browser-search-clear"
               onClick={() => setSearchQuery('')}
-              style={{ padding: '0 4px', height: '20px', color: 'var(--text-muted)' }}
-              title="Clear search"
+              aria-label="Clear filter"
+              title="Clear filter"
             >
-              <X size={11} />
+              <X size={14} strokeWidth={1.5} />
             </button>
           )}
           {filterWarningsOnly && (
-            <span
-              style={{
-                fontSize: '10px',
-                color: 'var(--color-warning)',
-                fontWeight: 600,
-                padding: '1px 5px',
-                backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                borderRadius: '3px',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <span className="sub-browser-filter-tag">
               Warnings
             </span>
           )}
@@ -145,22 +135,14 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
       {/* Subtitle List */}
       <div className="sub-browser-scroll" ref={listRef}>
         {filteredEvents.length === 0 ? (
-          <div
-            style={{
-              padding: '24px 16px',
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: '11px',
-              lineHeight: 1.5,
-            }}
-          >
+          <div className="sub-browser-empty">
             {events.length === 0 ? (
               <>
-                <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>No subtitles yet</p>
-                <span>Click "Generate Subtitles" or "Add" to create subtitle blocks.</span>
+                <p className="sub-browser-empty-title">No subtitles yet</p>
+                <span>Generate subtitles or add a line from the toolbar</span>
               </>
             ) : (
-              <p style={{ margin: 0 }}>No matching subtitles found.</p>
+              <p>No matching subtitles found</p>
             )}
           </div>
         ) : (
@@ -220,7 +202,7 @@ export const SubtitleBrowserPanel: React.FC<SubtitleBrowserPanelProps> = ({
                 })()}
 
                 <div className="sub-browser-card-text">
-                  {evt.text || <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Empty caption</span>}
+                  {evt.text || <span className="sub-browser-card-empty">Empty caption</span>}
                 </div>
               </div>
             );

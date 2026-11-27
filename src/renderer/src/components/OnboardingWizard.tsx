@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import {
   HardwareProfile,
   ModelInfo,
@@ -145,49 +146,36 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         style={{
           width: '760px',
           maxWidth: '95vw',
-          backgroundColor: 'var(--bg-panel, #121824)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '12px',
-          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6)',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-dialog)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          animation: 'fadeIn 0.25s ease-out',
         }}
       >
         {/* Wizard Header */}
         <div
           style={{
             padding: '20px 24px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+            borderBottom: '1px solid var(--border-subtle)',
+            backgroundColor: 'var(--bg-surface-elevated)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: 'var(--accent-primary, #3b82f6)',
-                marginBottom: '4px',
-              }}
-            >
-              Initial Setup Wizard
-            </div>
             <h2
               style={{
                 margin: 0,
-                fontSize: '20px',
+                fontSize: '18px',
                 fontWeight: 600,
-                color: 'var(--text-primary, #f8fafc)',
+                color: 'var(--text-primary)',
               }}
             >
-              Welcome to Vaani Studio
+              Vaani Studio Setup
             </h2>
           </div>
 
@@ -352,13 +340,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       fontSize: '12px',
                       fontWeight: 600,
                       borderRadius: '6px',
-                      backgroundColor: isScanning ? '#334155' : 'var(--accent-primary, #3b82f6)',
-                      color: '#ffffff',
+                      backgroundColor: isScanning ? 'var(--bg-control-hover)' : 'var(--accent)',
+                      color: 'var(--text-on-accent)',
                       border: 'none',
                       cursor: isScanning ? 'not-allowed' : 'pointer',
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
-                      transition: 'all 0.15s ease',
+                      transition: 'background-color var(--motion-fast)',
                     }}
                   >
                     {isScanning ? 'Inspecting System...' : deepScanResult ? 'Re-scan Hardware' : 'Run Hardware Scan'}
@@ -521,31 +509,30 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       onClick={() => !isDownloading && setSelectedModelId(model.id)}
                       style={{
                         padding: '14px 18px',
-                        borderRadius: '8px',
-                        border: isSelected ? '1px solid var(--accent-primary, #3b82f6)' : '1px solid rgba(255, 255, 255, 0.08)',
-                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                        borderRadius: 'var(--radius-md)',
+                        border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
+                        backgroundColor: isSelected ? 'var(--accent-subtle)' : 'var(--bg-surface-elevated)',
                         cursor: isDownloading ? 'not-allowed' : 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        transition: 'all 0.15s ease',
+                        transition: 'border-color var(--motion-fast), background-color var(--motion-fast)',
                       }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#f8fafc' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
                             {model.name}
                           </span>
                           {isRecommended && (
                             <span
                               style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                color: '#60a5fa',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                backgroundColor: 'var(--accent-subtle)',
+                                color: 'var(--accent-active)',
                                 padding: '2px 6px',
-                                borderRadius: '4px',
+                                borderRadius: 'var(--radius-sm)',
                               }}
                             >
                               {deepScanResult ? `Recommended (${deepScanResult.estimatedSpeedFactor})` : 'Recommended'}
@@ -554,13 +541,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                           {model.isDownloaded && (
                             <span
                               style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                color: '#4ade80',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                backgroundColor: 'var(--color-success-subtle)',
+                                color: 'var(--color-success)',
                                 padding: '2px 6px',
-                                borderRadius: '4px',
+                                borderRadius: 'var(--radius-sm)',
                               }}
                             >
                               Installed
@@ -696,54 +682,52 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     width: '48px',
                     height: '48px',
                     borderRadius: '50%',
-                    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                    color: '#4ade80',
+                    backgroundColor: 'var(--color-success-subtle)',
+                    color: 'var(--color-success)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '20px',
-                    fontWeight: 700,
                     marginBottom: '12px',
                   }}
                 >
-                  OK
+                  <Check size={20} strokeWidth={1.5} />
                 </div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
-                  Vaani Studio is Ready
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  Vaani Studio is ready
                 </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', maxWidth: '520px', marginInline: 'auto' }}>
-                  Your speech recognition engine and local workspace are configured. You can now import audio or video files to generate perfectly timed subtitles.
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '520px', marginInline: 'auto' }}>
+                  Your speech recognition engine and local workspace are configured
                 </p>
               </div>
 
               <div
                 style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
                   padding: '16px',
                   marginBottom: '16px',
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', marginBottom: '10px' }}>
-                  Essential Keyboard Shortcuts
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>
+                  Essential keyboard shortcuts
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px' }}>
-                    <span style={{ color: '#94a3b8' }}>Play / Pause</span>
-                    <kbd style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Space</kbd>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Play / Pause</span>
+                    <kbd className="vs-keycap">Space</kbd>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px' }}>
-                    <span style={{ color: '#94a3b8' }}>Split Subtitle</span>
-                    <kbd style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>S</kbd>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Split Subtitle</span>
+                    <kbd className="vs-keycap">S</kbd>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px' }}>
-                    <span style={{ color: '#94a3b8' }}>Merge Next</span>
-                    <kbd style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>M</kbd>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Merge Next</span>
+                    <kbd className="vs-keycap">M</kbd>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: '4px' }}>
-                    <span style={{ color: '#94a3b8' }}>Undo / Redo</span>
-                    <kbd style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Ctrl + Z / Y</kbd>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Undo / Redo</span>
+                    <kbd className="vs-keycap">Ctrl + Z / Y</kbd>
                   </div>
                 </div>
               </div>

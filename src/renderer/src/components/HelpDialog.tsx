@@ -63,10 +63,10 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
     >
       <div className="dialog-tabs" role="tablist" aria-label="Help sections">
         <button type="button" role="tab" aria-selected={tab === 'shortcuts'} className={`dialog-tab ${tab === 'shortcuts' ? 'active' : ''}`} onClick={() => setTab('shortcuts')}>
-          <Keyboard size={14} /> Shortcuts
+          <Keyboard size={14} strokeWidth={1.5} /> Shortcuts
         </button>
         <button type="button" role="tab" aria-selected={tab === 'troubleshooting'} className={`dialog-tab ${tab === 'troubleshooting' ? 'active' : ''}`} onClick={() => setTab('troubleshooting')}>
-          <Wrench size={14} /> Troubleshooting
+          <Wrench size={14} strokeWidth={1.5} /> Troubleshooting
         </button>
       </div>
 
@@ -86,11 +86,11 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
               <tbody>
                  {filteredShortcuts.length > 0 ? filteredShortcuts.map((item) => (
                    <tr key={item.key}>
-                     <td className="shortcut-key">{item.key}</td>
+                     <td className="shortcut-key"><kbd className="vs-keycap">{item.key}</kbd></td>
                      <td>{item.desc}</td>
                    </tr>
                  )) : (
-                   <tr><td colSpan={2}>No shortcuts match your search.</td></tr>
+                   <tr><td colSpan={2}>No shortcuts match your search</td></tr>
                  )}
               </tbody>
             </table>
@@ -98,10 +98,10 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
         </div>
       ) : (
         <div className="troubleshooting-list">
-          <div><strong>Model download</strong><span>Check the network connection or firewall, then retry from Settings → Models.</span></div>
-          <div><strong>Media extraction</strong><span>Confirm the file is not DRM-protected or locked by another application.</span></div>
-          <div><strong>Memory and speed</strong><span>Use Fast mode with a smaller model on systems with limited memory.</span></div>
-          <div><strong>Hardware acceleration</strong><span>Run diagnostics in Settings to inspect the available CPU and GPU path.</span></div>
+          <div><strong>Model download</strong><span>Check the network connection or firewall, then retry from Settings → Models</span></div>
+          <div><strong>Media extraction</strong><span>Confirm the file is not DRM-protected or locked by another application</span></div>
+          <div><strong>Memory and speed</strong><span>Use Fast mode with a smaller model on systems with limited memory</span></div>
+          <div><strong>Hardware acceleration</strong><span>Run diagnostics in Settings to inspect the available CPU and GPU path</span></div>
         </div>
       )}
     </Dialog>

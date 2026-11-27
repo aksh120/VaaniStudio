@@ -762,16 +762,17 @@ export const App: React.FC = () => {
         index: 1,
         startTime: 0.5,
         endTime: 3.2,
-        text: 'Welcome to Vaani Studio native desktop editor.',
+        text: 'Vaani Studio desktop subtitle editor and timeline workspace',
         speakerLabel: 'Host',
         words: [
-          { id: 'w-1', word: 'Welcome', startTime: 0.5, endTime: 1.0, confidence: 0.99 },
-          { id: 'w-2', word: 'to', startTime: 1.0, endTime: 1.2, confidence: 0.99 },
-          { id: 'w-3', word: 'Vaani', startTime: 1.2, endTime: 1.6, confidence: 0.98 },
-          { id: 'w-4', word: 'Studio', startTime: 1.6, endTime: 2.1, confidence: 0.99 },
-          { id: 'w-5', word: 'native', startTime: 2.1, endTime: 2.5, confidence: 0.97 },
-          { id: 'w-6', word: 'desktop', startTime: 2.5, endTime: 2.8, confidence: 0.96 },
-          { id: 'w-7', word: 'editor.', startTime: 2.8, endTime: 3.2, confidence: 0.99 },
+          { id: 'w-1', word: 'Vaani', startTime: 0.5, endTime: 0.9, confidence: 0.99 },
+          { id: 'w-2', word: 'Studio', startTime: 0.9, endTime: 1.3, confidence: 0.99 },
+          { id: 'w-3', word: 'desktop', startTime: 1.3, endTime: 1.7, confidence: 0.98 },
+          { id: 'w-4', word: 'subtitle', startTime: 1.7, endTime: 2.1, confidence: 0.99 },
+          { id: 'w-5', word: 'editor', startTime: 2.1, endTime: 2.5, confidence: 0.97 },
+          { id: 'w-6', word: 'and', startTime: 2.5, endTime: 2.7, confidence: 0.98 },
+          { id: 'w-7', word: 'timeline', startTime: 2.7, endTime: 3.0, confidence: 0.97 },
+          { id: 'w-8', word: 'workspace', startTime: 3.0, endTime: 3.2, confidence: 0.99 },
         ],
       },
       {
@@ -779,18 +780,18 @@ export const App: React.FC = () => {
         index: 2,
         startTime: 3.5,
         endTime: 6.8,
-        text: 'Local AI transcription with English, Hindi and Hinglish support.',
+        text: 'Local offline transcription with English, Hindi and Hinglish support',
         speakerLabel: 'Host',
         words: [
-          { id: 'w-8', word: 'Local', startTime: 3.5, endTime: 3.9, confidence: 0.98 },
-          { id: 'w-9', word: 'AI', startTime: 3.9, endTime: 4.2, confidence: 0.99 },
-          { id: 'w-10', word: 'transcription', startTime: 4.2, endTime: 4.8, confidence: 0.97 },
-          { id: 'w-11', word: 'with', startTime: 4.8, endTime: 5.1, confidence: 0.99 },
-          { id: 'w-12', word: 'English,', startTime: 5.1, endTime: 5.5, confidence: 0.98 },
-          { id: 'w-13', word: 'Hindi', startTime: 5.5, endTime: 5.9, confidence: 0.99 },
-          { id: 'w-14', word: 'and', startTime: 5.9, endTime: 6.1, confidence: 0.99 },
-          { id: 'w-15', word: 'Hinglish', startTime: 6.1, endTime: 6.5, confidence: 0.98 },
-          { id: 'w-16', word: 'support.', startTime: 6.5, endTime: 6.8, confidence: 0.99 },
+          { id: 'w-9', word: 'Local', startTime: 3.5, endTime: 3.9, confidence: 0.98 },
+          { id: 'w-10', word: 'offline', startTime: 3.9, endTime: 4.3, confidence: 0.99 },
+          { id: 'w-11', word: 'transcription', startTime: 4.3, endTime: 4.9, confidence: 0.97 },
+          { id: 'w-12', word: 'with', startTime: 4.9, endTime: 5.1, confidence: 0.99 },
+          { id: 'w-13', word: 'English,', startTime: 5.1, endTime: 5.5, confidence: 0.98 },
+          { id: 'w-14', word: 'Hindi', startTime: 5.5, endTime: 5.9, confidence: 0.99 },
+          { id: 'w-15', word: 'and', startTime: 5.9, endTime: 6.1, confidence: 0.99 },
+          { id: 'w-16', word: 'Hinglish', startTime: 6.1, endTime: 6.5, confidence: 0.98 },
+          { id: 'w-17', word: 'support', startTime: 6.5, endTime: 6.8, confidence: 0.99 },
         ],
       },
       {
@@ -887,7 +888,7 @@ export const App: React.FC = () => {
                <rect x="60" y="32" width="20" height="5" rx="1" fill="currentColor" opacity=".36" />
              </svg>
             <span className="titlebar-app-name">Vaani Studio</span>
-            <span className="titlebar-app-tag">v0.1.2</span>
+            <span className="titlebar-app-tag">v0.1.3</span>
           </div>
 
            <button
@@ -916,7 +917,7 @@ export const App: React.FC = () => {
              onClick={() => setIsHelpOpen(true)}
              title="Help and keyboard shortcuts (Ctrl+/)"
            >
-            <Keyboard size={14} />
+            <Keyboard size={14} strokeWidth={1.5} />
             <span>Shortcuts</span>
           </button>
            <button
@@ -925,7 +926,7 @@ export const App: React.FC = () => {
              onClick={() => setIsTutorialOpen(true)}
              title="Open getting started guide"
            >
-            <BookOpen size={14} />
+            <BookOpen size={14} strokeWidth={1.5} />
             <span>Guide</span>
           </button>
           <div className="titlebar-divider" />
@@ -934,9 +935,9 @@ export const App: React.FC = () => {
              className="titlebar-icon-btn"
              onClick={toggleTheme}
              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
           >
-            {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+            {theme === 'dark' ? <Moon size={14} strokeWidth={1.5} /> : <Sun size={14} strokeWidth={1.5} />}
           </button>
           <div className="titlebar-window-controls">
              <button
@@ -946,7 +947,7 @@ export const App: React.FC = () => {
                aria-label="Minimize window"
                title="Minimize"
             >
-              <Minus size={14} />
+              <Minus size={14} strokeWidth={1.5} />
             </button>
              <button
                type="button"
@@ -955,7 +956,7 @@ export const App: React.FC = () => {
                aria-label="Maximize or restore window"
                title="Maximize / Restore"
             >
-              <Square size={12} />
+              <Square size={12} strokeWidth={1.5} />
             </button>
              <button
                type="button"
@@ -964,7 +965,7 @@ export const App: React.FC = () => {
                aria-label="Close window"
                title="Close"
             >
-              <CloseIcon size={14} />
+              <CloseIcon size={14} strokeWidth={1.5} />
             </button>
           </div>
         </div>
@@ -987,7 +988,7 @@ export const App: React.FC = () => {
              className={`nav-tab-item ${activeTab === 'projects' ? 'active' : ''}`}
              onClick={() => setActiveTab('projects')}
            >
-            <Folder size={15} />
+            <Folder size={15} strokeWidth={1.5} />
             <span>Projects</span>
           </button>
            <button
@@ -997,7 +998,7 @@ export const App: React.FC = () => {
              className={`nav-tab-item ${activeTab === 'editor' ? 'active' : ''}`}
              onClick={() => setActiveTab('editor')}
            >
-            <Edit3 size={15} />
+            <Edit3 size={15} strokeWidth={1.5} />
             <span>Editor</span>
           </button>
            <button
@@ -1007,7 +1008,7 @@ export const App: React.FC = () => {
              className={`nav-tab-item ${activeTab === 'subtitles' ? 'active' : ''}`}
              onClick={() => setActiveTab('subtitles')}
            >
-            <Captions size={15} />
+            <Captions size={15} strokeWidth={1.5} />
             <span>Subtitles</span>
           </button>
            <button
@@ -1017,7 +1018,7 @@ export const App: React.FC = () => {
              className={`nav-tab-item ${activeTab === 'style' ? 'active' : ''}`}
              onClick={() => setActiveTab('style')}
            >
-            <Palette size={15} />
+            <Palette size={15} strokeWidth={1.5} />
             <span>Style</span>
           </button>
            <button
@@ -1027,7 +1028,7 @@ export const App: React.FC = () => {
              className={`nav-tab-item ${activeTab === 'settings' ? 'active' : ''}`}
              onClick={() => setActiveTab('settings')}
            >
-            <SettingsIcon size={15} />
+            <SettingsIcon size={15} strokeWidth={1.5} />
             <span>Settings</span>
           </button>
         </div>
@@ -1038,19 +1039,19 @@ export const App: React.FC = () => {
               type="button"
               className="nav-btn-import"
               onClick={handleSelectMedia}
-              title="Import Video or Audio Media"
+              title="Import media file"
             >
-              <Upload size={14} />
-              <span>Import Media</span>
+              <Upload size={14} strokeWidth={1.5} />
+              <span>Import media</span>
             </button>
           )}
            <button
              type="button"
              className="nav-btn-generate"
             onClick={() => setIsGenerateModalOpen(true)}
-            title="Generate AI Subtitles (Ctrl+G)"
+            title="Generate subtitles (Ctrl+G)"
           >
-             <Captions size={14} />
+             <Captions size={14} strokeWidth={1.5} />
              <span>Generate</span>
           </button>
            <button
@@ -1059,9 +1060,8 @@ export const App: React.FC = () => {
             onClick={() => setActiveTab('export')}
              title="Open export workspace (Ctrl+E)"
           >
-            <FileUp size={14} />
+            <FileUp size={14} strokeWidth={1.5} />
              <span>Export</span>
-
           </button>
         </div>
       </nav>
@@ -1151,7 +1151,7 @@ export const App: React.FC = () => {
           </div>
           {activeTab !== 'style' && activeTab !== 'settings' && project.media && (
             <>
-              <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <div className="statusbar-item">
                 <span>{project.media.durationSeconds.toFixed(1)}s</span>
               </div>
@@ -1159,7 +1159,7 @@ export const App: React.FC = () => {
           )}
           {activeTab !== 'style' && activeTab !== 'settings' && lastSavedAt && (
             <>
-              <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <div className="statusbar-item">
                 <span>
                   {isDirty
@@ -1178,22 +1178,23 @@ export const App: React.FC = () => {
           {activeTab === 'settings' ? (
             <>
               <button
+                type="button"
                 className="statusbar-btn"
                 onClick={() => setActiveTab('settings')}
-                title="Configure Performance in Settings"
+                title="Configure performance in Settings"
               >
                 Performance: {project.settings.performanceMode.charAt(0).toUpperCase() + project.settings.performanceMode.slice(1)}
               </button>
-              <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <div className="statusbar-item">
-                 <span>{project.events.length} subtitles</span>
+                <span>{project.events.length} subtitles</span>
               </div>
-              <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <div className="statusbar-item">
                 <span>
                   {project.media
                     ? `${Math.floor(project.media.durationSeconds / 60).toString().padStart(2, '0')}:${Math.floor(project.media.durationSeconds % 60).toString().padStart(2, '0')}`
-                     : 'No media'}
+                    : 'No media'}
                 </span>
               </div>
             </>
@@ -1202,29 +1203,30 @@ export const App: React.FC = () => {
               <div className="statusbar-item">
                 <span>
                   {project.media && project.media.width && project.media.height
-                     ? `Video: ${project.media.width}x${project.media.height} ${project.media.fps ? `${project.media.fps} fps` : 'FPS unavailable'}`
-                     : project.media
-                     ? 'Audio only'
-                     : 'No media'}
+                    ? `${project.media.width}x${project.media.height}${project.media.fps ? ` @ ${Math.round(project.media.fps)} fps` : ''}`
+                    : project.media
+                    ? 'Audio only'
+                    : 'No media'}
                 </span>
               </div>
-              <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <div className="statusbar-item">
-                 <span>{project.events.length} subtitles</span>
+                <span>{project.events.length} subtitles</span>
               </div>
-              <span style={{ opacity: 0.4 }}>|</span>
-               <div className="statusbar-item">
-                  <span>Style: {project.style.name || 'Custom'}</span>
-               </div>
-               <span style={{ opacity: 0.4 }}>|</span>
-               <div className="statusbar-item">
-                 <span>Model: {models.find((model) => model.id === selectedModelId)?.name || selectedModelId}</span>
-               </div>
-               <span style={{ opacity: 0.4 }}>|</span>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
+              <div className="statusbar-item">
+                <span>Style: {project.style.name || 'Custom'}</span>
+              </div>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
+              <div className="statusbar-item">
+                <span>Model: {models.find((model) => model.id === selectedModelId)?.name || selectedModelId}</span>
+              </div>
+              <span className="statusbar-sep" aria-hidden="true">|</span>
               <button
+                type="button"
                 className="statusbar-btn"
                 onClick={() => setActiveTab('settings')}
-                title="Configure Performance in Settings"
+                title="Configure performance in Settings"
               >
                 Performance: {project.settings.performanceMode.charAt(0).toUpperCase() + project.settings.performanceMode.slice(1)}
               </button>

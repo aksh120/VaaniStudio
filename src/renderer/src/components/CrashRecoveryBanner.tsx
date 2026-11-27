@@ -27,7 +27,7 @@ export const CrashRecoveryBanner: React.FC<CrashRecoveryBannerProps> = ({
       <div className="crash-recovery-message">
          <span className="crash-recovery-badge">Recovery</span>
          <span className="crash-recovery-copy">
-          Unsaved changes from an unexpected shutdown were found for <strong>"{current.projectName}"</strong> ({dateFormatted}, {current.eventCount} events).
+          Unsaved changes from an unexpected shutdown were found for <strong>"{current.projectName}"</strong> ({dateFormatted}, {current.eventCount} events)
         </span>
       </div>
 

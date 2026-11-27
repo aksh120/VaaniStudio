@@ -125,7 +125,7 @@ export const BatchQueueModal: React.FC<BatchQueueModalProps> = ({
   ) : (
     <>
       <span className="batch-footer-status">
-        {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} ready.` : 'No files selected.'}
+        {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} ready` : 'No files selected'}
       </span>
       <div className="dialog-footer-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>
@@ -148,7 +148,7 @@ export const BatchQueueModal: React.FC<BatchQueueModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Batch Processing"
-      description="Transcribe and export multiple media files sequentially."
+      description="Transcribe and export multiple media files sequentially"
       className="batch-queue-dialog"
       dismissible={!queueState.isProcessing}
       hideClose={queueState.isProcessing}
@@ -234,7 +234,7 @@ export const BatchQueueModal: React.FC<BatchQueueModalProps> = ({
                    className="btn btn-secondary btn-sm"
                    onClick={handleAddFiles}
                  >
-                   <Plus size={13} />
+                   <Plus size={13} strokeWidth={1.5} />
                    <span>Add media</span>
                  </button>
                )}
@@ -271,7 +271,7 @@ export const BatchQueueModal: React.FC<BatchQueueModalProps> = ({
                 ))
               ) : selectedFiles.length === 0 ? (
                  <div className="batch-file-empty">
-                   No media files added yet. Use Add media to build the queue.
+                   No media files added yet — use Add media to build the queue
                  </div>
               ) : (
                 selectedFiles.map((file, idx) => (
@@ -282,7 +282,7 @@ export const BatchQueueModal: React.FC<BatchQueueModalProps> = ({
                        className="batch-file-remove"
                        onClick={() => handleRemoveFile(idx)}
                      >
-                       <Trash2 size={13} />
+                       <Trash2 size={13} strokeWidth={1.5} />
                        <span>Remove</span>
                      </button>
                   </div>

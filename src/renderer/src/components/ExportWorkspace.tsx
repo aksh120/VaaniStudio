@@ -7,7 +7,9 @@ import {
   RenderProgressUpdate,
 } from '../../../shared/types/models.js';
 import { ExportConfirmationModal } from './ExportConfirmationModal.js';
+import { EmptyState } from './ui/EmptyState.js';
 import { ProgressBar } from './ui/ProgressBar.js';
+import { Film } from 'lucide-react';
 
 interface ExportWorkspaceProps {
   onOpenBatchQueue: () => void;
@@ -159,9 +161,8 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
       <div className="export-workspace-inner">
         <header className="workspace-page-header">
           <div>
-            <div className="workspace-eyebrow">Output</div>
             <h1 className="workspace-page-title">Export</h1>
-            <p className="workspace-page-description">Write subtitle files or render styled subtitles into the video.</p>
+            <p className="workspace-page-description">Write subtitle files or render styled subtitles into the video</p>
           </div>
         </header>
 
@@ -206,30 +207,30 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
 
         {/* Tab 1: Subtitle Files Export */}
         {activeTab === 'subtitles' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="export-panel-stack">
             <div className="control-group">
               <label className="input-label">Output Format</label>
-               <div className="export-format-grid">
+              <div className="export-format-grid">
                 {[
-                  { id: 'srt', title: 'SubRip (.srt)', desc: 'Standard format. Compatible with all video players and YouTube.' },
-                  { id: 'vtt', title: 'WebVTT (.vtt)', desc: 'HTML5 video standard. Perfect for web playback.' },
-                  { id: 'ass', title: 'Advanced SubStation (.ass)', desc: 'Preserves fonts, colors, positioning, and kinetic highlight.' },
+                  { id: 'srt', title: 'SubRip (.srt)', desc: 'Standard plain text format for video players and YouTube' },
+                  { id: 'vtt', title: 'WebVTT (.vtt)', desc: 'HTML5 timed text track standard for web playback' },
+                  { id: 'ass', title: 'Advanced SubStation (.ass)', desc: 'Preserves fonts, colors, positioning, and word timing' },
                 ].map((f) => (
-                   <button
-                     type="button"
-                     key={f.id}
-                     onClick={() => setSubtitleFormat(f.id as SubtitleFormat)}
-                      className={`export-format-card ${subtitleFormat === f.id ? 'selected' : ''}`}
-                      aria-pressed={subtitleFormat === f.id}
-                    >
-                      <span className="export-format-title">{f.title}</span>
-                      <span className="export-format-description">{f.desc}</span>
-                   </button>
-                 ))}
+                  <button
+                    type="button"
+                    key={f.id}
+                    onClick={() => setSubtitleFormat(f.id as SubtitleFormat)}
+                    className={`export-format-card ${subtitleFormat === f.id ? 'selected' : ''}`}
+                    aria-pressed={subtitleFormat === f.id}
+                  >
+                    <span className="export-format-title">{f.title}</span>
+                    <span className="export-format-description">{f.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="export-grid-2col">
               <div className="control-group">
                 <label className="input-label">File Encoding</label>
                 <select
@@ -245,7 +246,7 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
               {subtitleFormat === 'ass' && (
                 <div className="control-group">
                   <label className="input-label">Kinetic Karaoke Tags</label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <label className="export-checkbox-label">
                     <input
                       type="checkbox"
                       checked={includeKaraoke}
@@ -258,17 +259,8 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
             </div>
 
             {subExportSuccess && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  backgroundColor: 'var(--color-success-subtle)',
-                  border: '1px solid var(--color-success)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '12px',
-                  color: 'var(--color-success)',
-                }}
-              >
-                Saved file to: {subExportSuccess}
+              <div className="export-banner-success">
+                Saved file to {subExportSuccess}
               </div>
             )}
 
@@ -278,7 +270,7 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
                 disabled={eventCount === 0 || isExportingSubtitles}
                 onClick={handleExportSubtitles}
               >
-                {isExportingSubtitles ? 'Exporting...' : `Export ${subtitleFormat.toUpperCase()} File`}
+                {isExportingSubtitles ? 'Exporting' : `Export ${subtitleFormat.toUpperCase()} File`}
               </button>
             </div>
           </div>
@@ -286,17 +278,16 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
 
         {/* Tab 2: Video Burn-In Render */}
         {activeTab === 'video' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="export-panel-stack">
             {!hasMedia ? (
-              <div className="empty-state" style={{ padding: '32px' }}>
-                <h3 className="empty-state-title">No Video Loaded</h3>
-                <p className="empty-state-description">
-                  Burn-in rendering requires an imported video file in the active project.
-                </p>
-              </div>
+              <EmptyState
+                icon={<Film size={18} strokeWidth={1.5} />}
+                title="No video loaded"
+                description="Burn-in rendering requires an imported video file in the active project"
+              />
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="export-grid-2col">
                   <div className="control-group">
                     <label className="input-label">Output Resolution</label>
                     <select
@@ -327,19 +318,19 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
                 </div>
 
                 <div className="control-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <label className="export-checkbox-label">
                     <input
                       type="checkbox"
                       checked={videoIncludeKaraoke}
                       onChange={(e) => setVideoIncludeKaraoke(e.target.checked)}
                     />
-                    Burn kinetic active word karaoke animations into video
+                    Burn active-word highlight timing into rendered video
                   </label>
                 </div>
 
                 <div className="control-group">
                   <label className="input-label">Destination File Path</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="export-path-row">
                     <input
                       type="text"
                       className="input-text"
@@ -348,57 +339,36 @@ export const ExportWorkspace: React.FC<ExportWorkspaceProps> = ({ onOpenBatchQue
                       onChange={(e) => setCustomOutputPath(e.target.value)}
                     />
                     <button className="btn btn-secondary" onClick={handleBrowseOutputPath}>
-                      Browse...
+                      Browse
                     </button>
                   </div>
                 </div>
 
                 {/* Render Progress or Error */}
                 {renderError && (
-                  <div
-                    style={{
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--color-danger-subtle)',
-                      border: '1px solid var(--color-danger)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '12px',
-                      color: 'var(--color-danger)',
-                    }}
-                  >
-                    Render Error: {renderError}
+                  <div className="export-banner-error">
+                    Render error: {renderError}
                   </div>
                 )}
 
                 {isRendering && renderProgress && (
-                  <div
-                    style={{
-                      padding: '14px',
-                      backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                        Rendering video frames...
-                      </span>
-                      <span style={{ color: 'var(--accent-active)', fontWeight: 600 }}>
+                  <div className="export-render-card">
+                    <div className="export-render-header">
+                      <span>Rendering video frames</span>
+                      <span className="mono-readout">
                         {renderProgress.percent ? `${renderProgress.percent.toFixed(1)}%` : 'Processing'}
                       </span>
                     </div>
 
-                     <ProgressBar
-                       value={renderProgress.percent || 5}
-                       label="Rendering video"
-                       detail={renderProgress.percent ? `${renderProgress.percent.toFixed(1)}%` : 'Processing'}
-                     />
+                    <ProgressBar
+                      value={renderProgress.percent || 5}
+                      label="Rendering video"
+                      detail={renderProgress.percent ? `${renderProgress.percent.toFixed(1)}%` : 'Processing'}
+                    />
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="export-path-row">
                   {isRendering ? (
                     <button className="btn btn-danger" onClick={handleCancelRender}>
                       Cancel Rendering

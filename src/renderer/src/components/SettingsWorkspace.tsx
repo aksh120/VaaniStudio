@@ -30,8 +30,6 @@ import {
   Layout,
   Film,
   Volume2,
-  BookOpen,
-  Activity,
   Save,
   Check,
   Cpu,
@@ -178,9 +176,6 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     project.settings.selectedAudioStreamIndex ?? project.media?.audioStreamIndex ?? availableAudioStreams[0]?.index;
 
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const platformLabel = typeof navigator !== 'undefined' && navigator.platform
-    ? navigator.platform
-    : 'Unknown platform';
 
   // Existing diagnostic, storage, and models state
   const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
@@ -525,30 +520,17 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
       <main className="settings-main-column">
         <header className="workspace-page-header settings-page-header">
           <div>
-            <div className="workspace-eyebrow">{activeTab === 'models' ? 'Settings' : 'Application'}</div>
             <h1 className="workspace-page-title">{activeTab === 'models' ? 'Speech Recognition' : 'Settings'}</h1>
             <p className="workspace-page-description">
               {activeTab === 'models'
-                ? 'Download and manage local transcription models.'
-                : 'Configure models, media, performance, and workspace behavior.'}
+                ? 'Download and manage local transcription models'
+                : 'Configure models, media, performance, and workspace behavior'}
             </p>
           </div>
         </header>
         {feedbackMessage && (
-          <div
-            style={{
-              padding: '8px 14px',
-              backgroundColor: 'rgba(37, 99, 235, 0.15)',
-              border: '1px solid rgba(37, 99, 235, 0.3)',
-              borderRadius: '6px',
-              color: '#60A5FA',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <Check size={14} />
+          <div className="settings-feedback-banner">
+            <Check size={14} strokeWidth={1.5} />
             <span>{feedbackMessage}</span>
           </div>
         )}
@@ -1198,11 +1180,11 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
 
             {/* Memory & Cache Management */}
             <div className="settings-section-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
+              <div className="settings-row-item">
+                <div className="settings-row-info">
                   <div className="settings-card-title">Memory & Temporary Audio Cache</div>
-                  <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>
-                    Purge intermediate 16 kHz WAV cache and release memory buffers.
+                  <div className="settings-row-desc">
+                    Purge intermediate 16 kHz WAV cache and release memory buffers
                   </div>
                 </div>
                 <button
@@ -1210,20 +1192,20 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   disabled={isCleaning}
                   onClick={handleCleanCache}
                 >
-                  {isCleaning ? 'Cleaning...' : 'Clear Temp Cache'}
+                  {isCleaning ? 'Cleaning' : 'Clear Temp Cache'}
                 </button>
               </div>
 
               {memoryStats && (
-                <div style={{ fontSize: '11px', color: '#94A3B8', display: 'flex', gap: '16px', paddingTop: '4px' }}>
-                  <span>Process RSS: <strong style={{ color: '#F8FAFC' }}>{memoryStats.rssMB} MB</strong></span>
-                  <span>Heap Used: <strong style={{ color: '#F8FAFC' }}>{memoryStats.heapUsedMB} MB</strong></span>
-                  <span>System Free: <strong style={{ color: '#F8FAFC' }}>{memoryStats.systemFreeMB} MB</strong></span>
+                <div className="settings-memory-row mono-readout">
+                  <span>Process RSS: <strong>{memoryStats.rssMB} MB</strong></span>
+                  <span>Heap Used: <strong>{memoryStats.heapUsedMB} MB</strong></span>
+                  <span>System Free: <strong>{memoryStats.systemFreeMB} MB</strong></span>
                 </div>
               )}
 
               {cleaningMessage && (
-                <div style={{ fontSize: '11px', color: '#4ADE80' }}>
+                <div className="settings-feedback-success">
                   {cleaningMessage}
                 </div>
               )}
@@ -1239,18 +1221,18 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">Keyboard Shortcuts</h2>
               <p className="settings-main-subtitle">
-                View and customize speed keys for video editing and subtitle synchronization.
+                View and search keyboard shortcuts for video playback and subtitle editing
               </p>
             </div>
 
             <div className="settings-section-card">
-              <div style={{ marginBottom: '10px' }}>
+              <div>
                 <input
                   type="text"
                   className="input-text"
-                   aria-label="Search keyboard shortcuts"
-                   placeholder="Search shortcuts..."
-                  style={{ maxWidth: '280px', height: '32px' }}
+                  aria-label="Search keyboard shortcuts"
+                  placeholder="Search shortcuts"
+                  style={{ maxWidth: '280px' }}
                   value={shortcutFilter}
                   onChange={(e) => setShortcutFilter(e.target.value)}
                 />
@@ -1268,14 +1250,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <tbody>
                      {filteredShortcuts.length > 0 ? filteredShortcuts.map((s, idx) => (
                        <tr key={idx}>
-                         <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#60A5FA', fontSize: '12px' }}>
-                           {s.key}
+                         <td>
+                           <kbd className="vs-keycap">{s.key}</kbd>
                          </td>
-                         <td style={{ fontSize: '12px', color: '#F8FAFC' }}>{s.desc}</td>
-                         <td style={{ fontSize: '11px', color: '#94A3B8' }}>{s.context}</td>
+                         <td>{s.desc}</td>
+                         <td style={{ color: 'var(--text-muted)' }}>{s.context}</td>
                        </tr>
                      )) : (
-                       <tr><td colSpan={3}>No shortcuts match your search.</td></tr>
+                       <tr><td colSpan={3}>No shortcuts match your search</td></tr>
                      )}
                   </tbody>
                 </table>
@@ -1292,20 +1274,20 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">Privacy & Local-First Architecture</h2>
               <p className="settings-main-subtitle">
-                 Media processing stays on this computer; model downloads are the only network operation.
+                 Media processing stays on this computer; model downloads are the only network operation
               </p>
             </div>
 
             <div className="settings-section-card" style={{ maxWidth: '720px' }}>
-              <div style={{ fontSize: '12.5px', color: '#94A3B8', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="settings-prose-copy">
                 <p>
-                  <strong style={{ color: '#F8FAFC' }}>Your media never leaves this computer.</strong> Vaani Studio is built from the ground up as a native desktop application. All speech recognition, waveform analysis, speaker diarization, and video burn-in happen entirely locally using your CPU and hardware.
+                  <strong>Your media never leaves this computer.</strong> Vaani Studio runs speech recognition, waveform analysis, speaker diarization, and video burn-in locally using your hardware.
                 </p>
                 <p>
-                   There is <strong style={{ color: '#F8FAFC' }}>zero cloud processing</strong>, zero voice telemetry, and no hidden media uploads. Network access is used only when you explicitly download a model from Hugging Face.
+                  There is <strong>zero cloud processing</strong>, zero voice telemetry, and no hidden media uploads. Network access is used only when you explicitly download a model from Hugging Face.
                 </p>
                 <p>
-                   You can disconnect your internet connection after models are available and continue editing, styling, and exporting subtitles.
+                  Once models are available locally, you can disconnect from the internet and continue editing, styling, and exporting subtitles.
                 </p>
               </div>
             </div>
@@ -1320,7 +1302,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">Disk Storage & Caches</h2>
               <p className="settings-main-subtitle">
-                Manage temporary media caches, waveform data, and model directories.
+                Manage temporary media caches, waveform data, and model directories
               </p>
             </div>
 
@@ -1328,11 +1310,11 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <div className="settings-card-title">Cache & Data Management</div>
               <div className="settings-row-item">
                 <div className="settings-row-left">
-                  <HardDrive size={16} className="settings-row-icon" />
+                  <HardDrive size={16} strokeWidth={1.5} className="settings-row-icon" />
                   <div className="settings-row-info">
                     <span className="settings-row-label">Audio & Waveform Cache</span>
                     <span className="settings-row-desc">
-                      Temporary 16 kHz audio files and extracted waveform peak buffers.
+                      Temporary 16 kHz audio files and extracted waveform peak buffers
                     </span>
                   </div>
                 </div>
@@ -1342,13 +1324,13 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     disabled={isCleaning}
                     onClick={handleCleanCache}
                   >
-                    {isCleaning ? 'Purging...' : 'Purge Audio Cache'}
+                    {isCleaning ? 'Purging' : 'Purge Audio Cache'}
                   </button>
                 </div>
               </div>
 
               {cleaningMessage && (
-                <div style={{ fontSize: '11.5px', color: '#4ADE80' }}>
+                <div className="settings-feedback-success">
                   {cleaningMessage}
                 </div>
               )}
@@ -1428,24 +1410,24 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <table className="data-table">
                   <tbody>
                     <tr>
-                      <td style={{ width: '180px', fontWeight: 600, color: '#94A3B8' }}>Processor (CPU)</td>
-                      <td style={{ color: '#F8FAFC' }}>{hardware ? hardware.cpuModel : 'Detecting...'}</td>
+                      <td style={{ width: '180px', fontWeight: 500, color: 'var(--text-secondary)' }}>Processor (CPU)</td>
+                      <td>{hardware ? hardware.cpuModel : 'Detecting'}</td>
                     </tr>
                     <tr>
-                      <td style={{ fontWeight: 600, color: '#94A3B8' }}>Cores / Threads</td>
-                      <td style={{ color: '#F8FAFC' }}>{hardware ? `${hardware.physicalCores} Physical Cores / ${hardware.logicalCores} Logical Threads` : 'Detecting...'}</td>
+                      <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Cores / Threads</td>
+                      <td className="mono-readout">{hardware ? `${hardware.physicalCores} Physical Cores / ${hardware.logicalCores} Logical Threads` : 'Detecting'}</td>
                     </tr>
                     <tr>
-                      <td style={{ fontWeight: 600, color: '#94A3B8' }}>System Memory (RAM)</td>
-                      <td style={{ color: '#F8FAFC' }}>{hardware ? `${(hardware.totalMemoryMB / 1024).toFixed(1)} GB Total RAM` : 'Detecting...'}</td>
+                      <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>System Memory (RAM)</td>
+                      <td className="mono-readout">{hardware ? `${(hardware.totalMemoryMB / 1024).toFixed(1)} GB Total RAM` : 'Detecting'}</td>
                     </tr>
                     <tr>
-                      <td style={{ fontWeight: 600, color: '#94A3B8' }}>Inference Engine</td>
-                      <td style={{ color: '#F8FAFC' }}>CPU INT8 Optimized (faster-whisper / CTranslate2)</td>
+                      <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Inference Engine</td>
+                      <td>CPU INT8 Optimized (faster-whisper / CTranslate2)</td>
                     </tr>
                     <tr>
-                      <td style={{ fontWeight: 600, color: '#94A3B8' }}>GPU Status</td>
-                      <td style={{ color: '#F8FAFC' }}>
+                      <td style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>GPU Status</td>
+                      <td>
                         {hardware?.gpuName ? (
                           <span>{hardware.gpuName} ({hardware.hasCudaSupport ? 'CUDA Supported' : 'CUDA acceleration unavailable; CPU INT8 baseline used'})</span>
                         ) : (
@@ -1457,14 +1439,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 </table>
               </div>
 
-              <div style={{ paddingTop: '8px' }}>
+              <div>
                 <button className="btn btn-secondary btn-sm" disabled={isScanning} onClick={handleDeepScan}>
-                  {isScanning ? 'Running Hardware Scan...' : 'Run Deep Diagnostic Scan'}
+                  {isScanning ? 'Running Hardware Scan' : 'Run Deep Diagnostic Scan'}
                 </button>
               </div>
 
               {deepScanResult && (
-                <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#070B14', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '6px', fontSize: '12px' }}>
+                <div className="settings-diag-box">
                   <div><strong>AVX2 Instruction Support:</strong> {deepScanResult.cpuDetails?.hasAvx2 ? 'Supported' : 'Not detected'}</div>
                   <div><strong>Model Advisor Recommendation:</strong> {deepScanResult.recommendedModelId}</div>
                   <div><strong>Reasoning:</strong> {deepScanResult.recommendationReason}</div>
@@ -1482,22 +1464,22 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             <div className="settings-header-block">
               <h2 className="settings-main-title">About Vaani Studio</h2>
               <p className="settings-main-subtitle">
-                Version 0.1.2 (Desktop Edition)
+                Version 0.1.3 (Desktop Edition)
               </p>
             </div>
 
             <div className="settings-section-card" style={{ maxWidth: '640px' }}>
-              <div style={{ fontSize: '12.5px', color: '#94A3B8', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="settings-prose-copy">
                 <p>
-                  Professional native Windows desktop software for local-first AI subtitle generation, precise timeline synchronization, multilingual transliteration (English, Hindi, Hinglish), and 60 FPS kinetic video burn-in.
+                  Desktop studio for offline speech transcription, timeline editing, multilingual script conversion (English, Hindi, Hinglish), and burned-in subtitle export.
                 </p>
                 <p>
-                  Engineered with Electron, TypeScript, React, faster-whisper (CTranslate2), and FFmpeg.
+                  Built with Electron, TypeScript, React, faster-whisper (CTranslate2), and FFmpeg.
                 </p>
-                <p style={{ color: '#F8FAFC', marginTop: '6px' }}>
-                  Open-source local creative tool. All media stays on your computer.
+                <p>
+                  <strong>Open-source local tool.</strong> All media stays on your computer.
                 </p>
-                <div style={{ marginTop: '12px' }}>
+                <div>
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => setIsTutorialOpen(true)}
@@ -1510,54 +1492,26 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             </div>
 
             {/* GitHub Repository Card */}
-            <div className="settings-section-card" style={{ maxWidth: '640px', marginTop: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
+            <div className="settings-section-card" style={{ maxWidth: '640px' }}>
+              <div className="settings-repo-row">
+                <div className="settings-repo-meta">
+                  <div className="settings-repo-icon-box">
                     <svg
                       height="20"
                       width="20"
                       viewBox="0 0 16 16"
-                      fill="#F8FAFC"
+                      fill="currentColor"
                       aria-hidden="true"
                     >
                       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                     </svg>
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#F8FAFC' }}>
-                        GitHub Repository
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '10.5px',
-                          fontWeight: 500,
-                          padding: '1px 7px',
-                          borderRadius: '10px',
-                          backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                          color: '#60A5FA',
-                          border: '1px solid rgba(59, 130, 246, 0.25)',
-                        }}
-                      >
-                        MIT License
-                      </span>
+                    <div className="settings-repo-title-line">
+                      <span className="settings-repo-title">GitHub Repository</span>
+                      <span className="settings-repo-license">MIT License</span>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#60A5FA', fontFamily: 'monospace', marginTop: '2px' }}>
-                      aksh120/VaaniStudio
-                    </div>
+                    <div className="settings-repo-slug">aksh120/VaaniStudio</div>
                   </div>
                 </div>
 
@@ -1565,232 +1519,57 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   type="button"
                   className="btn btn-primary btn-sm"
                   onClick={() => handleOpenExternal('https://github.com/aksh120/VaaniStudio')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  title="Open GitHub Repository in Browser"
+                  title="Open GitHub repository in browser"
                 >
                   <span>Open GitHub</span>
-                  <ExternalLink size={13} />
+                  <ExternalLink size={13} strokeWidth={1.5} />
                 </button>
               </div>
 
-              <div
-                style={{
-                  height: '1px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                  margin: '4px 0',
-                }}
-              />
+              <div className="settings-repo-divider" />
 
-              <div style={{ fontSize: '12px', color: '#94A3B8', lineHeight: 1.5 }}>
-                Vaani Studio is free and open-source. Explore the source code, star the project, download latest releases, or report issues and feature suggestions.
+              <div className="settings-prose-copy">
+                Vaani Studio is free and open-source. Browse the source code, download releases, or report issues on GitHub.
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+              <div className="settings-repo-links">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => handleOpenExternal('https://github.com/aksh120/VaaniStudio')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px' }}
-                  title="View Repository on GitHub"
+                  title="View repository on GitHub"
                 >
-                  <FolderGit2 size={13} />
+                  <FolderGit2 size={13} strokeWidth={1.5} />
                   <span>github.com/aksh120/VaaniStudio</span>
-                  <ExternalLink size={11} style={{ opacity: 0.7 }} />
+                  <ExternalLink size={11} strokeWidth={1.5} />
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => handleOpenExternal('https://github.com/aksh120/VaaniStudio/issues')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px' }}
                   title="Report bugs or submit feature requests"
                 >
-                  <AlertCircle size={13} />
+                  <AlertCircle size={13} strokeWidth={1.5} />
                   <span>Issues & Feedback</span>
-                  <ExternalLink size={11} style={{ opacity: 0.7 }} />
+                  <ExternalLink size={11} strokeWidth={1.5} />
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => handleOpenExternal('https://github.com/aksh120/VaaniStudio/releases')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px' }}
                   title="View release notes and binary downloads"
                 >
-                  <Tag size={13} />
+                  <Tag size={13} strokeWidth={1.5} />
                   <span>Releases & Updates</span>
-                  <ExternalLink size={11} style={{ opacity: 0.7 }} />
+                  <ExternalLink size={11} strokeWidth={1.5} />
                 </button>
               </div>
             </div>
           </>
         )}
       </main>
-
-      {/* ===================================================================
-          COLUMN 3: RIGHT PANEL (QUICK HELP & SYSTEM STATUS)
-         =================================================================== */}
-      <aside className="settings-right-panel">
-        {/* Card 1: Application Guide */}
-        <div className="settings-help-card">
-          <div className="settings-help-header">
-            <div className="settings-help-icon-badge">
-              <BookOpen size={16} />
-            </div>
-            <div>
-              <div className="settings-help-title">Application Guide</div>
-              <div className="settings-help-desc">
-                Learn how to use Vaani Studio with step-by-step tutorials.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="settings-help-action-btn"
-            onClick={() => setIsTutorialOpen(true)}
-            title="Open Feature Tour & Guide"
-          >
-            Open Guide
-          </button>
-          {/* Preserved identifier for test assertions */}
-          <span style={{ display: 'none' }}>
-            Interactive Application Guide & Tour - Open Feature Tour & Guide
-          </span>
-        </div>
-
-        {/* Card 2: Keyboard Shortcuts */}
-        <div className="settings-help-card">
-          <div className="settings-help-header">
-            <div className="settings-help-icon-badge">
-              <Keyboard size={16} />
-            </div>
-            <div>
-              <div className="settings-help-title">Keyboard Shortcuts</div>
-              <div className="settings-help-desc">
-                View and customize keyboard shortcuts.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="settings-help-action-btn"
-            onClick={() => setActiveTab('shortcuts')}
-          >
-            Open Shortcuts
-          </button>
-        </div>
-
-        {/* Card 3: GitHub Repository */}
-        <div className="settings-help-card">
-          <div className="settings-help-header">
-            <div className="settings-help-icon-badge" style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#F8FAFC' }}>
-              <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-            </div>
-            <div>
-              <div className="settings-help-title">GitHub Repository</div>
-              <div className="settings-help-desc">
-                Source code, releases, and issue tracker on GitHub.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="settings-help-action-btn"
-            onClick={() => handleOpenExternal('https://github.com/aksh120/VaaniStudio')}
-            title="Open GitHub Repository in Browser"
-          >
-            Visit GitHub
-          </button>
-        </div>
-
-        {/* Card 3: System Status */}
-        <div className="settings-status-card">
-          <div className="settings-status-header">
-            <span className="settings-status-indicator-dot" />
-            <span>System Status</span>
-          </div>
-
-          <div className="settings-status-grid">
-            <div className="settings-status-row">
-              <span className="settings-status-key">Application Version</span>
-              <span className="settings-status-val">v0.1.2</span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">Operating System</span>
-               <span className="settings-status-val">{platformLabel}</span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">CPU</span>
-              <span
-                className="settings-status-val"
-                 title={hardware?.cpuModel || 'Not detected'}
-               >
-                 {hardware?.cpuModel || 'Not detected'}
-              </span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">Memory</span>
-              <span className="settings-status-val">
-                {hardware?.totalMemoryMB
-                  ? `${Math.round(hardware.totalMemoryMB / 1024)} GB`
-                   : 'Unknown'}
-              </span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">GPU</span>
-              <span
-                className="settings-status-val"
-                 title={hardware?.gpuName || 'Not detected'}
-               >
-                 {hardware?.gpuName || 'Not detected'}
-              </span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">FFmpeg</span>
-              <span className="settings-status-dot-val">
-                <span
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: '#22C55E',
-                  }}
-                />
-                 Run diagnostics to verify
-              </span>
-            </div>
-            <div className="settings-status-row">
-              <span className="settings-status-key">Models</span>
-              <span className="settings-status-dot-val">
-                <span
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                     backgroundColor: 'var(--text-muted)',
-                   }}
-                 />
-                 Run diagnostics to verify
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="settings-help-action-btn"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            onClick={() => {
-              setActiveTab('diagnostics');
-              handleDeepScan();
-            }}
-          >
-            <Activity size={13} />
-            <span>Run Diagnostics</span>
-          </button>
-        </div>
-      </aside>
 
       <Dialog
         isOpen={Boolean(detailsModel)}

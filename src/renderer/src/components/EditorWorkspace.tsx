@@ -224,14 +224,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         {/* Video Player Preview Pane: Maximized, Centered, Responsive */}
         <div
           className="editor-video-pane"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-         >
+        >
            <div className="editor-stage-toolbar">
              <div className="editor-stage-context">
                <span className="editor-stage-title">Preview</span>
@@ -248,7 +241,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                  title="Generate subtitles"
                  aria-label="Generate subtitles"
                >
-                 <Captions size={14} />
+                 <Captions size={14} strokeWidth={1.5} />
                </button>
                <button
                  type="button"
@@ -257,7 +250,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                  title="Toggle subtitle list"
                  aria-label="Toggle subtitle list"
                >
-                 <PanelLeft size={14} />
+                 <PanelLeft size={14} strokeWidth={1.5} />
                </button>
                <button
                  type="button"
@@ -266,7 +259,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                  title="Toggle inspector"
                  aria-label="Toggle inspector"
                >
-                 <PanelRight size={14} />
+                 <PanelRight size={14} strokeWidth={1.5} />
                </button>
                <button
                  type="button"
@@ -275,7 +268,7 @@ export const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
                  title="Focus preview"
                  aria-label="Focus preview"
                >
-                 <Maximize2 size={14} />
+                 <Maximize2 size={14} strokeWidth={1.5} />
                </button>
              </div>
            </div>

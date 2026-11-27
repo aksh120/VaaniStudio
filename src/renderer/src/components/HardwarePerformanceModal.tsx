@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Cpu, X } from 'lucide-react';
 import {
   HardwareProfile,
   PerformanceMode,
@@ -128,14 +129,9 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
           <div className="modal-header-title">
             <span
               className="modal-icon"
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color: 'var(--accent-primary, #3b82f6)',
-                letterSpacing: '0.5px',
-              }}
+              style={{ color: 'var(--accent)' }}
             >
-              HW
+              <Cpu size={16} strokeWidth={1.5} />
             </span>
             <div>
               <h3>Hardware & Performance Optimization</h3>
@@ -145,7 +141,7 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
             </div>
           </div>
           <button className="icon-button close-button" onClick={onClose} aria-label="Close">
-            X
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
 
@@ -197,10 +193,10 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
                     Deep Hardware Diagnostic & Model Advisor (Optional)
                   </div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.4' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                     Probe instruction sets (AVX2), dedicated GPU VRAM, and RAM headroom to calibrate recommended models.
                   </div>
                 </div>
@@ -265,21 +261,21 @@ export const HardwarePerformanceModal: React.FC<HardwarePerformanceModalProps> =
                       marginBottom: '12px',
                     }}
                   >
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>AVX2 Vector</div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.cpuDetails.hasAvx2 ? '#4ade80' : '#94a3b8' }}>
-                        {deepScanResult.cpuDetails.hasAvx2 ? 'Supported' : 'Not Detected'}
+                    <div style={{ backgroundColor: 'var(--bg-control)', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>AVX2 Vector</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.cpuDetails.hasAvx2 ? 'var(--color-success)' : 'var(--text-muted)' }}>
+                        {deepScanResult.cpuDetails.hasAvx2 ? 'Supported' : 'Not detected'}
                       </div>
                     </div>
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Dedicated VRAM</div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.gpuDetails.vramMB > 0 ? '#60a5fa' : '#94a3b8' }}>
+                    <div style={{ backgroundColor: 'var(--bg-control)', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dedicated VRAM</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: deepScanResult.gpuDetails.vramMB > 0 ? 'var(--accent-active)' : 'var(--text-muted)' }}>
                         {deepScanResult.gpuDetails.vramMB > 0 ? `${deepScanResult.gpuDetails.vramMB} MB` : '0 MB (CPU Mode)'}
                       </div>
                     </div>
-                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '8px 10px', borderRadius: '4px' }}>
-                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Free RAM</div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc' }}>
+                    <div style={{ backgroundColor: 'var(--bg-control)', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Free RAM</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {(deepScanResult.ramDetails.availableMB / 1024).toFixed(1)} GB
                       </div>
                     </div>

@@ -80,7 +80,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
         />
         <span className="gen-checkbox-text">
           <span className="gen-checkbox-title">Open in editor after generation</span>
-          <span className="gen-checkbox-desc">Edit the generated subtitles when processing finishes.</span>
+          <span className="gen-checkbox-desc">Edit the generated subtitles when processing finishes</span>
         </span>
       </label>
       <div className="gen-footer-actions">
@@ -93,7 +93,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
           disabled={!media || !isModelReady}
           onClick={onStartTranscription}
         >
-          <Captions size={14} />
+          <Captions size={14} strokeWidth={1.5} />
           <span>Generate Subtitles</span>
         </button>
       </div>
@@ -105,7 +105,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
       isOpen={isOpen}
       onClose={onClose}
       title="Generate Subtitles"
-      description="Transcribe speech from the active media with a local model."
+      description="Transcribe speech from the active media with a local model"
       className="gen-subtitles-modal"
       dismissible={!isTranscribing}
       hideClose={isTranscribing}
@@ -116,7 +116,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
           <div className="gen-media-card">
             <div className="gen-media-thumb">
               <div className="gen-thumb-play-circle">
-                <Play size={13} fill="currentColor" />
+                <Play size={13} strokeWidth={1.5} fill="currentColor" />
               </div>
               <span className="gen-thumb-duration-badge">
                 {formatDuration(durationSec)}
@@ -128,23 +128,27 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                 {media?.fileName || 'No media file selected'}
               </div>
               <div className="gen-media-filepath" title={media?.filePath || ''}>
-                {media?.filePath || 'Select a video or audio file to start generating subtitles.'}
+                {media?.filePath || 'Select a video or audio file to start generating subtitles'}
               </div>
               {media && (
                 <div className="gen-media-specs">
                   <span>Duration: {durationSec.toFixed(1)}s</span>
                   <span className="spec-divider">|</span>
-                   <span>{media.width && media.height ? `${media.width}×${media.height}` : 'Audio only'}</span>
+                  <span>{media.width && media.height ? `${media.width}×${media.height}` : 'Audio only'}</span>
                   <span className="spec-divider">|</span>
-                   <span>{media.fps ? `${Math.round(media.fps)} FPS` : 'FPS unavailable'}</span>
-                  <span className="spec-divider">|</span>
-                    {selectedAudioStream && (
-                      <>
-                        <span className="spec-divider">|</span>
-                        <span>Audio: {selectedAudioStream.language || selectedAudioStream.codec || `Track ${selectedAudioStream.index}`}</span>
-                      </>
-                    )}
-                    {fileSizeMB > 0 && <span>{fileSizeMB} MB</span>}
+                  <span>{media.fps ? `${Math.round(media.fps)} FPS` : 'FPS unavailable'}</span>
+                  {selectedAudioStream && (
+                    <>
+                      <span className="spec-divider">|</span>
+                      <span>Audio: {selectedAudioStream.language || selectedAudioStream.codec || `Track ${selectedAudioStream.index}`}</span>
+                    </>
+                  )}
+                  {fileSizeMB > 0 && (
+                    <>
+                      <span className="spec-divider">|</span>
+                      <span>{fileSizeMB} MB</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -156,7 +160,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                 onClick={onSelectMedia}
                 title="Select a different media file"
               >
-                <Folder size={14} />
+                <Folder size={14} strokeWidth={1.5} />
                 <span>Change File</span>
               </button>
             )}
@@ -167,10 +171,10 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
             <div className="gen-transcribing-state">
               <div className="gen-transcribing-headline">
                 {transcriptionProgress < 25
-                  ? 'Extracting audio stream and segmenting speech...'
+                  ? 'Extracting audio stream and segmenting speech'
                   : transcriptionProgress < 80
-                  ? 'Transcribing speech with local neural engine...'
-                  : 'Aligning word timestamps and finalizing subtitle blocks...'}
+                  ? 'Transcribing speech with local speech model'
+                  : 'Aligning word timestamps and finalizing subtitle blocks'}
               </div>
 
                <ProgressBar
@@ -197,11 +201,11 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               <div className="gen-form-row">
                 <div className="gen-row-label-col">
                   <div className="gen-row-icon">
-                    <MessageSquare size={16} />
+                    <MessageSquare size={16} strokeWidth={1.5} />
                   </div>
                   <div>
                     <div className="gen-row-title">1. Spoken Language</div>
-                    <div className="gen-row-desc">Select the language spoken in the video.</div>
+                    <div className="gen-row-desc">Select the language spoken in the video</div>
                   </div>
                 </div>
                 <div className="gen-row-input-col">
@@ -222,11 +226,11 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               <div className="gen-form-row">
                 <div className="gen-row-label-col">
                   <div className="gen-row-icon">
-                    <Type size={16} />
+                    <Type size={16} strokeWidth={1.5} />
                   </div>
                   <div>
                     <div className="gen-row-title">2. Subtitle Output Style</div>
-                    <div className="gen-row-desc">Choose how the subtitles should look and feel.</div>
+                    <div className="gen-row-desc">Choose how the subtitle text is formatted</div>
                   </div>
                 </div>
                 <div className="gen-row-input-col">
@@ -243,15 +247,15 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                 </div>
               </div>
 
-              {/* Row 3: AI Model */}
+              {/* Row 3: Local Model */}
               <div className="gen-form-row gen-model-row">
                 <div className="gen-row-label-col">
                   <div className="gen-row-icon">
-                    <Cpu size={16} />
+                    <Cpu size={16} strokeWidth={1.5} />
                   </div>
                   <div>
                      <div className="gen-row-title">3. Model</div>
-                    <div className="gen-row-desc">Select a speech-to-text model for transcription.</div>
+                    <div className="gen-row-desc">Select a speech-to-text model for transcription</div>
                   </div>
                 </div>
                 <div className="gen-row-input-col">
@@ -263,8 +267,7 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                     {models.map((m) => {
                       return (
                         <option key={m.id} value={m.id}>
-                           {m.name} {m.isRecommended ? '(recommended)' : ''} ({m.sizeMB} MB)
-                          {m.isDownloaded ? ' • Downloaded' : ' • Needs Download'}
+                          {m.name} {m.isRecommended ? '(recommended)' : ''} ({m.sizeMB} MB) — {m.isDownloaded ? 'Downloaded' : 'Needs download'}
                         </option>
                       );
                     })}
@@ -274,22 +277,22 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                   <div className="gen-model-status-row">
                     {isModelReady ? (
                       <>
-                        <CheckCircle2 size={13} className="status-icon-ready" />
-                        <span className="status-text-ready">Model ready for instant offline transcription.</span>
+                        <CheckCircle2 size={13} strokeWidth={1.5} className="status-icon-ready" />
+                        <span className="status-text-ready">Model ready for instant offline transcription</span>
                       </>
                     ) : (
                       <>
-                        <Download size={13} className="status-icon-download" />
-                         <span className="status-text-download">Download this model from Settings before starting.</span>
+                        <Download size={13} strokeWidth={1.5} className="status-icon-download" />
+                        <span className="status-text-download">Download this model from Settings before starting</span>
                       </>
                     )}
                   </div>
 
                   {/* Informational Box */}
                   <div className="gen-model-info-box">
-                    <Info size={14} className="info-icon" />
+                    <Info size={14} strokeWidth={1.5} className="info-icon" />
                     <span>
-                      Models are downloaded only once and stored locally on your computer. You can manage downloaded models in Settings &gt; Models.
+                      Models are downloaded once and stored locally on this machine. Manage models in Settings &gt; Models
                     </span>
                   </div>
                 </div>
@@ -299,11 +302,11 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
               <div className="gen-form-row">
                 <div className="gen-row-label-col">
                   <div className="gen-row-icon">
-                    <Zap size={16} />
+                    <Zap size={16} strokeWidth={1.5} />
                   </div>
                   <div>
                     <div className="gen-row-title">4. Quality Profile</div>
-                    <div className="gen-row-desc">Balance speed and accuracy based on your needs.</div>
+                    <div className="gen-row-desc">Balance speed and accuracy for transcription</div>
                   </div>
                 </div>
                 <div className="gen-row-input-col">
@@ -318,10 +321,10 @@ export const GenerateSubtitlesDialog: React.FC<GenerateSubtitlesDialogProps> = (
                   </select>
                   <div className="gen-profile-desc">
                     {project.settings.performanceMode === 'balanced'
-                      ? 'Good balance for most videos. Recommended for general use.'
+                      ? 'Balanced speed and accuracy for general projects'
                       : project.settings.performanceMode === 'fast'
-                      ? 'Fastest processing speed, ideal for quick drafts and rapid review.'
-                      : 'Highest transcription fidelity, recommended for multi-speaker or technical audio.'}
+                      ? 'Fastest processing speed for quick drafts and rapid review'
+                      : 'Highest transcription fidelity for multi-speaker or technical audio'}
                   </div>
                 </div>
               </div>

@@ -3,7 +3,7 @@ import { useProjectStore } from '../store/projectStore.js';
 import { ScriptMode } from '../../../shared/types/models.js';
 import { SearchReplaceOptions } from '../editor/editorOperations.js';
 import { EmptyState } from './ui/EmptyState.js';
-import { Captions } from 'lucide-react';
+import { Captions, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 
 const matchesSearch = (text: string, query: string, matchCase: boolean, wholeWord: boolean): boolean => {
   const source = matchCase ? text : text.toLowerCase();
@@ -82,22 +82,22 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
     <div className="subtitles-workspace workspace-page">
       <header className="workspace-page-header">
         <div>
-          <div className="workspace-eyebrow">Caption editor</div>
           <h1 className="workspace-page-title">Subtitles</h1>
-          <p className="workspace-page-description">Review and edit the transcript, timing, and speaker assignments.</p>
+          <p className="workspace-page-description">Review and edit the transcript, timing, and speaker assignments</p>
         </div>
       </header>
       {/* Top Dedicated Subtitle Management Toolbar */}
       <div className="subtitles-toolbar">
         <div className="subtitle-toolbar-primary">
-          <button className="btn btn-secondary btn-sm" onClick={onInsertSubtitle} title="Add Subtitle Event">
-            + Add Subtitle
+          <button className="btn btn-secondary btn-sm" onClick={onInsertSubtitle} title="Add subtitle event">
+            <Plus size={14} strokeWidth={1.5} />
+            <span>Add subtitle</span>
           </button>
           <button
             className="btn btn-secondary btn-sm"
             disabled={!selectedEventId}
             onClick={onSplitAtPlayhead}
-            title="Split Selected Subtitle at Playhead"
+            title="Split selected subtitle at playhead"
           >
             Split
           </button>
@@ -105,7 +105,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             className="btn btn-secondary btn-sm"
             disabled={!selectedEventId}
             onClick={onMergeWithNext}
-            title="Merge with Next"
+            title="Merge with next"
           >
             Merge
           </button>
@@ -113,7 +113,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             className="btn btn-secondary btn-sm"
             disabled={!selectedEventId}
             onClick={onDuplicateSelected}
-            title="Duplicate Selected"
+            title="Duplicate selected"
           >
             Duplicate
           </button>
@@ -121,16 +121,15 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             className="btn btn-secondary btn-sm"
             disabled={!selectedEventId}
             onClick={onDeleteSelected}
-            title="Delete Selected"
+            title="Delete selected"
             style={{ color: selectedEventId ? 'var(--color-danger)' : undefined }}
           >
             Delete
           </button>
-          <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-medium)', margin: '0 4px' }} />
+          <div className="subtitle-toolbar-divider" />
           <button
-            className="btn btn-secondary btn-sm"
+            className={`btn btn-secondary btn-sm ${showSearchReplace ? 'active' : ''}`}
             onClick={() => setShowSearchReplace(!showSearchReplace)}
-            style={{ color: showSearchReplace ? 'var(--accent-active)' : 'var(--text-secondary)' }}
             title="Toggle Find & Replace (Ctrl+F)"
           >
             Find & Replace
@@ -139,18 +138,17 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             className="btn btn-secondary btn-sm"
             disabled={!audioWavPath || project.events.length === 0 || isDiarizing}
             onClick={onDiarizeSpeakers}
-            title="Detect & cluster speakers from audio"
+            title="Detect and cluster speakers from audio"
           >
-            {isDiarizing ? 'Diarizing...' : 'Diarize Speakers'}
+            {isDiarizing ? 'Diarizing' : 'Diarize Speakers'}
           </button>
         </div>
 
         <div className="subtitle-toolbar-secondary">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Script:</span>
+          <div className="subtitle-script-control">
+            <span className="subtitle-toolbar-meta">Script</span>
             <select
               className="select-box"
-              style={{ padding: '3px 8px', fontSize: '11px', width: 'auto' }}
               value={project.settings.scriptMode}
               onChange={(e) => onScriptModeChange(e.target.value as ScriptMode)}
             >
@@ -161,8 +159,8 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             </select>
           </div>
 
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {project.events.length} segments | {totalDuration.toFixed(1)}s speech
+          <span className="subtitle-toolbar-meta">
+            {project.events.length} segments · {totalDuration.toFixed(1)}s speech
           </span>
 
           <button className="btn btn-primary btn-sm" onClick={onOpenGenerateModal}>
@@ -173,35 +171,24 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
 
       {/* Find & Replace Bar */}
       {showSearchReplace && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            backgroundColor: 'var(--bg-surface-elevated)',
-            borderBottom: '1px solid var(--border-subtle)',
-          }}
-        >
+        <div className="subtitles-search-bar">
           <input
             type="text"
-            className="input-text"
-            style={{ maxWidth: '220px', fontSize: '12px', padding: '4px 8px' }}
-             aria-label="Find subtitle text"
-             placeholder="Find text..."
-             value={searchQuery}
+            className="input-text subtitles-search-input"
+            aria-label="Find subtitle text"
+            placeholder="Find"
+            value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <input
             type="text"
-            className="input-text"
-            style={{ maxWidth: '220px', fontSize: '12px', padding: '4px 8px' }}
-             aria-label="Replacement text"
-             placeholder="Replace with..."
-             value={replaceQuery}
+            className="input-text subtitles-search-input"
+            aria-label="Replacement text"
+            placeholder="Replace"
+            value={replaceQuery}
             onChange={(e) => setReplaceQuery(e.target.value)}
           />
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+          <label className="subtitles-checkbox-label">
             <input
               type="checkbox"
               checked={matchCase}
@@ -209,7 +196,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
             />
             Match Case
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+          <label className="subtitles-checkbox-label">
             <input
               type="checkbox"
               checked={wholeWord}
@@ -226,9 +213,9 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
       {/* Subtitles Main Table or Empty State */}
       {project.events.length === 0 ? (
         <EmptyState
-          icon={<Captions size={22} />}
+          icon={<Captions size={18} strokeWidth={1.5} />}
           title="No subtitles in this project"
-          description="Generate subtitles from the active media track, or add the first line manually."
+          description="Generate subtitles from the active media track, or add the first line manually"
           action={
             <>
               <button className="btn btn-primary" onClick={onOpenGenerateModal} disabled={!project.media}>
@@ -241,7 +228,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
           }
         />
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        <div className="subtitles-table-wrap">
           <div className="data-table-container">
             <table className="data-table">
               <thead>
@@ -252,7 +239,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                   <th style={{ width: '80px' }}>Duration</th>
                   <th style={{ width: '130px' }}>Speaker</th>
                   <th>Subtitle Text</th>
-                  <th style={{ width: '120px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: '128px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,16 +264,15 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                         aria-selected={isSelected}
                         style={{ cursor: 'pointer' }}
                       >
-                        <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
-                           {evt.index}
+                        <td className="mono-readout" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                          {evt.index}
                         </td>
                         <td>
                           <input
                             type="number"
                             step="0.1"
                             min="0"
-                            className="input-text"
-                            style={{ padding: '2px 6px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}
+                            className="input-text subtitles-table-input mono"
                             value={evt.startTime.toFixed(2)}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
@@ -300,8 +286,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                             type="number"
                             step="0.1"
                             min="0"
-                            className="input-text"
-                            style={{ padding: '2px 6px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}
+                            className="input-text subtitles-table-input mono"
                             value={evt.endTime.toFixed(2)}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
@@ -310,15 +295,14 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                             }}
                           />
                         </td>
-                        <td style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                        <td className="mono-readout" style={{ color: 'var(--text-secondary)' }}>
                           {durationSec.toFixed(2)}s
                         </td>
                         <td>
                           <input
                             type="text"
-                            className="input-text"
-                            style={{ padding: '2px 6px', fontSize: '11px' }}
-                            placeholder="Speaker..."
+                            className="input-text subtitles-table-input"
+                            placeholder="Speaker"
                             value={evt.speakerLabel || ''}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateSpeaker(evt.id, e.target.value)}
@@ -327,13 +311,7 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                         <td>
                           <input
                             type="text"
-                            className="input-text"
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '13px',
-                              backgroundColor: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
-                              border: isSelected ? '1px solid var(--border-focus)' : '1px solid transparent',
-                            }}
+                            className="input-text subtitles-table-input"
                             value={evt.text}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateText(evt.id, e.target.value)}
@@ -344,19 +322,18 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
                             {evt.words && evt.words.length > 0 && (
                               <button
                                 className="btn btn-ghost btn-sm"
-                                style={{ padding: '2px 6px', fontSize: '10px' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setExpandedWordEventId(isExpanded ? null : evt.id);
                                 }}
-                                title="Toggle Word Timings"
+                                title="Toggle word timings"
                               >
-                                {evt.words.length}w {isExpanded ? '▲' : '▼'}
+                                <span className="mono-readout">{evt.words.length}w</span>
+                                {isExpanded ? <ChevronUp size={12} strokeWidth={1.5} /> : <ChevronDown size={12} strokeWidth={1.5} />}
                               </button>
                             )}
                             <button
                               className="btn btn-ghost btn-sm"
-                              style={{ padding: '2px 6px', fontSize: '11px' }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setCurrentTime(evt.startTime);
@@ -371,28 +348,16 @@ export const SubtitlesWorkspace: React.FC<SubtitlesWorkspaceProps> = ({
 
                       {/* Word Timing Expansion Row */}
                       {isExpanded && evt.words && (
-                        <tr style={{ backgroundColor: 'var(--bg-surface-elevated)' }}>
-                          <td colSpan={7} style={{ padding: '8px 16px' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                              Word Timings ({evt.words.length} words):
+                        <tr className="subtitles-word-row">
+                          <td colSpan={7} style={{ padding: '10px 16px' }}>
+                            <div className="subtitle-toolbar-meta">
+                              Word timings ({evt.words.length})
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            <div className="subtitles-word-chips">
                               {evt.words.map((w, wIdx) => (
-                                <div
-                                  key={wIdx}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '2px 6px',
-                                    backgroundColor: 'var(--bg-surface)',
-                                    border: '1px solid var(--border-subtle)',
-                                    borderRadius: '3px',
-                                    fontSize: '11px',
-                                  }}
-                                >
+                                <div key={wIdx} className="subtitles-word-chip">
                                   <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{w.word}</span>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '9px', fontFamily: 'var(--font-mono)' }}>
+                                  <span className="mono-readout" style={{ color: 'var(--text-muted)' }}>
                                     {w.startTime.toFixed(2)}s - {w.endTime.toFixed(2)}s
                                   </span>
                                 </div>

@@ -343,14 +343,14 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
             />
           ) : (
             <div className="video-empty-state">
-              <Film size={36} className="empty-icon" />
+              <Film size={28} strokeWidth={1.5} className="empty-icon" />
               <div className="empty-title">
-                {duration > 0 ? 'Virtual Preview Stage' : 'No Media Loaded'}
+                {duration > 0 ? 'Virtual preview stage' : 'No media loaded'}
               </div>
               <div className="empty-desc">
                 {duration > 0
-                  ? 'Previewing subtitles on virtual stage. Press Space or Play to preview.'
-                  : 'Import video to preview synchronized captions.'}
+                  ? 'Virtual preview active — press Space to play'
+                  : 'Import a video or audio file to preview subtitles'}
               </div>
             </div>
           )}
@@ -378,7 +378,7 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
             disabled={!canControl}
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
-            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+            {isPlaying ? <Pause size={14} strokeWidth={1.5} /> : <Play size={14} strokeWidth={1.5} />}
           </button>
 
           {/* Frame Stepping */}
@@ -401,7 +401,7 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
               disabled={!canControl}
               title="Step -1 frame (Left)"
             >
-              <SkipBack size={11} /> 1f
+              <SkipBack size={12} strokeWidth={1.5} /> 1f
             </button>
              <button
                type="button"
@@ -411,7 +411,7 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
               disabled={!canControl}
               title="Step +1 frame (Right)"
             >
-              1f <SkipForward size={11} />
+              1f <SkipForward size={12} strokeWidth={1.5} />
             </button>
              <button
                type="button"
@@ -436,8 +436,8 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
         {/* Right side options: Aspect Ratio, Speed, Volume */}
         <div className="controls-right">
           {/* Aspect Ratio Switcher */}
-          <div className="ctrl-select-wrapper" title="Preview Aspect Ratio Frame">
-            <Sliders size={12} style={{ color: 'var(--text-muted)' }} />
+          <div className="ctrl-select-wrapper" title="Preview aspect ratio">
+            <Sliders size={14} strokeWidth={1.5} className="ctrl-select-icon" />
              <select
                aria-label="Preview aspect ratio"
                className="ctrl-select"
@@ -453,8 +453,8 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
           </div>
 
           {/* Playback Speed */}
-          <div className="ctrl-select-wrapper" title="Playback Speed">
-            <Zap size={12} style={{ color: 'var(--text-muted)' }} />
+          <div className="ctrl-select-wrapper" title="Playback speed">
+            <Zap size={14} strokeWidth={1.5} className="ctrl-select-icon" />
              <select
                aria-label="Playback speed"
                className="ctrl-select"
@@ -479,7 +479,7 @@ export const VideoPlayerPreview: React.FC<VideoPlayerPreviewProps> = ({
                onClick={() => setIsMuted(!isMuted)}
               title={isMuted ? 'Unmute' : 'Mute'}
             >
-              {isMuted || volume === 0 ? <VolumeX size={12} /> : <Volume2 size={12} />}
+              {isMuted || volume === 0 ? <VolumeX size={14} strokeWidth={1.5} /> : <Volume2 size={14} strokeWidth={1.5} />}
             </button>
              <input
                aria-label="Preview volume"

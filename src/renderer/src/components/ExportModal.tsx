@@ -443,9 +443,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       <div className="progress-header-row">
                         <span className="progress-status-label">
                           {renderProgress.status === 'rendering'
-                            ? 'Rendering Video with Subtitles...'
+                            ? 'Rendering video with subtitles'
                             : renderProgress.status === 'completed'
-                            ? 'Render Complete!'
+                            ? 'Render complete'
                             : renderProgress.status === 'cancelled'
                             ? 'Render Cancelled'
                             : 'Render Failed'}

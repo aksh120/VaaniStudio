@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] - 2026-11-27
+
+### UI & Visual Polish
+* Redesigned the desktop UI around a unified Graphite dark/light token system (`--bg-canvas`, `--bg-surface`, `--accent`), removing gradients, glow shadows, uppercase tracked chrome labels, and inline styling across workspaces and modals.
+* Standardized `lucide-react` iconography (`strokeWidth={1.5}`), `<kbd>` `.vs-keycap` shortcut badges, `tabular-nums` timecode readouts, and `Dialog` close button rendering.
+* Cleaned up `GenerateSubtitlesDialog`, `ExportConfirmationModal`, `StyleWorkspace`, `SettingsWorkspace`, `SubtitlesWorkspace`, `ExportWorkspace`, and `BatchQueueModal` copy and layout consistency.
+
 ## [0.1.0] - 2026-09-06
 
 ### Phase 13: Windows Packaging, Distribution, and Production Release

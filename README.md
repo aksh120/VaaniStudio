@@ -8,23 +8,23 @@ Vaani Studio is a free, desktop application engineered for content creators, vid
 
 ## Downloads & Releases
 
-**Current release: `v0.1.2`** &mdash; the first release signed with Vaani Studio's current
-code-signing certificate. Download it from the
-[GitHub Releases](https://github.com/aksh120/VaaniStudio/releases/tag/v0.1.2) page:
+**Current release: `v0.1.3`** &mdash; signed with Vaani Studio's code-signing
+certificate. Download it from the
+[GitHub Releases](https://github.com/aksh120/VaaniStudio/releases/tag/v0.1.3) page:
 
 | Platform | Distribution Format | Download Asset | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Windows** | Setup Wizard | `VaaniStudio-Setup-0.1.2.exe` | Recommended installer with desktop & start menu shortcuts |
-| **Windows** | Portable Executable | `VaaniStudio-Portable-0.1.2.exe` | Single self-contained `.exe` requiring zero installation |
-| **Linux** | Universal AppImage | `VaaniStudio-0.1.2.AppImage` | Standalone executable for Ubuntu, Debian, Fedora, Arch |
-| **Linux** | Debian / Ubuntu | `VaaniStudio-0.1.2.deb` | Native deb package for Debian, Ubuntu, and Linux Mint |
+| **Windows** | Setup Wizard | `VaaniStudio-Setup-0.1.3.exe` | Recommended installer with desktop & start menu shortcuts |
+| **Windows** | Portable Executable | `VaaniStudio-Portable-0.1.3.exe` | Single self-contained `.exe` requiring zero installation |
+| **Linux** | Universal AppImage | `VaaniStudio-0.1.3.AppImage` | Standalone executable for Ubuntu, Debian, Fedora, Arch |
+| **Linux** | Debian / Ubuntu | `VaaniStudio-0.1.3.deb` | Native deb package for Debian, Ubuntu, and Linux Mint |
 
 Every release includes a `SHA256SUMS.txt` file to verify cryptographic binary integrity
 before execution.
 
 > **Do not use the Windows binaries from `v0.1.0` or `v0.1.1`.** They were signed with a
 > certificate that was accidentally exposed in this repository and must be treated as
-> revoked. Upgrade to `v0.1.2`.
+> revoked. Upgrade to `v0.1.3`.
 
 ### Verifying the publisher
 
@@ -149,10 +149,10 @@ than silently falling back.
 ## Installation and Distribution
 
 ### 1. Windows Installer (Recommended)
-Download the latest `VaaniStudio-Setup-0.1.2.exe` from [Releases](https://github.com/aksh120/VaaniStudio/releases). The installer configures desktop shortcuts, Start Menu integration, and registers the `.vsp` file association.
+Download the latest `VaaniStudio-Setup-0.1.3.exe` from [Releases](https://github.com/aksh120/VaaniStudio/releases). The installer configures desktop shortcuts, Start Menu integration, and registers the `.vsp` file association.
 
 ### 2. Standalone Portable Version
-Download `VaaniStudio-Portable-0.1.2.exe` to run immediately without installation or administrative permissions.
+Download `VaaniStudio-Portable-0.1.3.exe` to run immediately without installation or administrative permissions.
 
 ### 3. Building from Source
 ```bash

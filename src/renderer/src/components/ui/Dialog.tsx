@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from 'react';
+import { X } from 'lucide-react';
 
 export interface DialogProps {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export const Dialog: React.FC<DialogProps> = ({
               aria-label={closeLabel}
               title={closeLabel}
             >
-              ×
+              <X size={16} strokeWidth={1.5} />
             </button>
           )}
         </header>

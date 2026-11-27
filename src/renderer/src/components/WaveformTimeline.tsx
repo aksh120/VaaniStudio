@@ -32,7 +32,7 @@ const formatPlayheadBadge = (time: number): string => {
   const mm = minutes.toString().padStart(2, '0');
   const ss = seconds.toString().padStart(2, '0');
   const xx = hundredths.toString().padStart(2, '0');
-  return `${mm}:${ss}.${xx}S`;
+  return `${mm}:${ss}.${xx}`;
 };
 
 export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
@@ -116,7 +116,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
 
     if (!waveformData || waveformData.peaks.length === 0) {
       // Draw subtle placeholder centerline
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(130, 133, 142, 0.25)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, height / 2);
@@ -251,65 +251,72 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
           </span>
           {onUndo && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               disabled={!canUndo}
               onClick={onUndo}
               title="Undo (Ctrl+Z)"
             >
-              <Undo2 size={11} />
+              <Undo2 size={14} strokeWidth={1.5} />
               <span>Undo</span>
             </button>
           )}
           {onRedo && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               disabled={!canRedo}
               onClick={onRedo}
               title="Redo (Ctrl+Y)"
             >
-              <Redo2 size={11} />
+              <Redo2 size={14} strokeWidth={1.5} />
               <span>Redo</span>
             </button>
           )}
           {onInsertSubtitle && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               onClick={onInsertSubtitle}
-              title="Insert Subtitle at Playhead"
+              title="Insert subtitle at playhead"
             >
-              <Plus size={11} />
+              <Plus size={14} strokeWidth={1.5} />
               <span>Add</span>
             </button>
           )}
           {onSplitAtPlayhead && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               onClick={onSplitAtPlayhead}
               title="Split active subtitle at playhead (Ctrl+K or S)"
             >
-              <Scissors size={11} />
+              <Scissors size={14} strokeWidth={1.5} />
               <span>Split</span>
             </button>
           )}
           {onMergeWithNext && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               disabled={!selectedEventId}
               onClick={onMergeWithNext}
-              title="Merge with Next Subtitle (Ctrl+M)"
+              title="Merge with next subtitle (Ctrl+M)"
             >
-              <GitMerge size={11} />
+              <GitMerge size={14} strokeWidth={1.5} />
               <span>Merge</span>
             </button>
           )}
           {onDeleteSelected && (
             <button
+              type="button"
               className="ctrl-btn ctrl-btn-sm"
               disabled={!selectedEventId}
               onClick={onDeleteSelected}
-              title="Delete Subtitle (Del)"
+              aria-label="Delete subtitle"
+              title="Delete subtitle (Del)"
             >
-              <Trash2 size={11} />
+              <Trash2 size={14} strokeWidth={1.5} />
             </button>
           )}
         </div>
@@ -321,12 +328,13 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
               checked={followPlayhead}
               onChange={(e) => setFollowPlayhead(e.target.checked)}
             />
-            <span>Follow Playhead</span>
+            <span>Follow playhead</span>
           </label>
 
             {/* Zoom Controls */}
             <div className="zoom-controls">
               <button
+                type="button"
                 className="ctrl-btn ctrl-btn-sm"
                 onClick={() => {
                   if (!containerRef.current || effectiveDuration <= 0) return;
@@ -334,25 +342,29 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
                   const fitPps = Math.max(20, Math.min(200, Math.round(availWidth / effectiveDuration)));
                   setPixelsPerSecond(fitPps);
                 }}
-                title="Fit entire timeline in view"
+                title="Fit timeline in view"
               >
-                <Maximize2 size={11} />
-                <span style={{ fontSize: '10px' }}>Fit</span>
+                <Maximize2 size={14} strokeWidth={1.5} />
+                <span>Fit</span>
               </button>
               <button
+                type="button"
                 className="ctrl-btn ctrl-btn-sm"
                 onClick={() => setPixelsPerSecond((z) => Math.max(20, z - 15))}
-                title="Zoom Out"
+                aria-label="Zoom out timeline"
+                title="Zoom out"
               >
-                <ZoomOut size={11} />
+                <ZoomOut size={14} strokeWidth={1.5} />
               </button>
               <span className="zoom-level-text">{pixelsPerSecond} px/s</span>
               <button
+                type="button"
                 className="ctrl-btn ctrl-btn-sm"
                 onClick={() => setPixelsPerSecond((z) => Math.min(200, z + 15))}
-                title="Zoom In"
+                aria-label="Zoom in timeline"
+                title="Zoom in"
               >
-                <ZoomIn size={11} />
+                <ZoomIn size={14} strokeWidth={1.5} />
               </button>
             </div>
           </div>

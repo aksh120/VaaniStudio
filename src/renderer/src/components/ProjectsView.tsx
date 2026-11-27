@@ -75,23 +75,22 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     <div className="projects-view workspace-page">
       <header className="workspace-page-header">
         <div>
-          <div className="workspace-eyebrow">Workspace</div>
           <h1 className="workspace-page-title">Projects</h1>
           <p className="workspace-page-description">
-            Open a project or bring in media to begin editing subtitles.
+            Open a project or bring in media to begin editing subtitles
           </p>
         </div>
         <Toolbar className="projects-actions-row" aria-label="Project actions">
           <button type="button" className="btn btn-primary btn-sm" onClick={onImportMedia}>
-            <FileVideo size={15} />
+            <FileVideo size={14} strokeWidth={1.5} />
             <span>Import media</span>
           </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onNewProject}>
-            <Plus size={15} />
+            <Plus size={14} strokeWidth={1.5} />
             <span>New project</span>
           </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenProject}>
-            <FolderOpen size={15} />
+            <FolderOpen size={14} strokeWidth={1.5} />
             <span>Open project</span>
           </button>
         </Toolbar>
@@ -105,7 +104,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
           <div className="section-heading-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onLoadSample}>
-              <Layers size={14} />
+              <Layers size={14} strokeWidth={1.5} />
               <span>Open sample</span>
             </button>
             <button
@@ -114,7 +113,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               onClick={() => setIsTutorialOpen(true)}
               title="Open getting started guide"
             >
-              <HelpCircle size={14} />
+              <HelpCircle size={14} strokeWidth={1.5} />
               <span>Guide</span>
             </button>
           </div>
@@ -169,7 +168,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           title="Remove from recent projects"
                           aria-label={`Remove ${entry.name} from recent projects`}
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={14} strokeWidth={1.5} />
                         </button>
                       </div>
                     </td>
@@ -180,12 +179,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
         ) : (
           <EmptyState
-            icon={<Clock size={22} />}
+            icon={<Clock size={18} strokeWidth={1.5} />}
             title="No recent projects"
-            description="Import a video or audio file, or open an existing Vaani project."
+            description="Import a video or audio file, or open an existing Vaani project"
             action={
               <button type="button" className="btn btn-primary btn-sm" onClick={onImportMedia}>
-                <FileVideo size={15} />
+                <FileVideo size={14} strokeWidth={1.5} />
                 <span>Import media</span>
               </button>
             }

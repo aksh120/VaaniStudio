@@ -146,72 +146,69 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
              aria-label="Hide inspector"
              title="Hide inspector"
            >
-             <X size={14} />
+             <X size={14} strokeWidth={1.5} />
            </button>
       </div>
 
       {/* Main Inspector Scroll Area */}
       <div className="inspector-scroll-area">
-        {/* ===================================================================
-            TAB 1: REVIEW & SUBTITLE TAB
-           =================================================================== */}
         {(inspectorTab === 'review' || inspectorTab === 'subtitle') && (
           <>
             {selectedEvent ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* Subtitle Header / Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              <div className="inspector-stack">
+                <div className="inspector-event-header">
+                  <span className="inspector-event-title">
                     Subtitle #{selectedEvent.index}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div className="inspector-event-actions">
                     <button
+                      type="button"
                       className="btn btn-secondary btn-sm"
                       onClick={onSplit}
-                      title="Split Subtitle at Playhead"
-                      style={{ padding: '2px 6px', height: '22px' }}
+                      title="Split subtitle at playhead"
                     >
-                      <Scissors size={11} />
-                      <span style={{ fontSize: '10px' }}>Split</span>
+                      <Scissors size={14} strokeWidth={1.5} />
+                      <span>Split</span>
                     </button>
                     <button
+                      type="button"
                       className="btn btn-secondary btn-sm"
                       onClick={onMerge}
-                      title="Merge with Next Subtitle"
-                      style={{ padding: '2px 6px', height: '22px' }}
+                      title="Merge with next subtitle"
                     >
-                      <GitMerge size={11} />
-                      <span style={{ fontSize: '10px' }}>Merge</span>
+                      <GitMerge size={14} strokeWidth={1.5} />
+                      <span>Merge</span>
                     </button>
                     <button
-                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      className="btn btn-secondary btn-sm btn-icon"
                       onClick={onDuplicate}
-                      title="Duplicate Subtitle"
-                      style={{ padding: '2px 6px', height: '22px' }}
+                      aria-label="Duplicate subtitle"
+                      title="Duplicate subtitle"
                     >
-                      <Copy size={11} />
+                      <Copy size={14} strokeWidth={1.5} />
                     </button>
                     <button
-                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
                       onClick={onDelete}
-                      title="Delete Subtitle"
-                      style={{ padding: '2px 6px', height: '22px', color: 'var(--color-danger)' }}
+                      aria-label="Delete subtitle"
+                      title="Delete subtitle"
                     >
-                      <Trash2 size={11} />
+                      <Trash2 size={14} strokeWidth={1.5} />
                     </button>
                   </div>
                 </div>
 
                 {/* Subtitle Text Area */}
                 <div className="control-group">
-                  <label className="input-label">Subtitle Text</label>
+                  <label className="input-label">Subtitle text</label>
                   <textarea
                     className="textarea-control"
                     rows={4}
                     value={selectedEvent.text}
                     onChange={(e) => onUpdateText(selectedEvent.id, e.target.value)}
-                    placeholder="Enter subtitle text..."
-                    style={{ resize: 'vertical', fontSize: '12px', lineHeight: 1.4 }}
+                    placeholder="Subtitle text"
                   />
                 </div>
 
@@ -223,13 +220,12 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                       type="number"
                       step="0.05"
                       min="0"
-                      className="input-text"
+                      className="input-text tabular-nums"
                       value={selectedEvent.startTime.toFixed(2)}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0;
                         onUpdateTiming(selectedEvent.id, val, selectedEvent.endTime);
                       }}
-                      style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}
                     />
                   </div>
                   <div className="control-group">
@@ -238,13 +234,12 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                       type="number"
                       step="0.05"
                       min="0"
-                      className="input-text"
+                      className="input-text tabular-nums"
                       value={selectedEvent.endTime.toFixed(2)}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0;
                         onUpdateTiming(selectedEvent.id, selectedEvent.startTime, val);
                       }}
-                      style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}
                     />
                   </div>
                 </div>
@@ -253,54 +248,21 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 <div className="inspector-row-2col">
                   <div className="control-group">
                     <label className="input-label">Duration</label>
-                    <div
-                      style={{
-                        padding: '5px 8px',
-                        backgroundColor: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-xs)',
-                        fontSize: '11px',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
+                    <div className="inspector-readout">
                       {(selectedEvent.endTime - selectedEvent.startTime).toFixed(2)}s
                     </div>
                   </div>
                   <div className="control-group">
-                    <label className="input-label">Reading Speed</label>
-                    <div
-                      style={{
-                        padding: '5px 8px',
-                        backgroundColor: 'var(--bg-input)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-xs)',
-                        fontSize: '11px',
-                        color:
-                          selectedEvent.cps && selectedEvent.cps > 21
-                            ? 'var(--color-warning)'
-                            : 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
+                    <label className="input-label">Reading speed</label>
+                    <div className={`inspector-readout ${selectedEvent.cps && selectedEvent.cps > 21 ? 'is-warning' : ''}`}>
                       {selectedEvent.cps ? `${selectedEvent.cps.toFixed(1)} CPS` : 'Normal'}
                     </div>
                   </div>
                 </div>
 
                  {selectedEvent.wordTimingState === 'legacy-unverified' && (
-                   <div
-                     role="status"
-                     style={{
-                       padding: '7px 9px',
-                       border: '1px solid var(--color-warning)',
-                       borderRadius: 'var(--radius-xs)',
-                       color: 'var(--color-warning)',
-                       fontSize: '10px',
-                       lineHeight: 1.4,
-                     }}
-                   >
-                     Legacy timing is unverified. Re-extract audio and regenerate subtitles before synchronized export.
+                   <div role="status" className="inspector-warning-banner">
+                     Legacy timing is unverified. Re-extract audio and regenerate subtitles before export
                    </div>
                  )}
 
@@ -310,10 +272,9 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                   <input
                     type="text"
                     className="input-text"
-                    placeholder="e.g. Speaker 1, Host, Guest"
+                    placeholder="Speaker name"
                     value={selectedEvent.speakerLabel || ''}
                     onChange={(e) => onUpdateSpeaker(selectedEvent.id, e.target.value)}
-                    style={{ fontSize: '11px' }}
                   />
                 </div>
 
@@ -326,27 +287,16 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                        aria-expanded={isWordTimingOpen}
                        onClick={() => setIsWordTimingOpen(!isWordTimingOpen)}
                      >
-                       <span>Word Timings ({selectedEvent.words.length})</span>
-                       {isWordTimingOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                       <span>Word timings ({selectedEvent.words.length})</span>
+                       {isWordTimingOpen ? <ChevronDown size={14} strokeWidth={1.5} /> : <ChevronRight size={14} strokeWidth={1.5} />}
                      </button>
                     {isWordTimingOpen && (
-                      <div className="inspector-accordion-body" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                      <div className="inspector-accordion-body">
                         {selectedEvent.words.map((w, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              fontSize: '11px',
-                              padding: '3px 6px',
-                              borderRadius: '3px',
-                              backgroundColor: 'var(--bg-surface-elevated)',
-                            }}
-                          >
-                            <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{w.word}</span>
-                            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
-                              {w.startTime.toFixed(2)}s - {w.endTime.toFixed(2)}s
+                          <div key={idx} className="inspector-word-row">
+                            <span className="inspector-word-text">{w.word}</span>
+                            <span className="inspector-word-time">
+                              {w.startTime.toFixed(2)}s – {w.endTime.toFixed(2)}s
                             </span>
                           </div>
                         ))}
@@ -356,22 +306,11 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 )}
               </div>
             ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '32px 16px',
-                  color: 'var(--text-muted)',
-                  textAlign: 'center',
-                  gap: '8px',
-                }}
-              >
-                <FileText size={24} style={{ opacity: 0.5 }} />
-                <span style={{ fontSize: '12px', fontWeight: 500 }}>No Subtitle Selected</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Click a subtitle in the list or timeline to inspect and edit its parameters.
+              <div className="inspector-empty-selection">
+                <FileText size={20} strokeWidth={1.5} />
+                <span className="inspector-empty-title">No subtitle selected</span>
+                <span className="inspector-empty-desc">
+                  Select a subtitle in the list or timeline to inspect its timing and text
                 </span>
               </div>
             )}
@@ -561,7 +500,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                         }
                         title="Align Left"
                       >
-                        <AlignLeft size={16} />
+                        <AlignLeft size={16} strokeWidth={1.5} />
                       </button>
                       <button
                         type="button"
@@ -571,7 +510,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                         }
                         title="Align Center"
                       >
-                        <AlignCenter size={16} />
+                        <AlignCenter size={16} strokeWidth={1.5} />
                       </button>
                       <button
                         type="button"
@@ -581,7 +520,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                         }
                         title="Align Right"
                       >
-                        <AlignRight size={16} />
+                        <AlignRight size={16} strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
@@ -766,9 +705,9 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
 
                 {/* Vertical Position Slider */}
                 <div className="style-input-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="style-field-label">Vertical Position</label>
-                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#94A3B8' }}>
+                  <div className="style-accordion-row">
+                    <label className="style-field-label">Vertical position</label>
+                    <span className="style-color-hex-text">
                       {styleConfig.position.verticalPercent}%
                     </span>
                   </div>
@@ -785,7 +724,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                         },
                       })
                     }
-                    style={{ width: '100%', accentColor: '#2563EB' }}
+                    style={{ width: '100%', accentColor: 'var(--accent)' }}
                   />
                 </div>
               </div>
@@ -805,7 +744,6 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                     fontSize: '13px',
                     borderRadius: `${styleConfig.boxBorderRadius ?? 6}px`,
                     letterSpacing: '0.2px',
-                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.9)',
                   }}
                 >
@@ -830,7 +768,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 className="style-btn-reset"
                 onClick={handleResetToPreset}
               >
-                Reset to Preset
+                Reset to preset
               </button>
               <button
                 type="button"
@@ -838,78 +776,62 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 onClick={handleApplyToAll}
               >
                 {isAppliedToast ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Check size={14} /> Applied!
-                  </span>
+                  <>
+                    <Check size={14} strokeWidth={1.5} />
+                    <span>Applied</span>
+                  </>
                 ) : (
-                  'Apply to All'
+                  'Apply to all'
                 )}
               </button>
             </div>
           </div>
         )}
 
-        {/* ===================================================================
-            TAB 3: TRANSLATE TAB
-           =================================================================== */}
         {inspectorTab === 'translate' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="inspector-stack">
             <div className="inspector-group">
-              <span className="inspector-group-title">Language Script Mode</span>
+              <span className="inspector-group-title">Language script mode</span>
               <div className="control-group">
-                <label className="input-label">Script Transformation</label>
+                <label className="input-label">Script transformation</label>
                 <select
                   className="select-box"
                   value={scriptMode}
                   onChange={(e) => onScriptModeChange(e.target.value as ScriptMode)}
-                  style={{ fontSize: '11px' }}
                 >
                   <option value="roman">Roman Hinglish</option>
                   <option value="devanagari">Devanagari</option>
-                  <option value="exact">Exact Spoken (Verbatim)</option>
-                  <option value="cleaned">Cleaned Speech (Filler Removed)</option>
+                  <option value="exact">Exact spoken (verbatim)</option>
+                  <option value="cleaned">Cleaned speech (filler removed)</option>
                 </select>
-                <p className="control-help-text" style={{ fontSize: '10.5px', marginTop: '4px' }}>
-                  Auto-formats subtitles between Devanagari Hindi, Romanized Hinglish, or verbatim transcriptions.
+                <p className="control-help-text">
+                  Formats subtitles between Devanagari, Roman Hinglish, and verbatim text
                 </p>
               </div>
             </div>
 
             <div className="inspector-group">
-              <span className="inspector-group-title">Speaker Diarization</span>
+              <span className="inspector-group-title">Speaker diarization</span>
               <button
+                type="button"
                 className="btn btn-secondary btn-sm"
-                style={{ width: '100%' }}
                 disabled={!audioWavPath || eventsCount === 0 || isDiarizing}
                 onClick={onDiarizeSpeakers}
               >
-                {isDiarizing ? 'Diarizing Speakers...' : 'Diarize Speakers'}
+                {isDiarizing ? 'Diarizing speakers...' : 'Diarize speakers'}
               </button>
-              <p className="control-help-text" style={{ fontSize: '10.5px' }}>
-                Automatically identify and assign distinct speaker labels across all subtitle events.
+              <p className="control-help-text">
+                Identify and assign speaker labels across subtitle events
               </p>
             </div>
           </div>
         )}
 
-        {/* ===================================================================
-            TAB 3: VIDEO PROPERTIES TAB
-           =================================================================== */}
         {inspectorTab === 'video' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="inspector-stack">
             <div className="inspector-group">
-              <span className="inspector-group-title">Media File</span>
-              <div
-                style={{
-                  padding: '8px 10px',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-xs)',
-                  fontSize: '11px',
-                  color: media ? 'var(--text-primary)' : 'var(--text-muted)',
-                  wordBreak: 'break-all',
-                }}
-              >
+              <span className="inspector-group-title">Media file</span>
+              <div className="inspector-media-name">
                 {media ? media.fileName : 'No media loaded'}
               </div>
             </div>
@@ -917,37 +839,17 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             {media && (
               <>
                 <div className="inspector-group">
-                  <span className="inspector-group-title">Video Stream</span>
+                  <span className="inspector-group-title">Video stream</span>
                   <div className="inspector-row-2col">
                     <div className="control-group">
                       <label className="input-label">Duration</label>
-                      <div
-                        style={{
-                          padding: '5px 8px',
-                          backgroundColor: 'var(--bg-input)',
-                          border: '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-xs)',
-                          fontSize: '11px',
-                          fontFamily: 'var(--font-mono)',
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
+                      <div className="inspector-readout">
                         {media.durationSeconds.toFixed(1)}s
                       </div>
                     </div>
                     <div className="control-group">
                       <label className="input-label">Container</label>
-                      <div
-                        style={{
-                          padding: '5px 8px',
-                          backgroundColor: 'var(--bg-input)',
-                          border: '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-xs)',
-                          fontSize: '11px',
-                          fontFamily: 'var(--font-mono)',
-                          color: 'var(--text-secondary)',
-                        }}
-                      >
+                      <div className="inspector-readout">
                         {media.videoCodec ? media.videoCodec.toUpperCase() : 'MP4/MKV'}
                       </div>
                     </div>
@@ -955,14 +857,13 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 </div>
 
                 <div className="inspector-group">
-                  <span className="inspector-group-title">Preview Frame</span>
+                  <span className="inspector-group-title">Preview frame</span>
                   <div className="control-group">
-                    <label className="input-label">Aspect Ratio Format</label>
+                    <label className="input-label">Aspect ratio</label>
                     <select
                       className="select-box"
                       value={aspectRatio}
                       onChange={(e) => onAspectRatioChange(e.target.value as AspectRatioMode)}
-                      style={{ fontSize: '11px' }}
                     >
                       <option value="original">Original (Video Native)</option>
                       <option value="16:9">16:9 Landscape</option>
@@ -977,78 +878,54 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           </div>
         )}
 
-        {/* ===================================================================
-            TAB 4: AUDIO & SPEAKERS TAB
-           =================================================================== */}
         {inspectorTab === 'audio' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="inspector-stack">
             <div className="inspector-group">
-              <span className="inspector-group-title">Audio Stream</span>
+              <span className="inspector-group-title">Audio stream</span>
               <div className="inspector-row-2col">
                 <div className="control-group">
-                  <label className="input-label">Sample Rate</label>
-                  <div
-                    style={{
-                      padding: '5px 8px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-xs)',
-                      fontSize: '11px',
-                      fontFamily: 'var(--font-mono)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
+                  <label className="input-label">Sample rate</label>
+                  <div className="inspector-readout">
                     16 kHz (PCM)
                   </div>
                 </div>
                 <div className="control-group">
                   <label className="input-label">Channels</label>
-                  <div
-                    style={{
-                      padding: '5px 8px',
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-xs)',
-                      fontSize: '11px',
-                      fontFamily: 'var(--font-mono)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    1 (Mono Normalized)
+                  <div className="inspector-readout">
+                    1 (Mono)
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="inspector-group">
-              <span className="inspector-group-title">Language Script Mode</span>
+              <span className="inspector-group-title">Language script mode</span>
               <div className="control-group">
                 <select
                   className="select-box"
                   value={scriptMode}
                   onChange={(e) => onScriptModeChange(e.target.value as ScriptMode)}
-                  style={{ fontSize: '11px' }}
                 >
                   <option value="roman">Roman Hinglish</option>
                   <option value="devanagari">Devanagari</option>
-                  <option value="exact">Exact Spoken (Verbatim)</option>
-                  <option value="cleaned">Cleaned Speech (Filler Removed)</option>
+                  <option value="exact">Exact spoken (verbatim)</option>
+                  <option value="cleaned">Cleaned speech (filler removed)</option>
                 </select>
               </div>
             </div>
 
             <div className="inspector-group">
-              <span className="inspector-group-title">Speaker Diarization</span>
+              <span className="inspector-group-title">Speaker diarization</span>
               <button
+                type="button"
                 className="btn btn-secondary btn-sm"
-                style={{ width: '100%' }}
                 disabled={!audioWavPath || eventsCount === 0 || isDiarizing}
                 onClick={onDiarizeSpeakers}
               >
-                {isDiarizing ? 'Diarizing Speakers...' : 'Diarize Speakers'}
+                {isDiarizing ? 'Diarizing speakers...' : 'Diarize speakers'}
               </button>
-              <p className="control-help-text" style={{ fontSize: '10.5px' }}>
-                Identify and assign speaker profiles across subtitle events automatically.
+              <p className="control-help-text">
+                Identify and assign speaker profiles across subtitle events
               </p>
             </div>
           </div>

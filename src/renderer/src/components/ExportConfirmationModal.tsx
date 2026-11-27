@@ -49,12 +49,12 @@ export const ExportConfirmationModal: React.FC<ExportConfirmationModalProps> = (
   const footer = (
     <>
       <button type="button" className="btn btn-secondary btn-sm" onClick={handlePlayVideo} title="Open video in the default media player">
-        <Play size={13} />
+        <Play size={13} strokeWidth={1.5} />
         <span>Play video</span>
       </button>
       <div className="dialog-footer-actions">
         <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenFolder} title="Open the destination folder">
-          <FolderOpen size={13} />
+          <FolderOpen size={13} strokeWidth={1.5} />
           <span>Open folder</span>
         </button>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Done</button>
@@ -67,117 +67,35 @@ export const ExportConfirmationModal: React.FC<ExportConfirmationModalProps> = (
       isOpen={isOpen && Boolean(outputPath)}
       onClose={onClose}
       title="Video exported"
-      description="The burned-in subtitle video has been rendered and saved."
+      description="The burned-in subtitle video has been rendered and saved"
       className="export-confirm-modal"
       footer={footer}
     >
       <div className="export-confirm-body">
           {/* File Card */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '14px',
-              padding: '14px 16px',
-              backgroundColor: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-            }}
-          >
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '6px',
-                backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-active)',
-                flexShrink: 0,
-              }}
-            >
-              <Film size={22} />
+          <div className="export-confirm-card">
+            <div className="export-confirm-icon">
+              <Film size={20} strokeWidth={1.5} />
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  wordBreak: 'break-word',
-                  marginBottom: '3px',
-                }}
-              >
-                {fileName}
-              </div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  wordBreak: 'break-all',
-                  fontFamily: 'var(--font-mono)',
-                  marginBottom: '10px',
-                }}
-              >
-                {folderPath}
-              </div>
+            <div className="export-confirm-meta">
+              <div className="export-confirm-filename">{fileName}</div>
+              <div className="export-confirm-folder">{folderPath}</div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                <span
-                  style={{
-                    fontSize: '10.5px',
-                    padding: '2px 7px',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                    color: 'var(--color-success)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    fontWeight: 500,
-                  }}
-                >
-                  MP4 H.264
-                </span>
+              <div className="export-confirm-tags">
+                <span className="export-confirm-tag success">MP4 H.264</span>
                 {resolution && (
-                  <span
-                    style={{
-                      fontSize: '10.5px',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      backgroundColor: 'var(--bg-surface)',
-                      color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  >
+                  <span className="export-confirm-tag">
                     {resolution === 'original' ? 'Source Resolution' : resolution.toUpperCase()}
                   </span>
                 )}
                 {subtitleCount !== undefined && subtitleCount > 0 && (
-                  <span
-                    style={{
-                      fontSize: '10.5px',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      backgroundColor: 'var(--bg-surface)',
-                      color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  >
+                  <span className="export-confirm-tag">
                     {subtitleCount} Subtitles Burned
                   </span>
                 )}
                 {elapsedSeconds !== undefined && elapsedSeconds > 0 && (
-                  <span
-                    style={{
-                      fontSize: '10.5px',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      backgroundColor: 'var(--bg-surface)',
-                      color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  >
+                  <span className="export-confirm-tag">
                     Rendered in {elapsedSeconds}s
                   </span>
                 )}
@@ -186,39 +104,17 @@ export const ExportConfirmationModal: React.FC<ExportConfirmationModalProps> = (
           </div>
 
           {/* Quick Copy Path Row */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              backgroundColor: 'var(--bg-input)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '4px',
-              fontSize: '11px',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-secondary)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                marginRight: '8px',
-              }}
-              title={outputPath}
-            >
+          <div className="export-confirm-path-row">
+            <span className="export-confirm-path-text" title={outputPath}>
               {outputPath}
             </span>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm export-confirm-copy-btn"
               onClick={handleCopyPath}
-              style={{ padding: '3px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}
               title="Copy destination path to clipboard"
             >
-              {copied ? <Check size={12} style={{ color: 'var(--color-success)' }} /> : <Copy size={12} />}
+              {copied ? <Check size={12} strokeWidth={1.5} className="export-confirm-copy-check" /> : <Copy size={12} strokeWidth={1.5} />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
